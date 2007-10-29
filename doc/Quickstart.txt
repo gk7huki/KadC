@@ -1,0 +1,132 @@
+Quick start instructions for the KadC executable:
+
+1. After building the test main program with "make MAIN=KadC", start it with:
+
+   main/KadC kadc.ini y
+   
+The presence of a second parameter, here "y" but it could really be any string, instructs KadC to pretend being NATted even when it is not. This results in KadC sending a deliberately non-routable IP address (namely, 0.0.0.0) so that the peers won't try to store here pieces of the Kademlia DHT. For the time being that is the only possibility, as the code necessary for active participation to the DHT is not yet ready.
+
+2. Issue a few <CR> on the keyboard (hitting the keyboard merely shows the situation, it does not kick its update!):
+
+   0/2045]
+   0/2045]
+
+...until the prompt shows a first number of at least a few tens. This may require up to one or two minutes; if it remains stuck to 0, you may have to manually edit the section [overnet_peers] of kadc.ini adding fresh contacts (and removing all the existing ones). Fresh contacts may be obtained in several ways, eg. from http://members.lycos.co.uk/appbyhp2/connect2.php , or by converting a contacts.dat downloaded from http://www.overnet2000.de/contact.dat , http://www.overnet.org/download/contact.dat [UPDATE: these nodelists can not be trusted no more since MetaMachine, author of eDonkey and Overnet was taken down by RIAA] created by the eDonkey 1.0 in its installation directory with main/contact_dat. Under Cygwin, the command:
+ main/contact_dat /cygdrive/c/Program\ Files/eDonkey2000/contact.dat
+will send to stdout about 500 lines like:
+
+a1005506d03495b645b321983fbcff5a 80.137.97.89 20652   0
+6038a5473294c9c4ff0f4cc74e8704e7 81.51.241.202  6094   0
+a9c849aa03a0ef9cdca7d923de92d115 217.210.36.95 10279   0
+70003564cb8877d47df8e0ad876903e4 62.142.128.230 12824   0
+0b4a4b535daf3e3b45b0f203e78559ca 66.103.41.90 10376   0
+4765680f7c47d2446045fa4db38f5548 222.114.214.155  8099   0
+32186f0fabf69c51a6e6e7efe399c5dc 172.180.114.17 12248   0
+
+Anyway, let's suppose that your kadc.ini is reasonably fresh. After a while, the command line prompts will start to change into:
+
+   0/2045]
+   0/2045]
+   7/2048>
+  23/2048>
+  23/2048>
+  48/2048>
+ 121/2041>
+
+The first number is the number of peernodes in the Kademlia k-buckets (if you've read Maymounkov-Mazieres paper you know what it is); a summary of its content is displayed by issuing the command "dump". 
+The second number is the size of an auxiliary list of nodes used to get connected quickly; this is an extension to Kademlia introduced by Overnet. Its content is read from kadc.ini and saved into it when the program exits; its size at any given time should be close or equal to 2048 (a background thread checks continuously if the nodes listed there are alive, and if not it evicts them obtaining fresh replacements). The program takes a couple of minutes before reaching a steady state.
+
+The prompt's last character, initially ']', changes to '>' as soon as an external peer manages to open a TCP connection to a port declared in the [local] section of kadc.ini (in the distributed sample, 4662). After this check is completed (or times out) the port is not used any longer; its only purpose is to understand the TCP firewalling status.
+
+The data records used for publishing are made of two 128-bit hashes (MD4) the first of which is the index, followed by an optional dictionary (list of <name=value> pairs of metatags). Some tagnames in upper case (NAME, TYPE, FORMAT, SIZE and few others) are "special", and they have special meanings in filesharing applications. Some of them, like SIZE, are integers rather than strings, and in the search phase it is possible to specify relational tests on them. Others are hashes, and no tests can be performed. the rest are strings, and the relational tests are restricted to equality and inequality. For non-special names, if the value starts with '+' or '-' the type is forced to integer; if the value starts with '#' the type is forced to "hash", and in all other cases the type defaults to string. In other words, "customtagname=1" will generate a string metatag, but "customtagname=+123" will yield a integer metatag.
+
+The publishing command, "p", wants as parameters the two hashes (or their first few digits) prefixed by "#", or two keywords that will be MD4-hashed to get the former; the third parameter is the metatags list, with a simplistic encoding only useful for testing, the fourth parameter is the number of threads for the node lookup (1 to 5, optional) and the sixth, also optional, is a max-time in seconds. 
+
+Case sensitivity rules are:
+
+- The first two parameters, if they are not hashes (i.e., if they are not hex strings prefixed with '#') are CASE SENSITIVE. Non-alphanumerics are also acceptable. Remember that hashing is case-sensitive, and hashes produced by filesharing applications are always obtained from keywords, i.e. strings of lowercase alphanumerics. So, using at least one uppercase or non-alphanumeric character will greatly reduce the risks of collisions with filesharers (unless an MD4 collision occurs, which is very unlikely). Conversely, if you are looking for entries published by filesharing applications, use only lowercase strings!
+
+- In the third parameter (the filter), tagvalues are CASE INSENSITIVE; tagnames are CASE SENSITIVE and, as said above, special tagnames (such as NAME, TYPE, FORMAT and SIZE) must be all uppercase. All tagnames will be displayed with the correct capitalization in the lists of metatags returned by searches.
+
+Examples:
+
+p #0666 #1234 NAME=the_beast;SIZE=666666;TYPE=bad 5 20
+
+ 116/2029> p #0666 #1234 NAME=the_beast;SIZE=666666;TYPE=bad 5 20
+tagname: NAME tagvalue: the_beast
+tagname: SIZE tagvalue: 666666
+tagname: TYPE tagvalue: bad
+Publishing k-object 06660000000000000000000000000000;12340000000000000000000000000000;NAME = the_beast;SIZE = 666666;TYPE = bad;
+Going to republish 06660000000000000000000000000000;12340000000000000000000000000000;NAME = the_beast;SIZE = 666666;TYPE = bad;
+- Returning 54 peers as result
+Lookup for key hash returned 54 hits in 22 seconds
+06663eb87531d64cea84087381d8fffb Logd = 109 221.150.137.49 12090
+timeout while waiting for OVERNET_PUBLISH_ACK from 221.150.137.49:12090
+066768280badda488cc1137f834a6cd1 Logd = 112 82.51.94.203 3711
+OVERNET_PUBLISH_ACK (19-byte) from peer 82.51.94.203:3711
+06679a7242b5e23d3cffa748498c1ec6 Logd = 112 220.79.115.79 3496
+OVERNET_PUBLISH_ACK (19-byte) from peer 220.79.115.79:3496
+0667bc424ec4401ebea25801d84dae3a Logd = 112 66.125.174.174 8004
+OVERNET_PUBLISH_ACK (19-byte) from peer 66.125.174.174:8004
+0667d451441bb10c584c153af72e7455 Logd = 112 211.237.118.112 9966
+OVERNET_PUBLISH_ACK (19-byte) from peer 211.237.118.112:9966
+066429ae4ed24c3b0bb2aa6ecaad50f2 Logd = 113 211.226.55.133 5398
+[...]
+OVERNET_PUBLISH_ACK (19-byte) from peer 206.54.194.192:7916
+066be081cfc8e5668a97b5780a30e05b Logd = 115 218.49.231.230 7788
+timeout while waiting for OVERNET_PUBLISH_ACK from 218.49.231.230:7788
+0677541ecd0c1695724249ba09a7d525 Logd = 116 80.116.49.91 5052
+OVERNET_PUBLISH_ACK (19-byte) from peer 80.116.49.91:5052
+0674d3ec731a6202275fb4effd3f22b3 Logd = 116 81.79.229.213 4669
+OVERNET_PUBLISH_ACK (19-byte) from peer 81.79.229.213:4669
+0675023d965fb4196ed59eb6c776f542 Logd = 116 210.103.188.24 3001
+OVERNET_PUBLISH_ACK (19-byte) from peer 210.103.188.24:3001
+ 128/2048>
+
+Now our record is in DHT, and hopefully at least some of the 20 peers where we tried to publish it have accepted it.
+
+To search for it, we may specify just the hash or possibly also a filter:
+
+ 128/2048> s #0666
+Searching for hash 06660000000000000000000000000000...
+Filtering with:
+
+!DDDDDDDD- Returning kstore with 1 k-objects as result
+Found:
+06660000000000000000000000000000; 12340000000000000000000000000000; NAME = the_beast; SIZE = 666666; TYPE = bad;
+Search completed in 25 seconds - 1 hit returned
+ 134/2046>
+
+The "!" means "one peer has said it has a copy of that record", and "D" means the same, but its first hash duplicates the one in a previoulsy returned record, so it's discarded.
+
+The following is one is a search filtered for SIZE>=1000, TYPE=bad, and "e_b" occurring as substring in any tagvalue of type "string" (i.e., "e_b being present as keyword", in Overnet-speak):
+
+ 134/2039> s #0666 SIZE>=1000&TYPE=bad&e_b
+Searching for hash 06660000000000000000000000000000...
+Filtering with:
+((SIZE>=1000 AND TYPE=bad) AND e_b)
+!DDDDDDDD- Returning kstore with 1 k-objects as result
+Found:
+06660000000000000000000000000000; 12340000000000000000000000000000; NAME = the_beast; SIZE = 666666; TYPE = bad;
+Search completed in 23 seconds - 1 hit returned
+ 134/2035>
+ 
+Sometimes, "X" are shown when a peer sends a record that should NOT have met the filter's specifications: the fact that it was sent, only to be discarded by the post-filtering on our end, is a witness to the abundance of broken clients out there.
+
+The filter passed to searches must not contain embedded blanks, but this is really only a limitation of the command line test main program, as the KadC parser treats whitespace as simple separator (or as text, within quotes strings). The filter's syntax is an arbitrarily complex expression involving keywords (case insensitive), "tagname=tagvalue" or "integertagname{relop}integertagvalue" (with <relop> being >, <. =, !=, >=, <=), &, | and ! boolean operators, and parentheses to force precedence.
+
+For example, the filter:
+
+  billie&lester&(SIZE!=123|bitrate<=256)&!FORMAT=jpeg
+
+...is parsed as:
+
+((.TRUE. AND_NOT FORMAT=jpeg) AND ((bitrate<257 OR (SIZE>123 OR SIZE<123)) AND (lester AND billie)))
+
+For more detail, see the comments in KadCparser.c .
+ 
+Without periodic republishing, the records seem to stay alive in the Overnet DHT between a few hours and one day.
+
+To exit the test main, issue an EOF by hitting Ctrl-Z in WIN32 mode or Ctrl-D in POSIX mode. The program may take a few seconds to clean up and close shop.
+
+

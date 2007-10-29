@@ -1,0 +1,53 @@
+#!/bin/sh
+trycode() {
+	TMPFILE=TMP_tinyconfig
+	cat $1 >$TMPFILE.c
+	echo $2 >>$TMPFILE.c
+	gcc $3 -Wall -Werror -pipe -c $TMPFILE.c -o $TMPFILE.o >/dev/null 2>&1
+	ERR=$?
+	rm -rf $TMPFILE.c $TMPFILE.o
+	return $ERR
+}
+
+# build the file with the __tinyconfig_headers__ that define the current platform 
+
+cat >__tinyconfig_headers__ <<EOF
+#include <pthread.h>
+#include <signal.h>
+EOF
+
+# probe the available features and build config.h accordingly
+
+cat /dev/null>config.h
+
+if trycode "__tinyconfig_headers__" "static const pthread_mutex_t __mi__ = PTHREAD_RECURSIVE_MUTEX_INITIALIZER;" ${1}; then
+	cat >>config.h <<EOF
+#define __MUTEX_RECURSIVE_INITIALIZER PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+EOF
+elif trycode "__tinyconfig_headers__" "static const pthread_mutex_t __mi__ = PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP;" ${1}; then
+	cat >>config.h <<EOF
+#define __MUTEX_RECURSIVE_INITIALIZER PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+EOF
+fi
+
+if trycode "__tinyconfig_headers__" "static const int attrtype = PTHREAD_MUTEX_RECURSIVE;" ${1}; then
+	cat >>config.h <<EOF
+#define __MUTEX_RECURSIVE_ATTRIBUTE PTHREAD_MUTEX_RECURSIVE
+EOF
+elif trycode "__tinyconfig_headers__" "static const int attrtype = PTHREAD_MUTEX_RECURSIVE_NP;" ${1}; then
+	cat >>config.h <<EOF
+#define __MUTEX_RECURSIVE_ATTRIBUTE PTHREAD_MUTEX_RECURSIVE_NP
+EOF
+fi
+
+if trycode "__tinyconfig_headers__" "void v(void) {sigset_t signal_set;sigfillset(&signal_set);}" ${1}; then
+	cat >>config.h <<EOF
+#undef OLD_STYLE_SIGNAL
+EOF
+else
+	cat >>config.h <<EOF
+#define OLD_STYLE_SIGNAL 1
+EOF
+fi
+
+rm -f __tinyconfig_headers__

@@ -1,0 +1,1790 @@
+Flat profile:
+
+Each sample counts as 0.01 seconds.
+  %   cumulative   self              self     total           
+ time   seconds   seconds    calls   s/call   s/call  name    
+ 99.65    296.75   296.75        1   296.75   296.75  ConsoleLoop
+  0.34    297.75     1.00        1     1.00     1.00  stopKadEngine
+  0.01    297.77     0.02    35192     0.00     0.00  KadC_flog
+  0.00    297.78     0.01                             vfprintf
+  0.00    297.78     0.00   110743     0.00     0.00  Debug_pthread_mutex_lock
+  0.00    297.78     0.00   110743     0.00     0.00  Debug_pthread_mutex_unlock
+  0.00    297.78     0.00   104545     0.00     0.00  int128eq
+  0.00    297.78     0.00   103712     0.00     0.00  int128lt
+  0.00    297.78     0.00    44125     0.00     0.00  find
+  0.00    297.78     0.00    44017     0.00     0.00  KadC_realloc
+  0.00    297.78     0.00    22063     0.00     0.00  p_insert
+  0.00    297.78     0.00    22063     0.00     0.00  p_remove
+  0.00    297.78     0.00    21954     0.00     0.00  KadC_free
+  0.00    297.78     0.00    21463     0.00     0.00  KadC_malloc
+  0.00    297.78     0.00    15172     0.00     0.00  sid_compEQ
+  0.00    297.78     0.00    14533     0.00     0.00  sid_compLT
+  0.00    297.78     0.00     9654     0.00     0.00  rbt_insert
+  0.00    297.78     0.00     8615     0.00     0.00  rbt_value
+  0.00    297.78     0.00     7841     0.00     0.00  insertFixup
+  0.00    297.78     0.00     7841     0.00     0.00  rbt_erase
+  0.00    297.78     0.00     7216     0.00     0.00  rbt_begin
+  0.00    297.78     0.00     7036     0.00     0.00  int128xor
+  0.00    297.78     0.00     6803     0.00     0.00  deleteFixup
+  0.00    297.78     0.00     6787     0.00     0.00  rotateLeft
+  0.00    297.78     0.00     5392     0.00     0.00  rbt_find
+  0.00    297.78     0.00     4623     0.00     0.00  isnonroutable
+  0.00    297.78     0.00     4501     0.00     0.00  getushortle
+  0.00    297.78     0.00     4281     0.00     0.00  getipn
+  0.00    297.78     0.00     4280     0.00     0.00  getint128n
+  0.00    297.78     0.00     4280     0.00     0.00  getpeernode
+  0.00    297.78     0.00     4123     0.00     0.00  trimfgets
+  0.00    297.78     0.00     4115     0.00     0.00  rbt_next
+  0.00    297.78     0.00     3041     0.00     0.00  deqtw
+  0.00    297.78     0.00     2802     0.00     0.00  millisadd
+  0.00    297.78     0.00     2802     0.00     0.00  pthread_cond_incrtimedwait
+  0.00    297.78     0.00     2802     0.00     0.00  ts_set
+  0.00    297.78     0.00     2386     0.00     0.00  rotateRight
+  0.00    297.78     0.00     2346     0.00     0.00  enq
+  0.00    297.78     0.00     2212     0.00     0.00  knode_compEQ
+  0.00    297.78     0.00     2100     0.00     0.00  htoa
+  0.00    297.78     0.00     2100     0.00     0.00  inet_ntoa_r
+  0.00    297.78     0.00     2072     0.00     0.00  KadC_int128flog
+  0.00    297.78     0.00     2052     0.00     0.00  parseline
+  0.00    297.78     0.00     2050     0.00     0.00  string2int128
+  0.00    297.78     0.00     2049     0.00     0.00  domain2hip
+  0.00    297.78     0.00     2014     0.00     0.00  rbt_eraseKey
+  0.00    297.78     0.00     1792     0.00     0.00  knode_compLT
+  0.00    297.78     0.00     1510     0.00     0.00  Debug_pthread_mutex_init
+  0.00    297.78     0.00     1510     0.00     0.00  pthreadutils_mutex_init_recursive
+  0.00    297.78     0.00     1398     0.00     0.00  int128log
+  0.00    297.78     0.00     1396     0.00     0.00  getpktt
+  0.00    297.78     0.00     1384     0.00     0.00  destroyq
+  0.00    297.78     0.00     1384     0.00     0.00  new_queue
+  0.00    297.78     0.00     1384     0.00     0.00  resetq
+  0.00    297.78     0.00     1381     0.00     0.00  P2PnewSessionsend
+  0.00    297.78     0.00     1381     0.00     0.00  UDPsend
+  0.00    297.78     0.00     1381     0.00     0.00  deallocSessionObject
+  0.00    297.78     0.00     1381     0.00     0.00  destroySessionObject
+  0.00    297.78     0.00     1381     0.00     0.00  newSessionObject
+  0.00    297.78     0.00     1355     0.00     0.00  putint128n
+  0.00    297.78     0.00     1032     0.00     0.00  reapDeadServerThreads
+  0.00    297.78     0.00     1031     0.00     0.00  KAD_UDPlistener
+  0.00    297.78     0.00     1031     0.00     0.00  isOvernetREQ
+  0.00    297.78     0.00     1031     0.00     0.00  retrieveSessionObject
+  0.00    297.78     0.00     1005     0.00     0.00  int128xorlog
+  0.00    297.78     0.00      970     0.00     0.00  UpdateNodeStatus
+  0.00    297.78     0.00      860     0.00     0.00  sendOvernetSearch
+  0.00    297.78     0.00      754     0.00     0.00  newpacket
+  0.00    297.78     0.00      754     0.00     0.00  postbuffer2fifo
+  0.00    297.78     0.00      753     0.00     0.00  destroypkt
+  0.00    297.78     0.00      724     0.00     0.00  putushortle
+  0.00    297.78     0.00      696     0.00     0.00  purge_expired
+  0.00    297.78     0.00      639     0.00     0.00  zfree
+  0.00    297.78     0.00      490     0.00     0.00  KadC_calloc
+  0.00    297.78     0.00      488     0.00     0.00  millisleep_exit
+  0.00    297.78     0.00      393     0.00     0.00  Tryadd2buckets
+  0.00    297.78     0.00      393     0.00     0.00  new_knode
+  0.00    297.78     0.00      382     0.00     0.00  rbt_size
+  0.00    297.78     0.00      299     0.00     0.00  overnetputourIPport
+  0.00    297.78     0.00      299     0.00     0.00  putipn
+  0.00    297.78     0.00      299     0.00     0.00  sendOvernetPeerReq
+  0.00    297.78     0.00      269     0.00     0.00  dns_decompress
+  0.00    297.78     0.00      256     0.00     0.00  KadC_log
+  0.00    297.78     0.00      227     0.00     0.00  destroy_knode
+  0.00    297.78     0.00      204     0.00     0.00  dns_rr_parse
+  0.00    297.78     0.00      194     0.00     0.00  OvernetSearchInfoSession
+  0.00    297.78     0.00      194     0.00     0.00  sendOvernetSearchInfo
+  0.00    297.78     0.00      184     0.00     0.00  int128setrandom
+  0.00    297.78     0.00      183     0.00     0.00  Overnet_ping
+  0.00    297.78     0.00      183     0.00     0.00  contact_status_update
+  0.00    297.78     0.00      183     0.00     0.00  sendOvernetHelloReq
+  0.00    297.78     0.00      157     0.00     0.00  DNSpacket_q_lt
+  0.00    297.78     0.00      157     0.00     0.00  rbt_destroy
+  0.00    297.78     0.00      157     0.00     0.00  rbt_new
+  0.00    297.78     0.00      128     0.00     0.00  destroy_kbucket
+  0.00    297.78     0.00      128     0.00     0.00  new_kbucket
+  0.00    297.78     0.00      126     0.00     0.00  DNSpacket_q_eq
+  0.00    297.78     0.00      116     0.00     0.00  sendOvernetBootReq
+  0.00    297.78     0.00       90     0.00     0.00  DNSpacket_destroy
+  0.00    297.78     0.00       74     0.00     0.00  dns_domain_pack
+  0.00    297.78     0.00       65     0.00     0.00  DNSpacket2msg
+  0.00    297.78     0.00       65     0.00     0.00  dns_msg_destroy
+  0.00    297.78     0.00       65     0.00     0.00  dns_parse
+  0.00    297.78     0.00       65     0.00     0.00  dns_question_parse
+  0.00    297.78     0.00       52     0.00     0.00  KadC_getextIP
+  0.00    297.78     0.00       48     0.00     0.00  KadC_gettoken
+  0.00    297.78     0.00       48     0.00     0.00  get_new_token
+  0.00    297.78     0.00       48     0.00     0.00  make_token
+  0.00    297.78     0.00       48     0.00     0.00  udp_send
+  0.00    297.78     0.00       42     0.00     0.00  emit
+  0.00    297.78     0.00       40     0.00     0.00  DNSreply
+  0.00    297.78     0.00       30     0.00     0.00  local_strndup
+  0.00    297.78     0.00       30     0.00     0.00  print_nstring
+  0.00    297.78     0.00       29     0.00     0.00  DNSmsg2packet
+  0.00    297.78     0.00       29     0.00     0.00  dns_pack
+  0.00    297.78     0.00       29     0.00     0.00  dns_question_pack
+  0.00    297.78     0.00       29     0.00     0.00  nstrcasecmp
+  0.00    297.78     0.00       27     0.00     0.00  sendOvernetPublish
+  0.00    297.78     0.00       25     0.00     0.00  dns_rr_pack
+  0.00    297.78     0.00       23     0.00     0.00  getulongle
+  0.00    297.78     0.00       21     0.00     0.00  MD4_update
+  0.00    297.78     0.00       20     0.00     0.00  decodenext
+  0.00    297.78     0.00       20     0.00     0.00  is_a_local_address
+  0.00    297.78     0.00       20     0.00     0.00  replyPTR
+  0.00    297.78     0.00       20     0.00     0.00  reverse_inet_addr
+  0.00    297.78     0.00       18     0.00     0.00  is_in
+  0.00    297.78     0.00       15     0.00     0.00  DNSpacket_qi_eq
+  0.00    297.78     0.00       15     0.00     0.00  create_pending_entry
+  0.00    297.78     0.00       15     0.00     0.00  end_is_in
+  0.00    297.78     0.00       14     0.00     0.00  getstringmetavalue
+  0.00    297.78     0.00       12     0.00     0.00  predicate
+  0.00    297.78     0.00       12     0.00     0.00  specialtagname
+  0.00    297.78     0.00       10     0.00     0.00  raw_qa_destroy
+  0.00    297.78     0.00        8     0.00     0.00  DNSquery
+  0.00    297.78     0.00        8     0.00     0.00  KadCtag_begin
+  0.00    297.78     0.00        8     0.00     0.00  Overnet_find
+  0.00    297.78     0.00        8     0.00     0.00  kobject_new
+  0.00    297.78     0.00        8     0.00     0.00  kstore_new
+  0.00    297.78     0.00        7     0.00     0.00  MD4
+  0.00    297.78     0.00        7     0.00     0.00  MD4_digest
+  0.00    297.78     0.00        7     0.00     0.00  MD4_init
+  0.00    297.78     0.00        7     0.00     0.00  s_filter
+  0.00    297.78     0.00        6     0.00     0.00  KadC_find
+  0.00    297.78     0.00        6     0.00     0.00  KadC_parsefilter
+  0.00    297.78     0.00        6     0.00     0.00  KadCtag_find
+  0.00    297.78     0.00        6     0.00     0.00  KadCtag_next
+  0.00    297.78     0.00        6     0.00     0.00  expr
+  0.00    297.78     0.00        6     0.00     0.00  kobject_destroy
+  0.00    297.78     0.00        6     0.00     0.00  putnstring
+  0.00    297.78     0.00        6     0.00     0.00  s_filter_dump
+  0.00    297.78     0.00        6     0.00     0.00  term
+  0.00    297.78     0.00        6     0.00     0.00  trim_qa_rbt
+  0.00    297.78     0.00        5     0.00     0.00  kstore_insert
+  0.00    297.78     0.00        3     0.00     0.00  print_mtag
+  0.00    297.78     0.00        3     0.00     0.00  putmeta
+  0.00    297.78     0.00        3     0.00     0.00  putmetaname
+  0.00    297.78     0.00        3     0.00     0.00  replyA
+  0.00    297.78     0.00        2     0.00     0.00  KadCdictionary_destroy
+  0.00    297.78     0.00        2     0.00     0.00  KadCdictionary_dump
+  0.00    297.78     0.00        2     0.00     0.00  findsection
+  0.00    297.78     0.00        2     0.00     0.00  int128print
+  0.00    297.78     0.00        2     0.00     0.00  kstore_destroy
+  0.00    297.78     0.00        2     0.00     0.00  qa_rbt_destroy
+  0.00    297.78     0.00        1     0.00     0.00  KadC_init_network
+  0.00    297.78     0.00        1     0.00     0.00  KadC_list_outstanding_mallocs
+  0.00    297.78     0.00        1     0.00     0.00  KadC_republish
+  0.00    297.78     0.00        1     0.00     0.00  KadC_start
+  0.00    297.78     0.00        1     0.00     1.02  KadC_stop
+  0.00    297.78     0.00        1     0.00     0.00  KadC_strdup
+  0.00    297.78     0.00        1     0.00     0.00  destroy_kba
+  0.00    297.78     0.00        1     0.00     0.00  endreplacesection
+  0.00    297.78     0.00        1     0.00     0.00  kobject_dump
+  0.00    297.78     0.00        1     0.00     0.00  make_kobject
+  0.00    297.78     0.00        1     0.00     0.00  overnet_kboot
+  0.00    297.78     0.00        1     0.00     0.00  overnet_republishnow
+  0.00    297.78     0.00        1     0.00     0.00  overnetinifileread
+  0.00    297.78     0.00        1     0.00     0.02  overnetinifileupdate
+  0.00    297.78     0.00        1     0.00     0.00  putulongle
+  0.00    297.78     0.00        1     0.00     0.00  sendOvernetIpReq
+  0.00    297.78     0.00        1     0.00     0.00  setup_kba
+  0.00    297.78     0.00        1     0.00     0.00  startKadEngine
+  0.00    297.78     0.00        1     0.00     0.00  startRTP
+  0.00    297.78     0.00        1     0.00     0.00  startUDPIO
+  0.00    297.78     0.00        1     0.00     0.00  startreplacesection
+  0.00    297.78     0.00        1     0.00     0.00  stopRTP
+  0.00    297.78     0.00        1     0.00     0.00  stopUDPIO
+  0.00    297.78     0.00        1     0.00     0.00  udp_dns_init
+  0.00    297.78     0.00        1     0.00     0.00  wsockstart
+
+ %         the percentage of the total running time of the
+time       program used by this function.
+
+cumulative a running sum of the number of seconds accounted
+ seconds   for by this function and those listed above it.
+
+ self      the number of seconds accounted for by this
+seconds    function alone.  This is the major sort for this
+           listing.
+
+calls      the number of times this function was invoked, if
+           this function is profiled, else blank.
+ 
+ self      the average number of milliseconds spent in this
+ms/call    function per call, if this function is profiled,
+	   else blank.
+
+ total     the average number of milliseconds spent in this
+ms/call    function and its descendents per call, if this 
+	   function is profiled, else blank.
+
+name       the name of the function.  This is the minor sort
+           for this listing. The index shows the location of
+	   the function in the gprof listing. If the index is
+	   in parenthesis it shows where it would appear in
+	   the gprof listing if it were to be printed.
+
+		     Call graph (explanation follows)
+
+
+granularity: each sample hit covers 4 byte(s) for 0.00% of 297.78 seconds
+
+index % time    self  children    called     name
+                                                 <spontaneous>
+[1]    100.0    0.00  297.77                 main [1]
+              296.75    0.00       1/1           ConsoleLoop [2]
+                0.00    1.02       1/1           KadC_stop [3]
+                0.00    0.00       2/157         rbt_new [104]
+                0.00    0.00       2/2           qa_rbt_destroy [172]
+                0.00    0.00       1/1           KadC_init_network [173]
+                0.00    0.00       1/1384        new_queue [63]
+                0.00    0.00       1/1           udp_dns_init [192]
+                0.00    0.00       1/1           KadC_start [175]
+                0.00    0.00       1/256         KadC_log [93]
+                0.00    0.00       1/1384        destroyq [62]
+                0.00    0.00       1/1           KadC_list_outstanding_mallocs [174]
+-----------------------------------------------
+              296.75    0.00       1/1           main [1]
+[2]     99.7  296.75    0.00       1         ConsoleLoop [2]
+                0.00    0.00     308/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00     308/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    1.02       1/1           main [1]
+[3]      0.3    0.00    1.02       1         KadC_stop [3]
+                1.00    0.00       1/1           stopKadEngine [4]
+                0.00    0.02       1/1           overnetinifileupdate [6]
+                0.00    0.00       1/1           stopUDPIO [191]
+                0.00    0.00       1/1           destroy_kba [177]
+                0.00    0.00       1/1           stopRTP [190]
+                0.00    0.00       1/21954       KadC_free [24]
+-----------------------------------------------
+                1.00    0.00       1/1           KadC_stop [3]
+[4]      0.3    1.00    0.00       1         stopKadEngine [4]
+                0.00    0.00       2/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       2/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00       1/382         rbt_size [88]
+                0.00    0.00       1/1032        reapDeadServerThreads [71]
+                0.00    0.00       1/1384        destroyq [62]
+                0.00    0.00       1/157         rbt_destroy [103]
+                0.00    0.00       1/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00    2040/35192       overnetinifileupdate [6]
+                0.02    0.00   33152/35192       KadC_int128flog [7]
+[5]      0.0    0.02    0.00   35192         KadC_flog [5]
+                0.00    0.00   35192/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00   35192/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.02       1/1           KadC_stop [3]
+[6]      0.0    0.00    0.02       1         overnetinifileupdate [6]
+                0.00    0.02    2039/2072        KadC_int128flog [7]
+                0.00    0.00    2040/35192       KadC_flog [5]
+                0.00    0.00    2040/7216        rbt_begin [32]
+                0.00    0.00    2039/8615        rbt_value [29]
+                0.00    0.00    2039/2100        htoa [51]
+                0.00    0.00    2039/7841        rbt_erase [31]
+                0.00    0.00    2039/21954       KadC_free [24]
+                0.00    0.00       1/1           startreplacesection [189]
+                0.00    0.00       1/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       1/382         rbt_size [88]
+                0.00    0.00       1/157         rbt_destroy [103]
+                0.00    0.00       1/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00       1/1           endreplacesection [178]
+-----------------------------------------------
+                0.00    0.00       6/2072        KadC_find [12]
+                0.00    0.00      27/2072        overnet_republishnow [10]
+                0.00    0.02    2039/2072        overnetinifileupdate [6]
+[7]      0.0    0.00    0.02    2072         KadC_int128flog [7]
+                0.02    0.00   33152/35192       KadC_flog [5]
+-----------------------------------------------
+                                                 <spontaneous>
+[8]      0.0    0.01    0.00                 vfprintf [8]
+-----------------------------------------------
+                0.00    0.00       1/1           publishing_thread [11]
+[9]      0.0    0.00    0.00       1         KadC_republish [9]
+                0.00    0.00       1/1           overnet_republishnow [10]
+                0.00    0.00       1/7           MD4 [149]
+                0.00    0.00       1/2050        string2int128 [54]
+                0.00    0.00       1/1           make_kobject [180]
+                0.00    0.00       1/6           kobject_destroy [157]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_republish [9]
+[10]     0.0    0.00    0.00       1         overnet_republishnow [10]
+                0.00    0.00      27/2072        KadC_int128flog [7]
+                0.00    0.00     114/7216        rbt_begin [32]
+                0.00    0.00     113/8615        rbt_value [29]
+                0.00    0.00     113/7841        rbt_erase [31]
+                0.00    0.00     113/21954       KadC_free [24]
+                0.00    0.00      57/256         KadC_log [93]
+                0.00    0.00      54/2100        htoa [51]
+                0.00    0.00      27/7036        int128xor [33]
+                0.00    0.00      27/1005        int128xorlog [75]
+                0.00    0.00      27/27          sendOvernetPublish [128]
+                0.00    0.00      27/1396        getpktt [61]
+                0.00    0.00      27/1381        destroySessionObject [68]
+                0.00    0.00      20/104545      int128eq [18]
+                0.00    0.00      20/753         destroypkt [80]
+                0.00    0.00       7/970         UpdateNodeStatus [76]
+                0.00    0.00       1/1           kobject_dump [179]
+                0.00    0.00       1/8           Overnet_find [146]
+                0.00    0.00       1/382         rbt_size [88]
+                0.00    0.00       1/157         rbt_destroy [103]
+-----------------------------------------------
+                                                 <spontaneous>
+[11]     0.0    0.00    0.00                 publishing_thread [11]
+                0.00    0.00       1/1           KadC_republish [9]
+                0.00    0.00     488/488         millisleep_exit [85]
+                0.00    0.00      49/52          KadC_getextIP [115]
+                0.00    0.00       2/2100        htoa [51]
+                0.00    0.00       2/256         KadC_log [93]
+-----------------------------------------------
+                0.00    0.00       6/6           p2pquery [13]
+[12]     0.0    0.00    0.00       6         KadC_find [12]
+                0.00    0.00       6/2072        KadC_int128flog [7]
+                0.00    0.00      24/256         KadC_log [93]
+                0.00    0.00      12/21954       KadC_free [24]
+                0.00    0.00       6/7           MD4 [149]
+                0.00    0.00       6/6           KadC_parsefilter [153]
+                0.00    0.00       6/4501        getushortle [38]
+                0.00    0.00       6/6           s_filter_dump [159]
+                0.00    0.00       6/8           Overnet_find [146]
+                0.00    0.00       6/382         rbt_size [88]
+-----------------------------------------------
+                                                 <spontaneous>
+[13]     0.0    0.00    0.00                 p2pquery [13]
+                0.00    0.00       6/6           KadC_find [12]
+                0.00    0.00      18/256         KadC_log [93]
+                0.00    0.00      10/7216        rbt_begin [32]
+                0.00    0.00       8/382         rbt_size [88]
+                0.00    0.00       6/65          DNSpacket2msg [111]
+                0.00    0.00       6/490         KadC_calloc [84]
+                0.00    0.00       6/6           KadCtag_find [154]
+                0.00    0.00       6/157         rbt_destroy [103]
+                0.00    0.00       6/29          DNSmsg2packet [124]
+                0.00    0.00       6/65          dns_msg_destroy [112]
+                0.00    0.00       6/2346        enq [49]
+                0.00    0.00       4/8615        rbt_value [29]
+                0.00    0.00       2/2           KadCdictionary_dump [168]
+                0.00    0.00       2/2100        htoa [51]
+                0.00    0.00       2/7841        rbt_erase [31]
+                0.00    0.00       2/2           KadCdictionary_destroy [167]
+-----------------------------------------------
+                0.00    0.00       1/110743      sighandler [395]
+                0.00    0.00       1/110743      overnetinifileupdate [6]
+                0.00    0.00       1/110743      startKadEngine [186]
+                0.00    0.00       1/110743      destroy_kba [177]
+                0.00    0.00       2/110743      kstore_destroy [171]
+                0.00    0.00       2/110743      stopKadEngine [4]
+                0.00    0.00       5/110743      kstore_insert [162]
+                0.00    0.00       5/110743      OvernetSearchInfoSession [96]
+                0.00    0.00      10/110743      contact_status_update [100]
+                0.00    0.00      10/110743      Overnet_find [146]
+                0.00    0.00      48/110743      udp_send [119]
+                0.00    0.00      53/110743      overnet_kboot [181]
+                0.00    0.00     128/110743      destroy_kbucket [105]
+                0.00    0.00     256/110743      KadC_log [93]
+                0.00    0.00     308/110743      ConsoleLoop [2]
+                0.00    0.00     314/110743      OvernetSearchInfoSession_th [219]
+                0.00    0.00     391/110743      OvernetBGthread [216]
+                0.00    0.00     450/110743      udp_recv_thread [419]
+                0.00    0.00     488/110743      millisleep_exit [85]
+                0.00    0.00     786/110743      Tryadd2buckets [86]
+                0.00    0.00     970/110743      UpdateNodeStatus [76]
+                0.00    0.00    1031/110743      udp_recv_thread [420]
+                0.00    0.00    1031/110743      KAD_UDPlistener [72]
+                0.00    0.00    1031/110743      retrieveSessionObject [74]
+                0.00    0.00    1032/110743      reapDeadServerThreads [71]
+                0.00    0.00    1104/110743      processing_thread [351]
+                0.00    0.00    1381/110743      UDPsend [66]
+                0.00    0.00    1381/110743      newSessionObject [69]
+                0.00    0.00    1381/110743      destroySessionObject [68]
+                0.00    0.00    1381/110743      deallocSessionObject [67]
+                0.00    0.00    1384/110743      resetq [64]
+                0.00    0.00    1589/110743      overnet_kboot_th [346]
+                0.00    0.00    2346/110743      enq [49]
+                0.00    0.00    3041/110743      deqtw [44]
+                0.00    0.00    8191/110743      Overnet_find_th [221]
+                0.00    0.00   35192/110743      KadC_flog [5]
+                0.00    0.00   44017/110743      KadC_realloc [21]
+[16]     0.0    0.00    0.00  110743         Debug_pthread_mutex_lock [16]
+-----------------------------------------------
+                0.00    0.00       1/110743      sighandler [395]
+                0.00    0.00       1/110743      overnetinifileupdate [6]
+                0.00    0.00       1/110743      startKadEngine [186]
+                0.00    0.00       1/110743      destroy_kba [177]
+                0.00    0.00       2/110743      kstore_destroy [171]
+                0.00    0.00       2/110743      stopKadEngine [4]
+                0.00    0.00       5/110743      kstore_insert [162]
+                0.00    0.00       5/110743      OvernetSearchInfoSession [96]
+                0.00    0.00      10/110743      contact_status_update [100]
+                0.00    0.00      10/110743      Overnet_find [146]
+                0.00    0.00      48/110743      udp_send [119]
+                0.00    0.00      53/110743      overnet_kboot [181]
+                0.00    0.00     128/110743      destroy_kbucket [105]
+                0.00    0.00     256/110743      KadC_log [93]
+                0.00    0.00     308/110743      ConsoleLoop [2]
+                0.00    0.00     314/110743      OvernetSearchInfoSession_th [219]
+                0.00    0.00     391/110743      OvernetBGthread [216]
+                0.00    0.00     450/110743      udp_recv_thread [419]
+                0.00    0.00     488/110743      millisleep_exit [85]
+                0.00    0.00     786/110743      Tryadd2buckets [86]
+                0.00    0.00     970/110743      UpdateNodeStatus [76]
+                0.00    0.00    1031/110743      udp_recv_thread [420]
+                0.00    0.00    1031/110743      KAD_UDPlistener [72]
+                0.00    0.00    1031/110743      retrieveSessionObject [74]
+                0.00    0.00    1032/110743      reapDeadServerThreads [71]
+                0.00    0.00    1104/110743      processing_thread [351]
+                0.00    0.00    1381/110743      UDPsend [66]
+                0.00    0.00    1381/110743      newSessionObject [69]
+                0.00    0.00    1381/110743      destroySessionObject [68]
+                0.00    0.00    1381/110743      deallocSessionObject [67]
+                0.00    0.00    1384/110743      resetq [64]
+                0.00    0.00    1589/110743      overnet_kboot_th [346]
+                0.00    0.00    2346/110743      enq [49]
+                0.00    0.00    3041/110743      deqtw [44]
+                0.00    0.00    8191/110743      Overnet_find_th [221]
+                0.00    0.00   35192/110743      KadC_flog [5]
+                0.00    0.00   44017/110743      KadC_realloc [21]
+[17]     0.0    0.00    0.00  110743         Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       1/104545      overnetinifileread [182]
+                0.00    0.00       4/104545      Overnet_find [146]
+                0.00    0.00      20/104545      overnet_republishnow [10]
+                0.00    0.00     948/104545      Overnet_find_th [221]
+                0.00    0.00    4254/104545      rbt_eraseKey [56]
+                0.00    0.00   28333/104545      rbt_find [36]
+                0.00    0.00   70985/104545      rbt_insert [28]
+[18]     0.0    0.00    0.00  104545         int128eq [18]
+-----------------------------------------------
+                0.00    0.00    3621/103712      rbt_eraseKey [56]
+                0.00    0.00   30919/103712      rbt_find [36]
+                0.00    0.00   69172/103712      rbt_insert [28]
+[19]     0.0    0.00    0.00  103712         int128lt [19]
+-----------------------------------------------
+                0.00    0.00   22062/44125       p_insert [22]
+                0.00    0.00   22063/44125       p_remove [23]
+[20]     0.0    0.00    0.00   44125         find [20]
+-----------------------------------------------
+                0.00    0.00       1/44017       KadC_strdup [176]
+                0.00    0.00       6/44017       KadC_parsefilter [153]
+                0.00    0.00      29/44017       DNSmsg2packet [124]
+                0.00    0.00      74/44017       dns_domain_pack [110]
+                0.00    0.00     490/44017       KadC_calloc [84]
+                0.00    0.00   21463/44017       KadC_malloc [25]
+                0.00    0.00   21954/44017       KadC_free [24]
+[21]     0.0    0.00    0.00   44017         KadC_realloc [21]
+                0.00    0.00   44017/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00   44017/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00   22063/22063       p_insert [22]
+                0.00    0.00   22063/22063       p_remove [23]
+-----------------------------------------------
+                0.00    0.00   22063/22063       KadC_realloc [21]
+[22]     0.0    0.00    0.00   22063         p_insert [22]
+                0.00    0.00   22062/44125       find [20]
+-----------------------------------------------
+                0.00    0.00   22063/22063       KadC_realloc [21]
+[23]     0.0    0.00    0.00   22063         p_remove [23]
+                0.00    0.00   22063/44125       find [20]
+-----------------------------------------------
+                0.00    0.00       1/21954       KadC_stop [3]
+                0.00    0.00       1/21954       stopKadEngine [4]
+                0.00    0.00       2/21954       kstore_destroy [171]
+                0.00    0.00       2/21954       make_kobject [180]
+                0.00    0.00       4/21954       raw_qa_destroy [143]
+                0.00    0.00       4/21954       KadCdictionary_destroy [167]
+                0.00    0.00       7/21954       processing_thread [351]
+                0.00    0.00      10/21954       contact_status_update [100]
+                0.00    0.00      12/21954       KadC_find [12]
+                0.00    0.00      12/21954       kobject_destroy [157]
+                0.00    0.00      25/21954       dns_rr_pack [129]
+                0.00    0.00      27/21954       sendOvernetPublish [128]
+                0.00    0.00      29/21954       dns_question_pack [126]
+                0.00    0.00      30/21954       qa_rbt_destroy [172]
+                0.00    0.00      30/21954       print_nstring [123]
+                0.00    0.00      48/21954       KadC_parsefilter [153]
+                0.00    0.00     113/21954       overnet_republishnow [10]
+                0.00    0.00     128/21954       destroy_kbucket [105]
+                0.00    0.00     130/21954       dns_msg_destroy [112]
+                0.00    0.00     140/21954       DNSpacket_destroy [109]
+                0.00    0.00     140/21954       overnet_kboot [181]
+                0.00    0.00     157/21954       rbt_destroy [103]
+                0.00    0.00     166/21954       Tryadd2buckets [86]
+                0.00    0.00     194/21954       sendOvernetSearchInfo [97]
+                0.00    0.00     194/21954       OvernetSearchInfoSession_th [219]
+                0.00    0.00     227/21954       destroy_knode [94]
+                0.00    0.00     569/21954       Overnet_find [146]
+                0.00    0.00     639/21954       zfree [83]
+                0.00    0.00    1057/21954       deqtw [44]
+                0.00    0.00    1381/21954       deallocSessionObject [67]
+                0.00    0.00    1384/21954       destroyq [62]
+                0.00    0.00    1423/21954       overnet_kboot_th [346]
+                0.00    0.00    1506/21954       destroypkt [80]
+                0.00    0.00    2039/21954       overnetinifileupdate [6]
+                0.00    0.00    2282/21954       Overnet_find_th [221]
+                0.00    0.00    7841/21954       rbt_erase [31]
+[24]     0.0    0.00    0.00   21954         KadC_free [24]
+                0.00    0.00   21954/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00       1/21463       KadC_start [175]
+                0.00    0.00       1/21463       make_kobject [180]
+                0.00    0.00       1/21463       startKadEngine [186]
+                0.00    0.00       7/21463       processing_thread [351]
+                0.00    0.00       8/21463       kstore_new [148]
+                0.00    0.00      12/21463       KadC_parsefilter [153]
+                0.00    0.00      16/21463       kobject_new [147]
+                0.00    0.00      27/21463       sendOvernetPublish [128]
+                0.00    0.00      30/21463       local_strndup [122]
+                0.00    0.00      42/21463       overnet_kboot [181]
+                0.00    0.00      42/21463       emit [120]
+                0.00    0.00      58/21463       DNSmsg2packet [124]
+                0.00    0.00      65/21463       dns_question_parse [114]
+                0.00    0.00      74/21463       dns_domain_pack [110]
+                0.00    0.00     106/21463       udp_recv_thread [419]
+                0.00    0.00     128/21463       new_kbucket [106]
+                0.00    0.00     157/21463       rbt_new [104]
+                0.00    0.00     194/21463       sendOvernetSearchInfo [97]
+                0.00    0.00     204/21463       dns_rr_parse [95]
+                0.00    0.00     393/21463       new_knode [87]
+                0.00    0.00     398/21463       Overnet_find [146]
+                0.00    0.00    1057/21463       enq [49]
+                0.00    0.00    1381/21463       newSessionObject [69]
+                0.00    0.00    1384/21463       new_queue [63]
+                0.00    0.00    1508/21463       newpacket [78]
+                0.00    0.00    1520/21463       overnet_kboot_th [346]
+                0.00    0.00    2048/21463       overnetinifileread [182]
+                0.00    0.00    2760/21463       Overnet_find_th [221]
+                0.00    0.00    7841/21463       rbt_insert [28]
+[25]     0.0    0.00    0.00   21463         KadC_malloc [25]
+                0.00    0.00   21463/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00    3606/15172       rbt_eraseKey [56]
+                0.00    0.00    4268/15172       rbt_insert [28]
+                0.00    0.00    7298/15172       rbt_find [36]
+[26]     0.0    0.00    0.00   15172         sid_compEQ [26]
+-----------------------------------------------
+                0.00    0.00    2225/14533       rbt_eraseKey [56]
+                0.00    0.00    4268/14533       rbt_insert [28]
+                0.00    0.00    8040/14533       rbt_find [36]
+[27]     0.0    0.00    0.00   14533         sid_compLT [27]
+-----------------------------------------------
+                0.00    0.00       1/9654        overnet_kboot_th [346]
+                0.00    0.00       5/9654        kstore_insert [162]
+                0.00    0.00       6/9654        processing_thread [351]
+                0.00    0.00      10/9654        create_pending_entry [138]
+                0.00    0.00     398/9654        Overnet_find [146]
+                0.00    0.00     786/9654        Tryadd2buckets [86]
+                0.00    0.00    1381/9654        newSessionObject [69]
+                0.00    0.00    2048/9654        overnetinifileread [182]
+                0.00    0.00    5019/9654        Overnet_find_th [221]
+[28]     0.0    0.00    0.00    9654         rbt_insert [28]
+                0.00    0.00   70985/104545      int128eq [18]
+                0.00    0.00   69172/103712      int128lt [19]
+                0.00    0.00    7841/21463       KadC_malloc [25]
+                0.00    0.00    7841/7841        insertFixup [30]
+                0.00    0.00    4268/15172       sid_compEQ [26]
+                0.00    0.00    4268/14533       sid_compLT [27]
+                0.00    0.00    2212/2212        knode_compEQ [50]
+                0.00    0.00    1792/1792        knode_compLT [57]
+                0.00    0.00      10/126         DNSpacket_q_eq [107]
+                0.00    0.00      10/157         DNSpacket_q_lt [102]
+-----------------------------------------------
+                0.00    0.00       4/8615        p2pquery [13]
+                0.00    0.00       6/8615        qa_rbt_destroy [172]
+                0.00    0.00      17/8615        processing_thread [351]
+                0.00    0.00      53/8615        overnet_kboot [181]
+                0.00    0.00     113/8615        overnet_republishnow [10]
+                0.00    0.00     127/8615        UpdateNodeStatus [76]
+                0.00    0.00     130/8615        OvernetBGthread [216]
+                0.00    0.00     166/8615        Tryadd2buckets [86]
+                0.00    0.00     194/8615        OvernetSearchInfoSession_th [219]
+                0.00    0.00     227/8615        destroy_kbucket [105]
+                0.00    0.00     754/8615        retrieveSessionObject [74]
+                0.00    0.00     973/8615        Overnet_find [146]
+                0.00    0.00    1538/8615        purge_expired [82]
+                0.00    0.00    2039/8615        overnetinifileupdate [6]
+                0.00    0.00    2274/8615        Overnet_find_th [221]
+[29]     0.0    0.00    0.00    8615         rbt_value [29]
+-----------------------------------------------
+                0.00    0.00    7841/7841        rbt_insert [28]
+[30]     0.0    0.00    0.00    7841         insertFixup [30]
+                0.00    0.00    3870/6787        rotateLeft [35]
+                0.00    0.00    1742/2386        rotateRight [48]
+-----------------------------------------------
+                0.00    0.00       2/7841        p2pquery [13]
+                0.00    0.00       6/7841        qa_rbt_destroy [172]
+                0.00    0.00      10/7841        processing_thread [351]
+                0.00    0.00     113/7841        overnet_republishnow [10]
+                0.00    0.00     166/7841        Tryadd2buckets [86]
+                0.00    0.00     194/7841        OvernetSearchInfoSession_th [219]
+                0.00    0.00     227/7841        destroy_kbucket [105]
+                0.00    0.00     227/7841        destroy_kba [177]
+                0.00    0.00     569/7841        Overnet_find [146]
+                0.00    0.00    2014/7841        rbt_eraseKey [56]
+                0.00    0.00    2039/7841        overnetinifileupdate [6]
+                0.00    0.00    2274/7841        Overnet_find_th [221]
+[31]     0.0    0.00    0.00    7841         rbt_erase [31]
+                0.00    0.00    7841/21954       KadC_free [24]
+                0.00    0.00    6803/6803        deleteFixup [34]
+-----------------------------------------------
+                0.00    0.00       2/7216        kstore_destroy [171]
+                0.00    0.00       8/7216        qa_rbt_destroy [172]
+                0.00    0.00      10/7216        p2pquery [13]
+                0.00    0.00     114/7216        overnet_republishnow [10]
+                0.00    0.00     166/7216        Tryadd2buckets [86]
+                0.00    0.00     228/7216        destroy_kba [177]
+                0.00    0.00     314/7216        OvernetSearchInfoSession_th [219]
+                0.00    0.00     355/7216        destroy_kbucket [105]
+                0.00    0.00     696/7216        purge_expired [82]
+                0.00    0.00     971/7216        Overnet_find [146]
+                0.00    0.00    2040/7216        overnetinifileupdate [6]
+                0.00    0.00    2312/7216        Overnet_find_th [221]
+[32]     0.0    0.00    0.00    7216         rbt_begin [32]
+-----------------------------------------------
+                0.00    0.00      27/7036        overnet_republishnow [10]
+                0.00    0.00     194/7036        OvernetSearchInfoSession [96]
+                0.00    0.00     393/7036        new_knode [87]
+                0.00    0.00     398/7036        Overnet_find [146]
+                0.00    0.00    1005/7036        int128xorlog [75]
+                0.00    0.00    5019/7036        Overnet_find_th [221]
+[33]     0.0    0.00    0.00    7036         int128xor [33]
+-----------------------------------------------
+                0.00    0.00    6803/6803        rbt_erase [31]
+[34]     0.0    0.00    0.00    6803         deleteFixup [34]
+                0.00    0.00    2917/6787        rotateLeft [35]
+                0.00    0.00     644/2386        rotateRight [48]
+-----------------------------------------------
+                0.00    0.00    2917/6787        deleteFixup [34]
+                0.00    0.00    3870/6787        insertFixup [30]
+[35]     0.0    0.00    0.00    6787         rotateLeft [35]
+-----------------------------------------------
+                0.00    0.00      15/5392        create_pending_entry [138]
+                0.00    0.00      53/5392        overnet_kboot [181]
+                0.00    0.00      65/5392        processing_thread [351]
+                0.00    0.00     130/5392        OvernetBGthread [216]
+                0.00    0.00     227/5392        Tryadd2buckets [86]
+                0.00    0.00     970/5392        UpdateNodeStatus [76]
+                0.00    0.00    1031/5392        retrieveSessionObject [74]
+                0.00    0.00    1381/5392        newSessionObject [69]
+                0.00    0.00    1520/5392        overnet_kboot_th [346]
+[36]     0.0    0.00    0.00    5392         rbt_find [36]
+                0.00    0.00   30919/103712      int128lt [19]
+                0.00    0.00   28333/104545      int128eq [18]
+                0.00    0.00    8040/14533       sid_compLT [27]
+                0.00    0.00    7298/15172       sid_compEQ [26]
+                0.00    0.00    2173/4115        rbt_next [43]
+                0.00    0.00     147/157         DNSpacket_q_lt [102]
+                0.00    0.00     116/126         DNSpacket_q_eq [107]
+                0.00    0.00      15/15          DNSpacket_qi_eq [137]
+-----------------------------------------------
+                0.00    0.00     970/4623        UpdateNodeStatus [76]
+                0.00    0.00    1381/4623        P2PnewSessionsend [65]
+                0.00    0.00    2272/4623        Overnet_find_th [221]
+[37]     0.0    0.00    0.00    4623         isnonroutable [37]
+-----------------------------------------------
+                0.00    0.00       6/4501        KadC_find [12]
+                0.00    0.00      24/4501        s_filter_dump [159]
+                0.00    0.00      28/4501        getstringmetavalue [140]
+                0.00    0.00      28/4501        s_filter [152]
+                0.00    0.00      30/4501        print_nstring [123]
+                0.00    0.00      36/4501        decodenext [132]
+                0.00    0.00      69/4501        overnet_kboot_th [346]
+                0.00    0.00    4280/4501        getpeernode [41]
+[38]     0.0    0.00    0.00    4501         getushortle [38]
+-----------------------------------------------
+                0.00    0.00       1/4281        overnet_kboot [181]
+                0.00    0.00    4280/4281        getpeernode [41]
+[39]     0.0    0.00    0.00    4281         getipn [39]
+-----------------------------------------------
+                0.00    0.00    4280/4280        getpeernode [41]
+[40]     0.0    0.00    0.00    4280         getint128n [40]
+-----------------------------------------------
+                0.00    0.00    1520/4280        overnet_kboot_th [346]
+                0.00    0.00    2760/4280        Overnet_find_th [221]
+[41]     0.0    0.00    0.00    4280         getpeernode [41]
+                0.00    0.00    4280/4280        getint128n [40]
+                0.00    0.00    4280/4281        getipn [39]
+                0.00    0.00    4280/4501        getushortle [38]
+-----------------------------------------------
+                0.00    0.00       4/4123        endreplacesection [178]
+                0.00    0.00       9/4123        findsection [169]
+                0.00    0.00    2052/4123        overnetinifileread [182]
+                0.00    0.00    2058/4123        startreplacesection [189]
+[42]     0.0    0.00    0.00    4123         trimfgets [42]
+-----------------------------------------------
+                0.00    0.00     404/4115        Overnet_find [146]
+                0.00    0.00    1538/4115        purge_expired [82]
+                0.00    0.00    2173/4115        rbt_find [36]
+[43]     0.0    0.00    0.00    4115         rbt_next [43]
+-----------------------------------------------
+                0.00    0.00     129/3041        overnet_kboot [181]
+                0.00    0.00     136/3041        overnet_kboot_th [346]
+                0.00    0.00     348/3041        processing_thread [351]
+                0.00    0.00    1032/3041        reapDeadServerThreads [71]
+                0.00    0.00    1396/3041        getpktt [61]
+[44]     0.0    0.00    0.00    3041         deqtw [44]
+                0.00    0.00    3041/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    3041/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00    2802/2802        pthread_cond_incrtimedwait [46]
+                0.00    0.00    1057/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00    2802/2802        pthread_cond_incrtimedwait [46]
+[45]     0.0    0.00    0.00    2802         millisadd [45]
+-----------------------------------------------
+                0.00    0.00    2802/2802        deqtw [44]
+[46]     0.0    0.00    0.00    2802         pthread_cond_incrtimedwait [46]
+                0.00    0.00    2802/2802        ts_set [47]
+                0.00    0.00    2802/2802        millisadd [45]
+-----------------------------------------------
+                0.00    0.00    2802/2802        pthread_cond_incrtimedwait [46]
+[47]     0.0    0.00    0.00    2802         ts_set [47]
+-----------------------------------------------
+                0.00    0.00     644/2386        deleteFixup [34]
+                0.00    0.00    1742/2386        insertFixup [30]
+[48]     0.0    0.00    0.00    2386         rotateRight [48]
+-----------------------------------------------
+                0.00    0.00       6/2346        p2pquery [13]
+                0.00    0.00      42/2346        overnet_kboot [181]
+                0.00    0.00      53/2346        udp_recv_thread [419]
+                0.00    0.00     754/2346        postbuffer2fifo [79]
+                0.00    0.00    1491/2346        overnet_kboot_th [346]
+[49]     0.0    0.00    0.00    2346         enq [49]
+                0.00    0.00    2346/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    2346/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00    1057/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00    2212/2212        rbt_insert [28]
+[50]     0.0    0.00    0.00    2212         knode_compEQ [50]
+-----------------------------------------------
+                0.00    0.00       2/2100        p2pquery [13]
+                0.00    0.00       2/2100        publishing_thread [11]
+                0.00    0.00       3/2100        processing_thread [351]
+                0.00    0.00      54/2100        overnet_republishnow [10]
+                0.00    0.00    2039/2100        overnetinifileupdate [6]
+[51]     0.0    0.00    0.00    2100         htoa [51]
+                0.00    0.00    2100/2100        inet_ntoa_r [52]
+-----------------------------------------------
+                0.00    0.00    2100/2100        htoa [51]
+[52]     0.0    0.00    0.00    2100         inet_ntoa_r [52]
+-----------------------------------------------
+                0.00    0.00    2052/2052        overnetinifileread [182]
+[53]     0.0    0.00    0.00    2052         parseline [53]
+-----------------------------------------------
+                0.00    0.00       1/2050        KadC_republish [9]
+                0.00    0.00    2049/2050        overnetinifileread [182]
+[54]     0.0    0.00    0.00    2050         string2int128 [54]
+-----------------------------------------------
+                0.00    0.00    2049/2049        overnetinifileread [182]
+[55]     0.0    0.00    0.00    2049         domain2hip [55]
+-----------------------------------------------
+                0.00    0.00      10/2014        contact_status_update [100]
+                0.00    0.00     166/2014        Tryadd2buckets [86]
+                0.00    0.00     457/2014        Overnet_find_th [221]
+                0.00    0.00    1381/2014        destroySessionObject [68]
+[56]     0.0    0.00    0.00    2014         rbt_eraseKey [56]
+                0.00    0.00    4254/104545      int128eq [18]
+                0.00    0.00    3621/103712      int128lt [19]
+                0.00    0.00    3606/15172       sid_compEQ [26]
+                0.00    0.00    2225/14533       sid_compLT [27]
+                0.00    0.00    2014/7841        rbt_erase [31]
+-----------------------------------------------
+                0.00    0.00    1792/1792        rbt_insert [28]
+[57]     0.0    0.00    0.00    1792         knode_compLT [57]
+-----------------------------------------------
+                0.00    0.00    1510/1510        pthreadutils_mutex_init_recursive [59]
+[58]     0.0    0.00    0.00    1510         Debug_pthread_mutex_init [58]
+-----------------------------------------------
+                0.00    0.00       1/1510        startKadEngine [186]
+                0.00    0.00     128/1510        new_kbucket [106]
+                0.00    0.00    1381/1510        newSessionObject [69]
+[59]     0.0    0.00    0.00    1510         pthreadutils_mutex_init_recursive [59]
+                0.00    0.00    1510/1510        Debug_pthread_mutex_init [58]
+-----------------------------------------------
+                0.00    0.00     393/1398        new_knode [87]
+                0.00    0.00    1005/1398        int128xorlog [75]
+[60]     0.0    0.00    0.00    1398         int128log [60]
+-----------------------------------------------
+                0.00    0.00       1/1396        overnet_kboot [181]
+                0.00    0.00      27/1396        overnet_republishnow [10]
+                0.00    0.00     116/1396        overnet_kboot_th [346]
+                0.00    0.00     183/1396        Overnet_ping [99]
+                0.00    0.00     209/1396        OvernetSearchInfoSession [96]
+                0.00    0.00     860/1396        Overnet_find_th [221]
+[61]     0.0    0.00    0.00    1396         getpktt [61]
+                0.00    0.00    1396/3041        deqtw [44]
+-----------------------------------------------
+                0.00    0.00       1/1384        main [1]
+                0.00    0.00       1/1384        overnet_kboot [181]
+                0.00    0.00       1/1384        stopKadEngine [4]
+                0.00    0.00    1381/1384        deallocSessionObject [67]
+[62]     0.0    0.00    0.00    1384         destroyq [62]
+                0.00    0.00    1384/1384        resetq [64]
+                0.00    0.00    1384/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       1/1384        main [1]
+                0.00    0.00       1/1384        overnet_kboot [181]
+                0.00    0.00       1/1384        startKadEngine [186]
+                0.00    0.00    1381/1384        newSessionObject [69]
+[63]     0.0    0.00    0.00    1384         new_queue [63]
+                0.00    0.00    1384/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00    1384/1384        destroyq [62]
+[64]     0.0    0.00    0.00    1384         resetq [64]
+                0.00    0.00    1384/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1384/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       1/1381        sendOvernetIpReq [184]
+                0.00    0.00      27/1381        sendOvernetPublish [128]
+                0.00    0.00     194/1381        sendOvernetSearchInfo [97]
+                0.00    0.00     299/1381        sendOvernetPeerReq [91]
+                0.00    0.00     860/1381        sendOvernetSearch [77]
+[65]     0.0    0.00    0.00    1381         P2PnewSessionsend [65]
+                0.00    0.00    1381/4623        isnonroutable [37]
+                0.00    0.00    1381/1381        newSessionObject [69]
+                0.00    0.00    1381/1381        UDPsend [66]
+-----------------------------------------------
+                0.00    0.00    1381/1381        P2PnewSessionsend [65]
+[66]     0.0    0.00    0.00    1381         UDPsend [66]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00    1381/1381        destroySessionObject [68]
+[67]     0.0    0.00    0.00    1381         deallocSessionObject [67]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1381/1384        destroyq [62]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00    1381/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       1/1381        overnet_kboot [181]
+                0.00    0.00      27/1381        overnet_republishnow [10]
+                0.00    0.00     116/1381        overnet_kboot_th [346]
+                0.00    0.00     183/1381        Overnet_ping [99]
+                0.00    0.00     194/1381        OvernetSearchInfoSession [96]
+                0.00    0.00     860/1381        Overnet_find_th [221]
+[68]     0.0    0.00    0.00    1381         destroySessionObject [68]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1381/2014        rbt_eraseKey [56]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00    1381/1381        deallocSessionObject [67]
+-----------------------------------------------
+                0.00    0.00    1381/1381        P2PnewSessionsend [65]
+[69]     0.0    0.00    0.00    1381         newSessionObject [69]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1381/5392        rbt_find [36]
+                0.00    0.00    1381/21463       KadC_malloc [25]
+                0.00    0.00    1381/1510        pthreadutils_mutex_init_recursive [59]
+                0.00    0.00    1381/1384        new_queue [63]
+                0.00    0.00    1381/9654        rbt_insert [28]
+                0.00    0.00    1381/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       2/1355        make_kobject [180]
+                0.00    0.00     194/1355        sendOvernetSearchInfo [97]
+                0.00    0.00     299/1355        sendOvernetPeerReq [91]
+                0.00    0.00     860/1355        sendOvernetSearch [77]
+[70]     0.0    0.00    0.00    1355         putint128n [70]
+-----------------------------------------------
+                0.00    0.00       1/1032        stopKadEngine [4]
+                0.00    0.00    1031/1032        KAD_UDPlistener [72]
+[71]     0.0    0.00    0.00    1032         reapDeadServerThreads [71]
+                0.00    0.00    1032/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1032/3041        deqtw [44]
+                0.00    0.00    1032/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00    1031/1031        udp_recv_thread [420]
+[72]     0.0    0.00    0.00    1031         KAD_UDPlistener [72]
+                0.00    0.00    1031/1032        reapDeadServerThreads [71]
+                0.00    0.00    1031/1031        isOvernetREQ [73]
+                0.00    0.00    1031/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1031/1031        retrieveSessionObject [74]
+                0.00    0.00    1031/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00     754/754         postbuffer2fifo [79]
+-----------------------------------------------
+                0.00    0.00    1031/1031        KAD_UDPlistener [72]
+[73]     0.0    0.00    0.00    1031         isOvernetREQ [73]
+-----------------------------------------------
+                0.00    0.00    1031/1031        KAD_UDPlistener [72]
+[74]     0.0    0.00    0.00    1031         retrieveSessionObject [74]
+                0.00    0.00    1031/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00    1031/5392        rbt_find [36]
+                0.00    0.00    1031/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00     754/8615        rbt_value [29]
+-----------------------------------------------
+                0.00    0.00       8/1005        Overnet_find [146]
+                0.00    0.00      27/1005        overnet_republishnow [10]
+                0.00    0.00     970/1005        UpdateNodeStatus [76]
+[75]     0.0    0.00    0.00    1005         int128xorlog [75]
+                0.00    0.00    1005/7036        int128xor [33]
+                0.00    0.00    1005/1398        int128log [60]
+-----------------------------------------------
+                0.00    0.00       7/970         overnet_republishnow [10]
+                0.00    0.00      34/970         OvernetSearchInfoSession [96]
+                0.00    0.00      69/970         overnet_kboot_th [346]
+                0.00    0.00     860/970         Overnet_find_th [221]
+[76]     0.0    0.00    0.00     970         UpdateNodeStatus [76]
+                0.00    0.00     970/1005        int128xorlog [75]
+                0.00    0.00     970/4623        isnonroutable [37]
+                0.00    0.00     970/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00     970/5392        rbt_find [36]
+                0.00    0.00     970/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00     393/393         Tryadd2buckets [86]
+                0.00    0.00     127/8615        rbt_value [29]
+-----------------------------------------------
+                0.00    0.00     860/860         Overnet_find_th [221]
+[77]     0.0    0.00    0.00     860         sendOvernetSearch [77]
+                0.00    0.00     860/1355        putint128n [70]
+                0.00    0.00     860/1381        P2PnewSessionsend [65]
+-----------------------------------------------
+                0.00    0.00     754/754         postbuffer2fifo [79]
+[78]     0.0    0.00    0.00     754         newpacket [78]
+                0.00    0.00    1508/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00     754/754         KAD_UDPlistener [72]
+[79]     0.0    0.00    0.00     754         postbuffer2fifo [79]
+                0.00    0.00     754/754         newpacket [78]
+                0.00    0.00     754/2346        enq [49]
+-----------------------------------------------
+                0.00    0.00      20/753         overnet_republishnow [10]
+                0.00    0.00      69/753         overnet_kboot_th [346]
+                0.00    0.00      86/753         Overnet_ping [99]
+                0.00    0.00     175/753         OvernetSearchInfoSession [96]
+                0.00    0.00     403/753         Overnet_find_th [221]
+[80]     0.0    0.00    0.00     753         destroypkt [80]
+                0.00    0.00    1506/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       1/724         sendOvernetIpReq [184]
+                0.00    0.00       6/724         putnstring [158]
+                0.00    0.00      30/724         KadC_parsefilter [153]
+                0.00    0.00     299/724         overnetputourIPport [89]
+                0.00    0.00     388/724         sendOvernetSearchInfo [97]
+[81]     0.0    0.00    0.00     724         putushortle [81]
+-----------------------------------------------
+                0.00    0.00     696/696         processing_thread [351]
+[82]     0.0    0.00    0.00     696         purge_expired [82]
+                0.00    0.00    1538/8615        rbt_value [29]
+                0.00    0.00    1538/4115        rbt_next [43]
+                0.00    0.00     696/7216        rbt_begin [32]
+-----------------------------------------------
+                0.00    0.00     639/639         dns_msg_destroy [112]
+[83]     0.0    0.00    0.00     639         zfree [83]
+                0.00    0.00     639/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       6/490         p2pquery [13]
+                0.00    0.00       9/490         replyA [166]
+                0.00    0.00      10/490         create_pending_entry [138]
+                0.00    0.00      40/490         replyPTR [134]
+                0.00    0.00     425/490         dns_parse [113]
+[84]     0.0    0.00    0.00     490         KadC_calloc [84]
+                0.00    0.00     490/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00     488/488         publishing_thread [11]
+[85]     0.0    0.00    0.00     488         millisleep_exit [85]
+                0.00    0.00     488/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00     488/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00     393/393         UpdateNodeStatus [76]
+[86]     0.0    0.00    0.00     393         Tryadd2buckets [86]
+                0.00    0.00     786/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00     786/9654        rbt_insert [28]
+                0.00    0.00     786/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00     393/393         new_knode [87]
+                0.00    0.00     227/5392        rbt_find [36]
+                0.00    0.00     166/7216        rbt_begin [32]
+                0.00    0.00     166/8615        rbt_value [29]
+                0.00    0.00     166/7841        rbt_erase [31]
+                0.00    0.00     166/2014        rbt_eraseKey [56]
+                0.00    0.00     166/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00     393/393         Tryadd2buckets [86]
+[87]     0.0    0.00    0.00     393         new_knode [87]
+                0.00    0.00     393/21463       KadC_malloc [25]
+                0.00    0.00     393/7036        int128xor [33]
+                0.00    0.00     393/1398        int128log [60]
+-----------------------------------------------
+                0.00    0.00       1/382         overnet_republishnow [10]
+                0.00    0.00       1/382         overnetinifileread [182]
+                0.00    0.00       1/382         overnetinifileupdate [6]
+                0.00    0.00       1/382         stopKadEngine [4]
+                0.00    0.00       6/382         trim_qa_rbt [161]
+                0.00    0.00       6/382         KadC_find [12]
+                0.00    0.00       8/382         p2pquery [13]
+                0.00    0.00      28/382         Overnet_find [146]
+                0.00    0.00      69/382         overnet_kboot_th [346]
+                0.00    0.00     261/382         OvernetBGthread [216]
+[88]     0.0    0.00    0.00     382         rbt_size [88]
+-----------------------------------------------
+                0.00    0.00     299/299         sendOvernetPeerReq [91]
+[89]     0.0    0.00    0.00     299         overnetputourIPport [89]
+                0.00    0.00     299/299         putipn [90]
+                0.00    0.00     299/724         putushortle [81]
+-----------------------------------------------
+                0.00    0.00     299/299         overnetputourIPport [89]
+[90]     0.0    0.00    0.00     299         putipn [90]
+-----------------------------------------------
+                0.00    0.00     116/299         sendOvernetBootReq [108]
+                0.00    0.00     183/299         sendOvernetHelloReq [101]
+[91]     0.0    0.00    0.00     299         sendOvernetPeerReq [91]
+                0.00    0.00     299/1355        putint128n [70]
+                0.00    0.00     299/299         overnetputourIPport [89]
+                0.00    0.00     299/1381        P2PnewSessionsend [65]
+-----------------------------------------------
+                                 320             dns_decompress [92]
+                0.00    0.00      65/269         dns_question_parse [114]
+                0.00    0.00     204/269         dns_rr_parse [95]
+[92]     0.0    0.00    0.00     269+320     dns_decompress [92]
+                                 320             dns_decompress [92]
+-----------------------------------------------
+                0.00    0.00       1/256         main [1]
+                0.00    0.00       1/256         sighandler [395]
+                0.00    0.00       2/256         publishing_thread [11]
+                0.00    0.00       2/256         KadC_list_outstanding_mallocs [174]
+                0.00    0.00       2/256         kobject_dump [179]
+                0.00    0.00       6/256         print_mtag [163]
+                0.00    0.00       7/256         OvernetSearchInfoSession [96]
+                0.00    0.00      16/256         KadCdictionary_dump [168]
+                0.00    0.00      18/256         p2pquery [13]
+                0.00    0.00      19/256         Overnet_find [146]
+                0.00    0.00      20/256         processing_thread [351]
+                0.00    0.00      21/256         create_pending_entry [138]
+                0.00    0.00      24/256         KadC_find [12]
+                0.00    0.00      30/256         print_nstring [123]
+                0.00    0.00      30/256         s_filter_dump [159]
+                0.00    0.00      57/256         overnet_republishnow [10]
+[93]     0.0    0.00    0.00     256         KadC_log [93]
+                0.00    0.00     256/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00     256/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00     227/227         destroy_kbucket [105]
+[94]     0.0    0.00    0.00     227         destroy_knode [94]
+                0.00    0.00     227/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00     204/204         dns_parse [113]
+[95]     0.0    0.00    0.00     204         dns_rr_parse [95]
+                0.00    0.00     204/269         dns_decompress [92]
+                0.00    0.00     204/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00     194/194         OvernetSearchInfoSession_th [219]
+[96]     0.0    0.00    0.00     194         OvernetSearchInfoSession [96]
+                0.00    0.00     209/1396        getpktt [61]
+                0.00    0.00     194/7036        int128xor [33]
+                0.00    0.00     194/194         sendOvernetSearchInfo [97]
+                0.00    0.00     194/1381        destroySessionObject [68]
+                0.00    0.00     175/753         destroypkt [80]
+                0.00    0.00      34/970         UpdateNodeStatus [76]
+                0.00    0.00       7/8           kobject_new [147]
+                0.00    0.00       7/7           s_filter [152]
+                0.00    0.00       7/256         KadC_log [93]
+                0.00    0.00       5/6           kobject_destroy [157]
+                0.00    0.00       5/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       5/5           kstore_insert [162]
+                0.00    0.00       5/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00     194/194         OvernetSearchInfoSession [96]
+[97]     0.0    0.00    0.00     194         sendOvernetSearchInfo [97]
+                0.00    0.00     388/724         putushortle [81]
+                0.00    0.00     194/21463       KadC_malloc [25]
+                0.00    0.00     194/1355        putint128n [70]
+                0.00    0.00     194/1381        P2PnewSessionsend [65]
+                0.00    0.00     194/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       1/184         overnetinifileread [182]
+                0.00    0.00      53/184         overnet_kboot [181]
+                0.00    0.00     130/184         OvernetBGthread [216]
+[98]     0.0    0.00    0.00     184         int128setrandom [98]
+-----------------------------------------------
+                0.00    0.00      53/183         overnet_kboot [181]
+                0.00    0.00     130/183         OvernetBGthread [216]
+[99]     0.0    0.00    0.00     183         Overnet_ping [99]
+                0.00    0.00     183/183         sendOvernetHelloReq [101]
+                0.00    0.00     183/1396        getpktt [61]
+                0.00    0.00     183/1381        destroySessionObject [68]
+                0.00    0.00      86/753         destroypkt [80]
+-----------------------------------------------
+                0.00    0.00      53/183         overnet_kboot [181]
+                0.00    0.00     130/183         OvernetBGthread [216]
+[100]    0.0    0.00    0.00     183         contact_status_update [100]
+                0.00    0.00      10/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00      10/2014        rbt_eraseKey [56]
+                0.00    0.00      10/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00      10/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00     183/183         Overnet_ping [99]
+[101]    0.0    0.00    0.00     183         sendOvernetHelloReq [101]
+                0.00    0.00     183/299         sendOvernetPeerReq [91]
+-----------------------------------------------
+                0.00    0.00      10/157         rbt_insert [28]
+                0.00    0.00     147/157         rbt_find [36]
+[102]    0.0    0.00    0.00     157         DNSpacket_q_lt [102]
+-----------------------------------------------
+                0.00    0.00       1/157         overnet_republishnow [10]
+                0.00    0.00       1/157         overnetinifileupdate [6]
+                0.00    0.00       1/157         stopKadEngine [4]
+                0.00    0.00       1/157         destroy_kba [177]
+                0.00    0.00       2/157         qa_rbt_destroy [172]
+                0.00    0.00       2/157         kstore_destroy [171]
+                0.00    0.00       6/157         p2pquery [13]
+                0.00    0.00      15/157         Overnet_find [146]
+                0.00    0.00     128/157         destroy_kbucket [105]
+[103]    0.0    0.00    0.00     157         rbt_destroy [103]
+                0.00    0.00     157/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       1/157         KadC_start [175]
+                0.00    0.00       1/157         startKadEngine [186]
+                0.00    0.00       1/157         setup_kba [185]
+                0.00    0.00       2/157         main [1]
+                0.00    0.00       8/157         kstore_new [148]
+                0.00    0.00      16/157         Overnet_find [146]
+                0.00    0.00     128/157         new_kbucket [106]
+[104]    0.0    0.00    0.00     157         rbt_new [104]
+                0.00    0.00     157/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00     128/128         destroy_kba [177]
+[105]    0.0    0.00    0.00     128         destroy_kbucket [105]
+                0.00    0.00     355/7216        rbt_begin [32]
+                0.00    0.00     227/8615        rbt_value [29]
+                0.00    0.00     227/7841        rbt_erase [31]
+                0.00    0.00     227/227         destroy_knode [94]
+                0.00    0.00     128/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00     128/157         rbt_destroy [103]
+                0.00    0.00     128/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00     128/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00     128/128         setup_kba [185]
+[106]    0.0    0.00    0.00     128         new_kbucket [106]
+                0.00    0.00     128/21463       KadC_malloc [25]
+                0.00    0.00     128/1510        pthreadutils_mutex_init_recursive [59]
+                0.00    0.00     128/157         rbt_new [104]
+-----------------------------------------------
+                0.00    0.00      10/126         rbt_insert [28]
+                0.00    0.00     116/126         rbt_find [36]
+[107]    0.0    0.00    0.00     126         DNSpacket_q_eq [107]
+-----------------------------------------------
+                0.00    0.00     116/116         overnet_kboot_th [346]
+[108]    0.0    0.00    0.00     116         sendOvernetBootReq [108]
+                0.00    0.00     116/299         sendOvernetPeerReq [91]
+-----------------------------------------------
+                0.00    0.00       3/90          replyA [166]
+                0.00    0.00       8/90          raw_qa_destroy [143]
+                0.00    0.00      20/90          replyPTR [134]
+                0.00    0.00      59/90          processing_thread [351]
+[109]    0.0    0.00    0.00      90         DNSpacket_destroy [109]
+                0.00    0.00     140/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00      20/74          replyPTR [134]
+                0.00    0.00      25/74          dns_rr_pack [129]
+                0.00    0.00      29/74          dns_question_pack [126]
+[110]    0.0    0.00    0.00      74         dns_domain_pack [110]
+                0.00    0.00      74/21463       KadC_malloc [25]
+                0.00    0.00      74/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00       6/65          p2pquery [13]
+                0.00    0.00      59/65          processing_thread [351]
+[111]    0.0    0.00    0.00      65         DNSpacket2msg [111]
+                0.00    0.00      65/65          dns_parse [113]
+-----------------------------------------------
+                0.00    0.00       6/65          p2pquery [13]
+                0.00    0.00      59/65          processing_thread [351]
+[112]    0.0    0.00    0.00      65         dns_msg_destroy [112]
+                0.00    0.00     639/639         zfree [83]
+                0.00    0.00     130/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00      65/65          DNSpacket2msg [111]
+[113]    0.0    0.00    0.00      65         dns_parse [113]
+                0.00    0.00     425/490         KadC_calloc [84]
+                0.00    0.00     204/204         dns_rr_parse [95]
+                0.00    0.00      65/65          dns_question_parse [114]
+-----------------------------------------------
+                0.00    0.00      65/65          dns_parse [113]
+[114]    0.0    0.00    0.00      65         dns_question_parse [114]
+                0.00    0.00      65/269         dns_decompress [92]
+                0.00    0.00      65/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00       3/52          processing_thread [351]
+                0.00    0.00      49/52          publishing_thread [11]
+[115]    0.0    0.00    0.00      52         KadC_getextIP [115]
+-----------------------------------------------
+                0.00    0.00      48/48          get_new_token [117]
+[116]    0.0    0.00    0.00      48         KadC_gettoken [116]
+                0.00    0.00      48/48          make_token [118]
+-----------------------------------------------
+                0.00    0.00       6/48          term [160]
+                0.00    0.00       6/48          KadC_parsefilter [153]
+                0.00    0.00      36/48          predicate [141]
+[117]    0.0    0.00    0.00      48         get_new_token [117]
+                0.00    0.00      48/48          KadC_gettoken [116]
+-----------------------------------------------
+                0.00    0.00      48/48          KadC_gettoken [116]
+[118]    0.0    0.00    0.00      48         make_token [118]
+-----------------------------------------------
+                0.00    0.00       8/48          DNSquery [144]
+                0.00    0.00      40/48          DNSreply [121]
+[119]    0.0    0.00    0.00      48         udp_send [119]
+                0.00    0.00      48/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00      48/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       6/42          term [160]
+                0.00    0.00      36/42          predicate [141]
+[120]    0.0    0.00    0.00      42         emit [120]
+                0.00    0.00      42/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00       3/40          replyA [166]
+                0.00    0.00      17/40          processing_thread [351]
+                0.00    0.00      20/40          replyPTR [134]
+[121]    0.0    0.00    0.00      40         DNSreply [121]
+                0.00    0.00      40/48          udp_send [119]
+-----------------------------------------------
+                0.00    0.00      30/30          print_nstring [123]
+[122]    0.0    0.00    0.00      30         local_strndup [122]
+                0.00    0.00      30/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00       6/30          print_mtag [163]
+                0.00    0.00      24/30          s_filter_dump [159]
+[123]    0.0    0.00    0.00      30         print_nstring [123]
+                0.00    0.00      30/4501        getushortle [38]
+                0.00    0.00      30/30          local_strndup [122]
+                0.00    0.00      30/256         KadC_log [93]
+                0.00    0.00      30/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       3/29          replyA [166]
+                0.00    0.00       6/29          p2pquery [13]
+                0.00    0.00      20/29          replyPTR [134]
+[124]    0.0    0.00    0.00      29         DNSmsg2packet [124]
+                0.00    0.00      58/21463       KadC_malloc [25]
+                0.00    0.00      29/29          dns_pack [125]
+                0.00    0.00      29/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00      29/29          DNSmsg2packet [124]
+[125]    0.0    0.00    0.00      29         dns_pack [125]
+                0.00    0.00      29/29          dns_question_pack [126]
+                0.00    0.00      25/25          dns_rr_pack [129]
+-----------------------------------------------
+                0.00    0.00      29/29          dns_pack [125]
+[126]    0.0    0.00    0.00      29         dns_question_pack [126]
+                0.00    0.00      29/74          dns_domain_pack [110]
+                0.00    0.00      29/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00      10/29          s_filter [152]
+                0.00    0.00      19/29          getstringmetavalue [140]
+[127]    0.0    0.00    0.00      29         nstrcasecmp [127]
+-----------------------------------------------
+                0.00    0.00      27/27          overnet_republishnow [10]
+[128]    0.0    0.00    0.00      27         sendOvernetPublish [128]
+                0.00    0.00      27/21463       KadC_malloc [25]
+                0.00    0.00      27/1381        P2PnewSessionsend [65]
+                0.00    0.00      27/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00      25/25          dns_pack [125]
+[129]    0.0    0.00    0.00      25         dns_rr_pack [129]
+                0.00    0.00      25/74          dns_domain_pack [110]
+                0.00    0.00      25/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       1/23          kobject_dump [179]
+                0.00    0.00       8/23          KadCtag_begin [145]
+                0.00    0.00      14/23          getstringmetavalue [140]
+[130]    0.0    0.00    0.00      23         getulongle [130]
+-----------------------------------------------
+                0.00    0.00       7/21          MD4 [149]
+                0.00    0.00      14/21          MD4_digest [150]
+[131]    0.0    0.00    0.00      21         MD4_update [131]
+-----------------------------------------------
+                0.00    0.00       6/20          KadCtag_next [155]
+                0.00    0.00       6/20          KadCtag_find [154]
+                0.00    0.00       8/20          KadCtag_begin [145]
+[132]    0.0    0.00    0.00      20         decodenext [132]
+                0.00    0.00      36/4501        getushortle [38]
+-----------------------------------------------
+                0.00    0.00      20/20          processing_thread [351]
+[133]    0.0    0.00    0.00      20         is_a_local_address [133]
+-----------------------------------------------
+                0.00    0.00      20/20          processing_thread [351]
+[134]    0.0    0.00    0.00      20         replyPTR [134]
+                0.00    0.00      40/490         KadC_calloc [84]
+                0.00    0.00      20/74          dns_domain_pack [110]
+                0.00    0.00      20/29          DNSmsg2packet [124]
+                0.00    0.00      20/40          DNSreply [121]
+                0.00    0.00      20/90          DNSpacket_destroy [109]
+-----------------------------------------------
+                0.00    0.00      20/20          processing_thread [351]
+[135]    0.0    0.00    0.00      20         reverse_inet_addr [135]
+-----------------------------------------------
+                0.00    0.00      18/18          processing_thread [351]
+[136]    0.0    0.00    0.00      18         is_in [136]
+-----------------------------------------------
+                0.00    0.00      15/15          rbt_find [36]
+[137]    0.0    0.00    0.00      15         DNSpacket_qi_eq [137]
+-----------------------------------------------
+                0.00    0.00      15/15          processing_thread [351]
+[138]    0.0    0.00    0.00      15         create_pending_entry [138]
+                0.00    0.00      21/256         KadC_log [93]
+                0.00    0.00      15/5392        rbt_find [36]
+                0.00    0.00      10/490         KadC_calloc [84]
+                0.00    0.00      10/9654        rbt_insert [28]
+-----------------------------------------------
+                0.00    0.00      15/15          processing_thread [351]
+[139]    0.0    0.00    0.00      15         end_is_in [139]
+-----------------------------------------------
+                0.00    0.00      14/14          s_filter [152]
+[140]    0.0    0.00    0.00      14         getstringmetavalue [140]
+                0.00    0.00      28/4501        getushortle [38]
+                0.00    0.00      19/29          nstrcasecmp [127]
+                0.00    0.00      14/23          getulongle [130]
+-----------------------------------------------
+                0.00    0.00      12/12          term [160]
+[141]    0.0    0.00    0.00      12         predicate [141]
+                0.00    0.00      36/48          get_new_token [117]
+                0.00    0.00      36/42          emit [120]
+                0.00    0.00      12/12          specialtagname [142]
+-----------------------------------------------
+                0.00    0.00      12/12          predicate [141]
+[142]    0.0    0.00    0.00      12         specialtagname [142]
+-----------------------------------------------
+                0.00    0.00      10/10          processing_thread [351]
+[143]    0.0    0.00    0.00      10         raw_qa_destroy [143]
+                0.00    0.00       8/90          DNSpacket_destroy [109]
+                0.00    0.00       4/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       8/8           processing_thread [351]
+[144]    0.0    0.00    0.00       8         DNSquery [144]
+                0.00    0.00       8/48          udp_send [119]
+-----------------------------------------------
+                0.00    0.00       2/8           KadCdictionary_dump [168]
+                0.00    0.00       6/8           KadCtag_find [154]
+[145]    0.0    0.00    0.00       8         KadCtag_begin [145]
+                0.00    0.00       8/23          getulongle [130]
+                0.00    0.00       8/20          decodenext [132]
+-----------------------------------------------
+                0.00    0.00       1/8           overnet_republishnow [10]
+                0.00    0.00       1/8           OvernetBGthread [216]
+                0.00    0.00       6/8           KadC_find [12]
+[146]    0.0    0.00    0.00       8         Overnet_find [146]
+                0.00    0.00     973/8615        rbt_value [29]
+                0.00    0.00     971/7216        rbt_begin [32]
+                0.00    0.00     569/7841        rbt_erase [31]
+                0.00    0.00     569/21954       KadC_free [24]
+                0.00    0.00     404/4115        rbt_next [43]
+                0.00    0.00     398/21463       KadC_malloc [25]
+                0.00    0.00     398/7036        int128xor [33]
+                0.00    0.00     398/9654        rbt_insert [28]
+                0.00    0.00      28/382         rbt_size [88]
+                0.00    0.00      19/256         KadC_log [93]
+                0.00    0.00      16/157         rbt_new [104]
+                0.00    0.00      15/157         rbt_destroy [103]
+                0.00    0.00      10/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00      10/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00       8/1005        int128xorlog [75]
+                0.00    0.00       8/8           kstore_new [148]
+                0.00    0.00       4/104545      int128eq [18]
+                0.00    0.00       2/2           kstore_destroy [171]
+-----------------------------------------------
+                0.00    0.00       1/8           make_kobject [180]
+                0.00    0.00       7/8           OvernetSearchInfoSession [96]
+[147]    0.0    0.00    0.00       8         kobject_new [147]
+                0.00    0.00      16/21463       KadC_malloc [25]
+-----------------------------------------------
+                0.00    0.00       8/8           Overnet_find [146]
+[148]    0.0    0.00    0.00       8         kstore_new [148]
+                0.00    0.00       8/21463       KadC_malloc [25]
+                0.00    0.00       8/157         rbt_new [104]
+-----------------------------------------------
+                0.00    0.00       1/7           KadC_republish [9]
+                0.00    0.00       6/7           KadC_find [12]
+[149]    0.0    0.00    0.00       7         MD4 [149]
+                0.00    0.00       7/7           MD4_init [151]
+                0.00    0.00       7/21          MD4_update [131]
+                0.00    0.00       7/7           MD4_digest [150]
+-----------------------------------------------
+                0.00    0.00       7/7           MD4 [149]
+[150]    0.0    0.00    0.00       7         MD4_digest [150]
+                0.00    0.00      14/21          MD4_update [131]
+-----------------------------------------------
+                0.00    0.00       7/7           MD4 [149]
+[151]    0.0    0.00    0.00       7         MD4_init [151]
+-----------------------------------------------
+                                  14             s_filter [152]
+                0.00    0.00       7/7           OvernetSearchInfoSession [96]
+[152]    0.0    0.00    0.00       7+14      s_filter [152]
+                0.00    0.00      28/4501        getushortle [38]
+                0.00    0.00      14/14          getstringmetavalue [140]
+                0.00    0.00      10/29          nstrcasecmp [127]
+                                  14             s_filter [152]
+-----------------------------------------------
+                0.00    0.00       6/6           KadC_find [12]
+[153]    0.0    0.00    0.00       6         KadC_parsefilter [153]
+                0.00    0.00      48/21954       KadC_free [24]
+                0.00    0.00      30/724         putushortle [81]
+                0.00    0.00      12/21463       KadC_malloc [25]
+                0.00    0.00       6/48          get_new_token [117]
+                0.00    0.00       6/6           expr [156]
+                0.00    0.00       6/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00       6/6           p2pquery [13]
+[154]    0.0    0.00    0.00       6         KadCtag_find [154]
+                0.00    0.00       6/8           KadCtag_begin [145]
+                0.00    0.00       6/20          decodenext [132]
+-----------------------------------------------
+                0.00    0.00       6/6           KadCdictionary_dump [168]
+[155]    0.0    0.00    0.00       6         KadCtag_next [155]
+                0.00    0.00       6/20          decodenext [132]
+-----------------------------------------------
+                0.00    0.00       6/6           KadC_parsefilter [153]
+[156]    0.0    0.00    0.00       6         expr [156]
+                0.00    0.00       6/6           term [160]
+-----------------------------------------------
+                0.00    0.00       1/6           KadC_republish [9]
+                0.00    0.00       5/6           OvernetSearchInfoSession [96]
+[157]    0.0    0.00    0.00       6         kobject_destroy [157]
+                0.00    0.00      12/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       3/6           putmetaname [165]
+                0.00    0.00       3/6           putmeta [164]
+[158]    0.0    0.00    0.00       6         putnstring [158]
+                0.00    0.00       6/724         putushortle [81]
+-----------------------------------------------
+                                  12             s_filter_dump [159]
+                0.00    0.00       6/6           KadC_find [12]
+[159]    0.0    0.00    0.00       6+12      s_filter_dump [159]
+                0.00    0.00      30/256         KadC_log [93]
+                0.00    0.00      24/4501        getushortle [38]
+                0.00    0.00      24/30          print_nstring [123]
+                                  12             s_filter_dump [159]
+-----------------------------------------------
+                0.00    0.00       6/6           expr [156]
+[160]    0.0    0.00    0.00       6         term [160]
+                0.00    0.00      12/12          predicate [141]
+                0.00    0.00       6/48          get_new_token [117]
+                0.00    0.00       6/42          emit [120]
+-----------------------------------------------
+                0.00    0.00       6/6           processing_thread [351]
+[161]    0.0    0.00    0.00       6         trim_qa_rbt [161]
+                0.00    0.00       6/382         rbt_size [88]
+-----------------------------------------------
+                0.00    0.00       5/5           OvernetSearchInfoSession [96]
+[162]    0.0    0.00    0.00       5         kstore_insert [162]
+                0.00    0.00       5/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       5/9654        rbt_insert [28]
+                0.00    0.00       5/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       3/3           kobject_dump [179]
+[163]    0.0    0.00    0.00       3         print_mtag [163]
+                0.00    0.00       6/30          print_nstring [123]
+                0.00    0.00       6/256         KadC_log [93]
+-----------------------------------------------
+                0.00    0.00       3/3           make_kobject [180]
+[164]    0.0    0.00    0.00       3         putmeta [164]
+                0.00    0.00       3/3           putmetaname [165]
+                0.00    0.00       3/6           putnstring [158]
+-----------------------------------------------
+                0.00    0.00       3/3           putmeta [164]
+[165]    0.0    0.00    0.00       3         putmetaname [165]
+                0.00    0.00       3/6           putnstring [158]
+-----------------------------------------------
+                0.00    0.00       3/3           processing_thread [351]
+[166]    0.0    0.00    0.00       3         replyA [166]
+                0.00    0.00       9/490         KadC_calloc [84]
+                0.00    0.00       3/29          DNSmsg2packet [124]
+                0.00    0.00       3/40          DNSreply [121]
+                0.00    0.00       3/90          DNSpacket_destroy [109]
+-----------------------------------------------
+                0.00    0.00       2/2           p2pquery [13]
+[167]    0.0    0.00    0.00       2         KadCdictionary_destroy [167]
+                0.00    0.00       4/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       2/2           p2pquery [13]
+[168]    0.0    0.00    0.00       2         KadCdictionary_dump [168]
+                0.00    0.00      16/256         KadC_log [93]
+                0.00    0.00       6/6           KadCtag_next [155]
+                0.00    0.00       2/8           KadCtag_begin [145]
+-----------------------------------------------
+                0.00    0.00       2/2           overnetinifileread [182]
+[169]    0.0    0.00    0.00       2         findsection [169]
+                0.00    0.00       9/4123        trimfgets [42]
+-----------------------------------------------
+                0.00    0.00       2/2           kobject_dump [179]
+[170]    0.0    0.00    0.00       2         int128print [170]
+-----------------------------------------------
+                0.00    0.00       2/2           Overnet_find [146]
+[171]    0.0    0.00    0.00       2         kstore_destroy [171]
+                0.00    0.00       2/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       2/7216        rbt_begin [32]
+                0.00    0.00       2/157         rbt_destroy [103]
+                0.00    0.00       2/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00       2/21954       KadC_free [24]
+-----------------------------------------------
+                0.00    0.00       2/2           main [1]
+[172]    0.0    0.00    0.00       2         qa_rbt_destroy [172]
+                0.00    0.00      30/21954       KadC_free [24]
+                0.00    0.00       8/7216        rbt_begin [32]
+                0.00    0.00       6/8615        rbt_value [29]
+                0.00    0.00       6/7841        rbt_erase [31]
+                0.00    0.00       2/157         rbt_destroy [103]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[173]    0.0    0.00    0.00       1         KadC_init_network [173]
+                0.00    0.00       1/1           wsockstart [193]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[174]    0.0    0.00    0.00       1         KadC_list_outstanding_mallocs [174]
+                0.00    0.00       2/256         KadC_log [93]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[175]    0.0    0.00    0.00       1         KadC_start [175]
+                0.00    0.00       1/157         rbt_new [104]
+                0.00    0.00       1/1           overnetinifileread [182]
+                0.00    0.00       1/21463       KadC_malloc [25]
+                0.00    0.00       1/1           startUDPIO [188]
+                0.00    0.00       1/1           startKadEngine [186]
+                0.00    0.00       1/1           setup_kba [185]
+                0.00    0.00       1/1           startRTP [187]
+-----------------------------------------------
+                0.00    0.00       1/1           make_kobject [180]
+[176]    0.0    0.00    0.00       1         KadC_strdup [176]
+                0.00    0.00       1/44017       KadC_realloc [21]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_stop [3]
+[177]    0.0    0.00    0.00       1         destroy_kba [177]
+                0.00    0.00     228/7216        rbt_begin [32]
+                0.00    0.00     227/7841        rbt_erase [31]
+                0.00    0.00     128/128         destroy_kbucket [105]
+                0.00    0.00       1/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       1/157         rbt_destroy [103]
+                0.00    0.00       1/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       1/1           overnetinifileupdate [6]
+[178]    0.0    0.00    0.00       1         endreplacesection [178]
+                0.00    0.00       4/4123        trimfgets [42]
+-----------------------------------------------
+                0.00    0.00       1/1           overnet_republishnow [10]
+[179]    0.0    0.00    0.00       1         kobject_dump [179]
+                0.00    0.00       3/3           print_mtag [163]
+                0.00    0.00       2/2           int128print [170]
+                0.00    0.00       2/256         KadC_log [93]
+                0.00    0.00       1/23          getulongle [130]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_republish [9]
+[180]    0.0    0.00    0.00       1         make_kobject [180]
+                0.00    0.00       3/3           putmeta [164]
+                0.00    0.00       2/1355        putint128n [70]
+                0.00    0.00       2/21954       KadC_free [24]
+                0.00    0.00       1/1           KadC_strdup [176]
+                0.00    0.00       1/21463       KadC_malloc [25]
+                0.00    0.00       1/1           putulongle [183]
+                0.00    0.00       1/8           kobject_new [147]
+-----------------------------------------------
+                0.00    0.00       1/1           OvernetBGthread [216]
+[181]    0.0    0.00    0.00       1         overnet_kboot [181]
+                0.00    0.00     140/21954       KadC_free [24]
+                0.00    0.00     129/3041        deqtw [44]
+                0.00    0.00      53/184         int128setrandom [98]
+                0.00    0.00      53/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00      53/5392        rbt_find [36]
+                0.00    0.00      53/8615        rbt_value [29]
+                0.00    0.00      53/110743      Debug_pthread_mutex_unlock [17]
+                0.00    0.00      53/183         Overnet_ping [99]
+                0.00    0.00      53/183         contact_status_update [100]
+                0.00    0.00      42/21463       KadC_malloc [25]
+                0.00    0.00      42/2346        enq [49]
+                0.00    0.00       1/1384        new_queue [63]
+                0.00    0.00       1/1           sendOvernetIpReq [184]
+                0.00    0.00       1/1396        getpktt [61]
+                0.00    0.00       1/4281        getipn [39]
+                0.00    0.00       1/1381        destroySessionObject [68]
+                0.00    0.00       1/1384        destroyq [62]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_start [175]
+[182]    0.0    0.00    0.00       1         overnetinifileread [182]
+                0.00    0.00    2052/4123        trimfgets [42]
+                0.00    0.00    2052/2052        parseline [53]
+                0.00    0.00    2049/2050        string2int128 [54]
+                0.00    0.00    2049/2049        domain2hip [55]
+                0.00    0.00    2048/21463       KadC_malloc [25]
+                0.00    0.00    2048/9654        rbt_insert [28]
+                0.00    0.00       2/2           findsection [169]
+                0.00    0.00       1/104545      int128eq [18]
+                0.00    0.00       1/184         int128setrandom [98]
+                0.00    0.00       1/382         rbt_size [88]
+-----------------------------------------------
+                0.00    0.00       1/1           make_kobject [180]
+[183]    0.0    0.00    0.00       1         putulongle [183]
+-----------------------------------------------
+                0.00    0.00       1/1           overnet_kboot [181]
+[184]    0.0    0.00    0.00       1         sendOvernetIpReq [184]
+                0.00    0.00       1/724         putushortle [81]
+                0.00    0.00       1/1381        P2PnewSessionsend [65]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_start [175]
+[185]    0.0    0.00    0.00       1         setup_kba [185]
+                0.00    0.00     128/128         new_kbucket [106]
+                0.00    0.00       1/157         rbt_new [104]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_start [175]
+[186]    0.0    0.00    0.00       1         startKadEngine [186]
+                0.00    0.00       1/21463       KadC_malloc [25]
+                0.00    0.00       1/1510        pthreadutils_mutex_init_recursive [59]
+                0.00    0.00       1/157         rbt_new [104]
+                0.00    0.00       1/1384        new_queue [63]
+                0.00    0.00       1/110743      Debug_pthread_mutex_lock [16]
+                0.00    0.00       1/110743      Debug_pthread_mutex_unlock [17]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_start [175]
+[187]    0.0    0.00    0.00       1         startRTP [187]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_start [175]
+[188]    0.0    0.00    0.00       1         startUDPIO [188]
+-----------------------------------------------
+                0.00    0.00       1/1           overnetinifileupdate [6]
+[189]    0.0    0.00    0.00       1         startreplacesection [189]
+                0.00    0.00    2058/4123        trimfgets [42]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_stop [3]
+[190]    0.0    0.00    0.00       1         stopRTP [190]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_stop [3]
+[191]    0.0    0.00    0.00       1         stopUDPIO [191]
+-----------------------------------------------
+                0.00    0.00       1/1           main [1]
+[192]    0.0    0.00    0.00       1         udp_dns_init [192]
+-----------------------------------------------
+                0.00    0.00       1/1           KadC_init_network [173]
+[193]    0.0    0.00    0.00       1         wsockstart [193]
+-----------------------------------------------
+
+ This table describes the call tree of the program, and was sorted by
+ the total amount of time spent in each function and its children.
+
+ Each entry in this table consists of several lines.  The line with the
+ index number at the left hand margin lists the current function.
+ The lines above it list the functions that called this function,
+ and the lines below it list the functions this one called.
+ This line lists:
+     index	A unique number given to each element of the table.
+		Index numbers are sorted numerically.
+		The index number is printed next to every function name so
+		it is easier to look up where the function in the table.
+
+     % time	This is the percentage of the `total' time that was spent
+		in this function and its children.  Note that due to
+		different viewpoints, functions excluded by options, etc,
+		these numbers will NOT add up to 100%.
+
+     self	This is the total amount of time spent in this function.
+
+     children	This is the total amount of time propagated into this
+		function by its children.
+
+     called	This is the number of times the function was called.
+		If the function called itself recursively, the number
+		only includes non-recursive calls, and is followed by
+		a `+' and the number of recursive calls.
+
+     name	The name of the current function.  The index number is
+		printed after it.  If the function is a member of a
+		cycle, the cycle number is printed between the
+		function's name and the index number.
+
+
+ For the function's parents, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the function into this parent.
+
+     children	This is the amount of time that was propagated from
+		the function's children into this parent.
+
+     called	This is the number of times this parent called the
+		function `/' the total number of times the function
+		was called.  Recursive calls to the function are not
+		included in the number after the `/'.
+
+     name	This is the name of the parent.  The parent's index
+		number is printed after it.  If the parent is a
+		member of a cycle, the cycle number is printed between
+		the name and the index number.
+
+ If the parents of the function cannot be determined, the word
+ `<spontaneous>' is printed in the `name' field, and all the other
+ fields are blank.
+
+ For the function's children, the fields have the following meanings:
+
+     self	This is the amount of time that was propagated directly
+		from the child into the function.
+
+     children	This is the amount of time that was propagated from the
+		child's children to the function.
+
+     called	This is the number of times the function called
+		this child `/' the total number of times the child
+		was called.  Recursive calls by the child are not
+		listed in the number after the `/'.
+
+     name	This is the name of the child.  The child's index
+		number is printed after it.  If the child is a
+		member of a cycle, the cycle number is printed
+		between the name and the index number.
+
+ If there are any cycles (circles) in the call graph, there is an
+ entry for the cycle-as-a-whole.  This entry shows who called the
+ cycle (as parents) and the members of the cycle (as children.)
+ The `+' recursive calls entry shows the number of function calls that
+ were internal to the cycle, and the calls entry for each member shows,
+ for that member, how many times it was called from other members of
+ the cycle.
+
+
+Index by function name
+
+   [2] ConsoleLoop (namecachemain.c) [126] dns_question_pack (dns.c) [163] print_mtag
+ [124] DNSmsg2packet (namecachemain.c) [114] dns_question_parse (dns.c) [123] print_nstring (KadCmeta.c)
+ [111] DNSpacket2msg (namecachemain.c) [129] dns_rr_pack (dns.c) [46] pthread_cond_incrtimedwait
+ [109] DNSpacket_destroy (namecachemain.c) [95] dns_rr_parse (dns.c) [59] pthreadutils_mutex_init_recursive
+ [107] DNSpacket_q_eq (namecachemain.c) [55] domain2hip   [82] purge_expired (namecachemain.c)
+ [102] DNSpacket_q_lt (namecachemain.c) [120] emit (KadCparser.c) [70] putint128n
+ [137] DNSpacket_qi_eq (namecachemain.c) [139] end_is_in (namecachemain.c) [90] putipn
+ [144] DNSquery (namecachemain.c) [178] endreplacesection [164] putmeta
+ [121] DNSreply (namecachemain.c) [49] enq (queue.c)     [165] putmetaname (KadCmeta.c)
+  [58] Debug_pthread_mutex_init [156] expr (KadCparser.c) [158] putnstring (KadCmeta.c)
+  [16] Debug_pthread_mutex_lock [20] find (KadCalloc.c)  [183] putulongle
+  [17] Debug_pthread_mutex_unlock [169] findsection       [81] putushortle
+  [72] KAD_UDPlistener (KadCthread.c) [117] get_new_token (KadCparser.c) [172] qa_rbt_destroy (namecachemain.c)
+  [84] KadC_calloc            [40] getint128n            [143] raw_qa_destroy (namecachemain.c)
+  [12] KadC_find              [39] getipn                 [32] rbt_begin
+   [5] KadC_flog              [41] getpeernode (overnet.c) [103] rbt_destroy
+  [24] KadC_free              [61] getpktt                [31] rbt_erase
+ [115] KadC_getextIP         [140] getstringmetavalue (KadCmeta.c) [56] rbt_eraseKey
+ [116] KadC_gettoken         [130] getulongle             [36] rbt_find
+ [173] KadC_init_network      [38] getushortle            [28] rbt_insert
+   [7] KadC_int128flog        [51] htoa                  [104] rbt_new
+ [174] KadC_list_outstanding_mallocs [52] inet_ntoa_r (net.c) [43] rbt_next
+  [93] KadC_log               [30] insertFixup (rbt.c)    [88] rbt_size
+  [25] KadC_malloc            [18] int128eq               [29] rbt_value
+ [153] KadC_parsefilter       [60] int128log              [71] reapDeadServerThreads
+  [21] KadC_realloc           [19] int128lt              [166] replyA (namecachemain.c)
+   [9] KadC_republish        [170] int128print           [134] replyPTR (namecachemain.c)
+ [175] KadC_start             [98] int128setrandom        [64] resetq (queue.c)
+   [3] KadC_stop              [33] int128xor              [74] retrieveSessionObject
+ [176] KadC_strdup            [75] int128xorlog          [135] reverse_inet_addr
+ [167] KadCdictionary_destroy [73] isOvernetREQ           [35] rotateLeft (rbt.c)
+ [168] KadCdictionary_dump   [133] is_a_local_address (namecachemain.c) [48] rotateRight (rbt.c)
+ [145] KadCtag_begin         [136] is_in (namecachemain.c) [152] s_filter
+ [154] KadCtag_find           [37] isnonroutable         [159] s_filter_dump
+ [155] KadCtag_next           [50] knode_compEQ (KadCrouting.c) [108] sendOvernetBootReq
+ [149] MD4                    [57] knode_compLT (KadCrouting.c) [101] sendOvernetHelloReq
+ [150] MD4_digest            [157] kobject_destroy       [184] sendOvernetIpReq
+ [151] MD4_init              [179] kobject_dump           [91] sendOvernetPeerReq (overnet.c)
+ [131] MD4_update            [147] kobject_new           [128] sendOvernetPublish
+  [96] OvernetSearchInfoSession (overnet.c) [171] kstore_destroy [77] sendOvernetSearch
+ [146] Overnet_find          [162] kstore_insert          [97] sendOvernetSearchInfo
+  [99] Overnet_ping          [148] kstore_new            [185] setup_kba
+  [65] P2PnewSessionsend     [122] local_strndup (KadCmeta.c) [26] sid_compEQ (KadCthread.c)
+  [86] Tryadd2buckets (KadCrouting.c) [180] make_kobject  [27] sid_compLT (KadCthread.c)
+  [66] UDPsend               [118] make_token (KadCparser.c) [142] specialtagname (KadCparser.c)
+  [76] UpdateNodeStatus       [45] millisadd             [186] startKadEngine
+ [100] contact_status_update (overnet.c) [85] millisleep_exit [187] startRTP
+ [138] create_pending_entry (namecachemain.c) [69] newSessionObject [188] startUDPIO
+  [67] deallocSessionObject (KadCthread.c) [106] new_kbucket [189] startreplacesection
+ [132] decodenext (KadCapi.c) [87] new_knode               [4] stopKadEngine
+  [34] deleteFixup (rbt.c)    [63] new_queue             [190] stopRTP
+  [44] deqtw (queue.c)        [78] newpacket             [191] stopUDPIO
+  [68] destroySessionObject  [127] nstrcasecmp            [54] string2int128
+ [177] destroy_kba           [181] overnet_kboot (overnet.c) [160] term (KadCparser.c)
+ [105] destroy_kbucket        [10] overnet_republishnow  [161] trim_qa_rbt (namecachemain.c)
+  [94] destroy_knode         [182] overnetinifileread     [42] trimfgets
+  [80] destroypkt              [6] overnetinifileupdate   [47] ts_set
+  [62] destroyq (queue.c)     [89] overnetputourIPport (overnet.c) [192] udp_dns_init (namecachemain.c)
+  [92] dns_decompress (dns.c) [22] p_insert (KadCalloc.c) [119] udp_send
+ [110] dns_domain_pack        [23] p_remove (KadCalloc.c)  [8] vfprintf
+ [112] dns_msg_destroy        [53] parseline             [193] wsockstart
+ [125] dns_pack               [79] postbuffer2fifo        [83] zfree (dns.c)
+ [113] dns_parse             [141] predicate (KadCparser.c)

@@ -1,0 +1,87 @@
+namecache: DNS caching proxy with P2P pseudo-subdomains
+
+This program represents a proof-of-concept of a KadC application: the implementation of a non-hierarchical "parallel DNS" where top-level pseudodomains (TLPD's) are allocated on a "land grab" basis. Information retrieved that way is completely insecure for a number of reasons, and should only be used as "tip from the street" to be separately verified through other channels. For instance, one could use it to get the current IP address of a VoIP or IM peer given a textual nym expressable as domain name, but the session should then be independently authenticated (e.g. biometrically, or with cryptographic techniques).
+
+Due to its nature, namecache should NEVER be made work as an authoritative server. Instead, it should be restricted to handle only DNS queries coming from a local LAN or,  better, from the same machine (e.g. by binding to 127.0.0.1). Mixing cache and authoritative server functionalities is always a bad idea (see e.g.http://cr.yp.to/djbdns/separation.html ) but in this particular case it would clash with the semantics expected from the DNS.
+
+namecache may operate as a conventional DNS cache, listening for DNS queries on the port 53 of a local machine (typically the same where the application is running). The incoming queries are only accepted if they contain exactly one question (this seems to happen always in desktop applications); if they don't, a response with a "Not Implemented" rcode is sent back to the client. Each acceptable query is looked up in a local cache (implemented through a set of malloc'd records indexed both by creation time and query body, skipping the header) and, if a cache hit is obtained, the associated response is retrieved and used to prepare a cached response. In case of a miss, the cache will place the query in a "pending" table and will also forward a copy to the upstream name servers. The first reply from the name servers will be forwarded to the client and inserted into an in-memory cache (with an expiration time depending on TTL etc). Cache entries found to be stale during a cache query will be expunged; also, if a cache insertion will hit the ceiling of cache_maxentries (as set by the "-c" option), the entry with the earliest expiration time will be expunged to make room. 
+
+If the P2P functionality is used, occurrences of the -t option define strings to be used as "top level (pseudo-)domain". Queries for domains under those tlpd's, instead of being forwarded to the upstream servers, are diverted to the P2P "resolver", which performs a KadC query. The -d option allows to publish on the P2P subsystem a pseudo-domain that will be "seen" by other copies of namecache connected to the Internet, and will persist for a few hours after disconnection.
+
+Complete list of command-line options:
+
+ -h
+  help: prints a short usage message
+  
+ -k kadc_init_file
+  specifies the initialization file for the KadC engine
+  
+ -c cache_maxentries
+  the maximum number of DNS entries (real and P2P). Defaults to 4096.
+
+ -p local_port
+  UDP port number to bind to in order to receive DNS queries. Defaults to 53. Changing it to a non-privileged port (not lower than 1024) allows to run the program as non-root, but requires the use of some system-dependent external tool in order to forward to that port packets addressed to the port 53 (e.g., iptables under Linux kernels 2.4 or higher).
+  
+ -i local_ip
+  IP address to bind to in order to receive DNS queries. Must be one associated to a local interface, including the "loopback" 127.0.0.1 (in which case the DNS queries will only be accepted from the local machine). Default: 0.0.0.0 . NOTE: this is independent from the address to which the KadC library binds for its UDP traffic, which is defined in the KadC ini file referenced by the "-k" option.
+  
+ -s DNS_ipaddress
+  IP address of an upstream DNS server. Up to 4 can be specified (through separate "-s" options).
+  
+ -t tlpd
+  top-level pseudo-domain to be resolved by KadC with P2P queries. E.g. "-t abcd" will result in all queries for "host1.abcd", "www.sub1.abcd" etc. being intercepted and resolved with P2P queries rather than passed to the upstream DNS servers. Up to 100 can be specified (through separate "-t" options).
+  
+ -d pseudodomain[=ipaddress]
+  pseudo-domain to be published through KadC as an A record associated to the sub-parameter following the '=' character, if any, or else the external IP address of this machine. The external address is the one of the NAT device; KadC has primitives to intercept UDP packets sent to its port of that address, effectively tunneling other UDP-based protocols such as RTP or SIP. NOTE: pseudodomain is a fully qualified domain name, not a subdomain of tlpd.
+
+ -u user
+  user under which the program is run after binding to a privileged port (typically, the default 53). This allows to drop the privileges to non-root (see below). In order for this option to work, the program must be started as root. This option is not available on the WIN32 platform. 
+
+ -g group
+  group under which the program is run after binding to a privileged port (typically, the default 53); the GID is retrieved from the groups file (/etc/group). This option is normally specified together with -u; if -g is not given and -u is, the GID will be retrieved from the password file (/etc/passwd) entry for that user. In order for this option to work, the program must be started as root. This option is not available on the WIN32 platform.
+
+Examples of use:
+
+ ./namecache -s ns1.netscape.com -s ns1.yahoo.com -i 127.0.0.1
+ 
+ (Pure DNS cache with forwarding to two upstream nameservers, no P2P pseudo-DNS at all. The resolver of the local machine should point to 127.0.0.1 as single nameserver).
+
+ ./namecache -s ns1.yahoo.com -k kadc.ini -t kad -d www.myd.p2p
+ 
+ (DNS cache with upstream forwarding for domains different from *.kad ; the latter is resolved via P2P queries through the KadC library, configured in the kadc.ini file. An A record associating the pseudo-domain www.myd.p2p to the external address of the local machine is published to the P2P overlay network handled by KadC, and will be visible by other namecache programs running with the "-t p2p" option.)
+
+ ./namecache -s ns1.yahoo.com -k kadc.ini -t kad -t p2p -d www.myd.p2p
+ 
+ (As above, but specifying for P2P resolution two pseudo-TLD: *.kad and *.p2p)
+ 
+ ./namecache -s ns1.yahoo.com -k kadc.ini -t p2p -d x.p2p -d y.p2p=1.2.3.4
+ 
+ (As above, but specifying for P2P resolution two pseudodomains: x.p2p, associated to the external address, and y.p2p, explicitly associated to 1.2.3.4)
+ 
+Signals:
+
+ The program intercepts SIGINT and SIGTERM, and reacts to the first occurrence of any of them with an orderly shutdown (subsequent occurrences have no effect). 
+
+Background operations:
+ 
+ No console input is required by namecache, so the program may be detached from console just by redirecting stdout and stderr to a file. For instance, under *NIX putting in the rc.local the line: 
+ 
+ /home/someuser/main/namecache -s 202.67.240.221 -s 202.67.240.222 -i 192.168.0.128 -u nobody -g nobody < /dev/null >/var/log/namecache 2>&1 &
+ 
+ ...results in the program being started in background upon bootstrap and safely run as "nobody:nobody".
+ 
+Security notes:
+
+On UNIX-like platforms, namecache must be started with root privileges in order to bind to the port 53 (of course, other DNS servers cannot be run at the same time on the same machine). If the user (unwisely) decides that the program should retain root privilege, should at least run it chroot'd; this is made easier if namecache is statically linked, in which case it will only need the presence of the kadc.ini file in the same chroot jail. This will be made much easier and more secure using tools such as Peter Hendrickson's Chroot Builder (http://www.wiredyne.com/software/chrootbuilder.html ).
+Another possibility is to bind namecache to a non-privileged port through the option "-p" (e.g., "-p 5353") and forward the packets from the port 53 to it using some system tool. With Linux kernels 2.2, that can be achieved using ipchains:
+
+  ipchains -I input --proto UDP --dport 53 -j REDIRECT 5353
+
+With 2.4 kernels and above, one can use iptables:
+
+  iptables -t nat -A PREROUTING -p udp --dport 53 -i eth0 -j REDIRECT --to-port 5353
+  
+Unfortunately, that won't work for local traffic.
+
+Finally, the "-u" and "-g" options mentioned above allow to specify a non-root user and a group to which the program should fall back after binding to a privileged port. This is the cleanest solution, but of course such user and group should be created with very limited privileges, and /bin/false as shell.
+

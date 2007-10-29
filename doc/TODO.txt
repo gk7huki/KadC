@@ -1,0 +1,1 @@
+Add to make_object the capability of forcing the data type DWORD for some tags. e.g. tagvalues prefixed with '+' etc.

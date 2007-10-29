@@ -1,0 +1,5 @@
+Broken clients seen roaming in the wild
+
+- some clients send OVERNET_SEARCH_NEXT replies where the hash starts from buf[3] rather than buf[2], is truncated to 15 bytes rather than 16, and has in buf[2] a copy of the peers count, also correctly present in buf[18].
+- some clients do not reply OVERNET_IP_QUERY requests, so it's impossibe to ascertain their ID through a eDonkey Hello over TCP.
+- some clients do not pass through the filter specified in OVERNET_SEARCH_INFO (type 1) the results they return in OVERNET_SEARCH_RESULT packets. This forces the requesting peer to apply receiver-side filtering.

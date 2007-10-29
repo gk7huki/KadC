@@ -1,0 +1,487 @@
+The following notes (entirely preliminary, subject to change without notice, with absolutely NO GUARANTEE etc.) were written as part of the development of KadC, a C library that will eventually allows the calling application to access an existing Kademlia-based overlay network to publish and retrieve <key, data> pairs. Using an established overlay network eliminates critical-mass issues from day one. These notes are hereby placed in the public domain, in the hope of helping the development of interoperable software.
+
+At present there are three Kademlia-based overlay networks: Overnet (closed source, protocol undocumented but partially reverse-engineered by mldonkey and others); eMule-KAD, part of the opensource filesharing application eMule 0.4x; and RevConnect-KAD, part of the opensource filesharing application RevConnect and obtained by modifying eMule-KAD's code. 
+
+All three implementations use a network protocol based on UDP packets addressed to a single port, which however is not fixed in advance (or "well known"). 
+
+Each UDP packet starts with one byte called ID which identifies the Kademlia "flavour": Overnet uses 0x0E3, eMule-KAD uses 0xE4 and 0xE5 (the latter for compressed packets) and RevConnect 0xD0 and 0xD1 (same). Compressed packets have the third and following bytes zlib-compressed.
+The flavour byte is followed by another byte called "opcode" defining the content of the rest of the payload (parameters); some opcodes define "requests", and others "replies". Some opcodes are not followed by any parameter; a particular request always elicits a well-defined set of possible responses.
+
+****** Sessions between peers
+
+Each data exchange is based on short "sessions" between pairs of peers, with an "initiator" initiating the session with exactly one "request" packet, and a "responder" sending back one or more "response" packets. The session may also be aborted for timeout if the expected response does not arrive within a few seconds. From each peer's standpoint, a session is solely identified by the peer's <flavour, IP_address, port_number> triple (Session ID); the protocol does not have anything conceptually similar to RTP's SSRC to assist in identifying packets belonging to the same session. By embedding in the Session ID also the information about who the initiator was, it is possible to hold, concurrently , up to two independent sessions between each pair of peers. A typical case is the overlapping in eMuleKAD between a KADEMLIA_FIREWALLED_REQ and a KADEMLIA_BOOTSTRAP_REQ initiated by the corresponding peer before the completion of the first session: 
+
+1 = Session initiated by A, 2 = Session initiated by B
+
+1	KADEMLIA_FIREWALLED_REQ	 -1->
+1   +.......................<-1- KADEMLIA_FIREWALLED_RES
+1  	.							  (tries to open TCP connection)
+1  	.							  (if OK:) 
+1 2`.```````````````````````<-2- KADEMLIA_BOOTSTRAP_REQ
+1 2.........................<-1- KADEMLIA_FIREWALLED_ACK
+  2```KADEMLIA_BOOTSTRAP_RES -2->
+
+In Overnet flavour, the overlapping is slightly different:
+
+1 = Session initiated by A, 2 = Session initiated by B
+
+1	OVERNET_IP_QUERY (REQ)	 -1->
+1   +.......................<-1- OVERNET_IP_QUERY_ANSWER
+1 	.							  (tries to open TCP connection)
+1 	.							  (if OK, and not always:) 
+1 2`.```````````````````````<-2- OVERNET_IDENTIFY (REQ)
+1 2 . OVERNET_IDENTIFY_REPLY -2->
+1 2 . ``````````````````````<-2- OVERNET_IDENTIFY_ACK (w/ tcp port)
+1   ........................<-1- OVERNET_IP_QUERY_END
+
+To capture the protocol's logic, KadC uses "session objects" which track the session state. A session object (SO) is created when a session is started, and destroyed when the session terminates (at least, according to KadC's opinion), and contains as fields (among others):
+
+- Kademlia flavour, peer's IP address and UDP port number, and a "isServerSession" flag (collectively, the "Session ID")
+- a (pointer to) a FIFO queue object
+- a Pthreads mutex, to ensure atomicity of modifications of the SO
+- a pthread_t object (see below)
+- a pointer to a session service routine
+ 
+Session objects come in two types: "Client Session Objects" (CSO's) and "Server Session Objects" (SSO's). Of course, the "isServerSession" flag is used to differentiate them.  
+
+CSO's are created by the calling application to start a Client Session, calling newSession(KF, peerIP, peerport); this call returns a pointer to a newly-minted SO, and allocates a FIFO from which the caller's code will be able to read incoming UDP packets relative to that session. Replies will be sent by calling a routine performing a blocking sendto on the same UDP socket (sendbuf() and its derivatives). The pthread_t object and the pointer to a session service routine are unused in Client Sessions.
+
+SSO's, on the other hand, are automatically created when KadC receives UDP packets with a <flavour, IP_address, port_number> triple that does not correspond to an existing server session. If the flavour is supported, AND if the opcode corresponds to one in the "REQuests group", an SO is allocated and a thread started to run the Session Service Routine (SSR); the incoming packet is also deposited in the FIFO queue that the SSR will use for UDP input. 
+
+If the <flavour, IP_address, port_number> triple corresponds to an already existing SSO, the only action taken is to deposit the UDP payload in the SSO's input FIFO queue. Packets that are not in the "REQuests group" and arrive without an open client session are simply discarded.
+
+The calling thread (for client sessions) or the SSR (for server sessions) are responsible for detecting end-of-session conditions (either normal completion, or timeout on input) and deallocate the Session Object. This is largely handled behind the scenes by lower-level routines.
+
+****** The Overnet protocol 
+
+The "publishing" process is the single operation used to inject data in the DHT; conversely. "searching" is the retrieval of such data from the DHT. A logical record for publishing is made of two parts, sequentially stored in a contiguous piece of memory (henceforth called "k-object"): a 16-byte key, and a 16-byte piece of data followed by a composite "List of Meta Tags" data. Typically the key and the other 16-byte data are the MD4 hashes of something (e.g., the file whose name is referenced in the List of Meta Tags) but this is not _syntactically_ required.
+
+A List of Meta Tags is a collection of Meta Tags, each of which is a <name, value> pair. The name may be an arbitrary nstring (see below), or a 3-byte nstring of length 1, i.e. the size indicator 01 00  followed by a "special tag" with a semantic value preassigned in the eDonkey/eMule world (filename, filesize, filetype, fileformat etc.). The value of a meta tag may be an nstring, or, in some cases (filesize, bitrate, availability) a 4-byte unsigned long. (eDonkey has other types like float, and still others undocumented like blob, but they don't seem to be used in Overnet). People familiar with BitTorrent will recognize here the basic types of metadata that in BT are called "dictionaries" and "integers". A k-object is just a binary encoding of a list made of two hashes and a variable number of dictionaries and integers. The equivalent of BT "strings" never occurs, because here keywords are NEVER used as metadata in k-object; instead, they are MD4-hashed, and their hashes are used as indices (for more about it, see below).
+
+Note: "nstring" here is defined as a sequence of bytes in ASCII encoding, prefixed by an unsigned short int in little-endian format representing the length of the string (number of bytes that follow the unsigned short itself). For example, "abc" is encoded as the nstring: 0x03, 0x00, 'a', 'b', 'c' . 
+The list of meta tags is prefixed by an unsigned long int in little-endian format indicating the number of meta tags that follow. Summarizing, the structure of a k-object is: key-hash[16], related-hash[16], number-of-metatags[4], meta1, meta2, ... metaN.
+
+A peer receiving a PUBLISH request is supposed to obey and store the k-object in a local database indexed by its key-hash (the first of the two hashes); it is responsibility of the peer issuing the "PUBLISH" request to find the most suitable peers where that piece of data should be stored. This is done with a recursive procedure based on Kademlia's "node lookup" primitive, which in Overnet is implemented through a sequence of "OVERNET_SEARCH / OVERNET_SEARCH_NEXT" sessions.
+NOTE: from the behaviour presented by other clients, it appears that the local store (and therefore the DHT) handles re-publishingin the following way:
+duplicate keys (i.e., occurrences of different records with a same first hash) are allowed, AS LONG AS the second hash is different. If the second hash is also the same, the previously stored record is deleted before entering th enew record. The list of metatags is irrelevant in this regard.
+
+****** The publishing process
+
+It's important to remember that Overnet is not a general-purpose Kademlia overlay network: it's one specialized to publish information about the location to download files defined by particular attributes (hash of the file content, filename or parts thereof (i.e. keywords), filesize, filetype (audio, video, program, document...), fileformat (mp3, zip etc.) etc. In order to accomodate this requirement, publishing is structured as a two-step process:
+
+1. Metadata search: First a set of strings ("keywords") is obtained from the filename by converting it to lowercase, replacing all non-alphanumerics to blanks, and breaking the string into substrings at blanks boundaries. Then, the MD4 hash of the first few (?) keywords is computed, and, for each of those hashes used as keys, a k-object containing the key hash, the MD4 hash of the file content and the set of meta-tags describing complete filename, type, format, size and possibly other attributes (bitrate, playying time ("length") etc.)  is stored in the distributed directory through recursive OVERNET_SEARCH (actually node lookups) followed by OVERNET_PUBLISH requests. As said before, the keywords themselves are NOT stored in the metatags or elsewhere in the k-objects sent with OVERNET_PUBLISH_REQUESTs: only their hashes are used as keys (a copy of which is also at the beginning of the k-object, as said before). The metatags used in this phase only contain file attributes (complete filename, filelength, fileformat, filetype etc.) that appear to be a subset of the ones used by the traditional eDonkey protocol.
+
+2. Sources search: Separately, using the hash of the file content as key, the hash of the peer containing the file (which normally is the same peer sending the OVERNET_PUBLISH request), plus a single metatag with name "loc", is stored in the distributed directory, again with a recursive OVERNET_SEARCH followed by an OVERNET_PUBLISH. The value of of that "loc" metetag is a URI which may take two forms:
+2.1. bcp://ip_addr:port  . In this case, ip_addr is the address of the machine containing the file and port is the TCP port for an edonkey connection to download it.
+2.2. bcp://hash:ip_addr:port . In this case, hash is the node ID of the machine containing the file, ip_addr is still its address, but its TCP port is not accessible because the machine is firewalled/NATted, and "port" represents instead its Overnet UDP port number. The download may still proceed _if_ the downloader is NOT firewalled: in that case, it has to send to ip_addr:port a OVERNET_FIREWALL_CONNECTION packet containing its own TCP port; the target host will then try to "call back" by opening a TCP connection to the downloading peer: if successful, it will send back a OVERNET_FIREWALL_CONNECTION_ACK packet to instruct the downloader to send the download request through the newly-established connection. Otherwise, it will send a OVERNET_FIREWALL_CONNECTION_NACK to close the session. Note: the hash in the URI is the same as the second hash in the OVERNET_PUBLISH request that contains it (node ID of the peer hosting the file).
+In any case, the purpose of the "loc" URI is to point to the node containing a shared file, and give indications about how to connect to it to initiate the download (normally, with the eDonkey protocol). For applications other than file sharing, this second phase may be replaced by something application-specific, or eliminated altogether.
+  
+Here are two examples of k-objects, formatted as C source code: 
+
+unsigned char kob1[] = {
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+	0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,	/* index hash */
+	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+	0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,	/* related hash */
+	3,0,0,0,	/* number of metatags in following list */
+
+	EDONKEY_MTAG_STRING,	/* = 0x02: a string-valued metatag will follow */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_NAME,		/* = 0x01: means "filename" */
+	16,0,					/* its value has length 16 */
+	'M','y',' ','f','i','l','e','-','n','a','m','e','.','m','p','3', /* filename value */
+
+	EDONKEY_MTAG_DWORD,		/* = 0x03: next tag is a DWORD (unsigned long int) */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_SIZE,		/* = 0x02: means "filesize" */
+	0x80,0x0d,0,0,			/* its filesize is 0x0d80 = 3456 bytes */
+
+	EDONKEY_MTAG_STRING,	/* = 0x02: a string-valued metatag will follow */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_TYPE,		/* = 0x03: means "type" */
+	5,0,
+	'a','u','d','i','o'	/* type value */
+};
+
+unsigned char kob2[] = {
+	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+	0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,	/* index hash */
+	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+	0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,	/* related hash */
+	4,0,0,0,	/* number of metatags in following list */
+
+	EDONKEY_MTAG_DWORD,		/* next tag is a DWORD (unsigned long int) */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_SIZE,		/* = 0x03: means "filesize" */
+	0x00,0x08, 0x00, 0x00,	/* its filesize is 0x800 = 2048 bytes */
+
+	EDONKEY_MTAG_STRING,	/* = 0x02: a string-valued metatag will follow */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_NAME,		/* = 0x01: means "filename" */
+	12,0,					/* its value has length 12 */
+	'f','i','l','e','n','a','m','e','.','t','x','t', /* filename value */
+
+	EDONKEY_MTAG_STRING,	/* = 0x02: a string-valued metatag will follow */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_TYPE,		/* = 0x03: means "type" */
+	3,0,					/* its value has length 3 */
+	'd','o','c',			/* type value */
+
+	EDONKEY_MTAG_STRING,	/* = 0x02: a string-valued metatag will follow */
+	1,0,					/* its name has length 1 */
+	EDONKEY_STAG_FORMAT,		/* = 0x04: means "format" */
+	3,0,
+	't','x','t'				/* format value */
+};
+
+
+****** The Searching process
+
+1. Keyword search
+
+A Keyword is a string containing only lowercase alphanumeric characters, extracted from a metavalue of type EDONKEY_MTAG_STRING as described in the "Publishing" section (but for publishing, only keywords extracted from the title are hashed and used as indexes!). In filesharing applications keywords are hashed and used as indexes of metadata, so a search will have to mention at least a keyword.
+
+Entering "s paolo conte" results in OvernetClc issuing OVERNET_SEARCHes of type 2 (OVERNET_FIND_VALUE) for the hash 71c5f2429376fc10bfbbff69ec63a29e (the MD4 of the string "paolo" forced to lowercase, whereas the string "conte" has hash f7ed195b79fc5504bf3b08ecfda3d8b2), to which each peer always replies with "OVERNET_SEARCH_NEXT" containing a list of better peers. When such list contains the replying peer itself, the initiator issues to it a "OVERNET_SEARCH_INFO" of type 0 (without a search tree, just the same hash of the string) or, in alternative, a "OVERNET_SEARCH_INFO" of type 1 (with a search tree restricting the search: NOTE: Ethereal 0.10.4 won't decode these correctly!). The host then sends back one or more OVERNET_SEARCH_RESULT containing: 
+- string hash, 
+- hash of the filename to which the following information refers, 
+- a meta-tag list defining the characteristics of the file (name, size, content[audio...], format[mp3], artist, album, bitrate, availability. 
+Finally, it sends a "OVERNET_SEARCH_END" with the same hash, to announce that no more OVERNET_SEARCH_RESULTs will arrive for it (this effectively closes the session opened by the OVERNET_SEARCH_INFO request).
+The last two unsigned shorts in that packet (after the hash) represent repectively the number of "OVERNET_SEARCH_RESULT" packets sent and, maybe, the ones available(?) if the MAX parameter in OVERNET_SEARCH_INFO had not limited them to MAX-1 (THIS IS HYPOTHETICAL). An extended search could consider relaxing that limit.
+
+2. Sources search
+
+Once the user decides to download a given file, the peer acting as client starts a new round of OVERNET_SEARCHes type 2 for the hash of the _file content_; on peers returning themselves in the list of "better peers" in OVERNET_SEARCH_NEXT, it sends, as usual, OVERNET_SEARCH_INFO (type 0, i.e. without search tree) packets for the same hash, and this time the OVERNET_SEARCH_RESULT replies will return k-object with a tag list made of a single meta tag of type 02 (EDONKEY_MTAG_STRING), name "loc", and value "bcp://ipaddr:port" or "bcp://filehash:ipaddr:port" depending on whether or not it's firewalled (see the section "The publishing process" above).
+
+So, if client looks for "Paolo Conte":
+
+>>> OVERNET_SEARCH(MD4(paolo)) >>>
+<<< OVERNET_SEARCH_NEXT(list of suggested peers)
+
+and, to peers suggesting themselves:
+
+>>> OVERNET_SEARCH_INFO(MD4(paolo), srchfilter('conte'), 0, 100) >>>
+<<< OVERNET_SEARCH_RESULT(MD4(paolo), MD4(file1), MetaTagList(attr(file1))) <<<
+<<< OVERNET_SEARCH_RESULT(MD4(paolo), MD4(file2), MetaTagList(attr(file2))) <<<
+[...]
+<<< OVERNET_SEARCH_RESULT(MD4(paolo), MD4(fileN), MetaTagList(attr(fileN))) <<<
+<<< OVERNET_SEARCH_END(MD4(paolo), nsent, navailable) <<<
+
+Once the user decides to download file 2, to get source location information:
+
+>>> OVERNET_SEARCH(MD4(file2)) >>>
+<<< OVERNET_SEARCH_NEXT(list of suggested peers)
+
+and, to peers suggesting themselves:
+
+>>> OVERNET_SEARCH_INFO(MD4(file2))
+<<< OVERNET_SEARCH_RESULT(MD4(file2), RelHASH, MetaTagList(attr(fileN))) <<<
+<<< OVERNET_SEARCH_RESULT(MD4(file2), RelHASH, MetaTagList(attr(fileN))) <<<
+<<< OVERNET_SEARCH_RESULT(MD4(file2), RelHASH, MetaTagList(attr(fileN))) <<<
+<<< OVERNET_SEARCH_END(MD4(file2), nsent, navailable) <<<
+
+and the MetaTag list in this case is made of a single tag of type "string", name "loc" and value "bcp://....".
+
+01 00 00 00: this list only has one tag
+02: tag type 2, EDONKEY_MTAG_STRING (a pair <string name, string value>)
+03 00: a three-character string follows:
+6c 6f 63: 'loc'
+39 00: a 0x39 (57)-character string follows
+...: "bcp://24352535278...:81.190.41.198:7527"
+
+
+**** EXAMPLES OF SEARCH FILTERS
+
+Here are two exaples of the search filters that may be specified in OVERNET_SEARCH_INFO packets after setting the parameter byte to 0x01:
+
+/* OP AND(OP AND(OP AND ("file", Type="audio"), Size>=1234), Size<=5678) */
+unsigned char sf1[] = {
+	EDONKEY_SEARCH_BOOL, EDONKEY_SEARCH_AND,
+		EDONKEY_SEARCH_BOOL, EDONKEY_SEARCH_AND,
+			EDONKEY_SEARCH_BOOL, EDONKEY_SEARCH_AND,
+				EDONKEY_SEARCH_NAME,	/* = 01 */
+				4, 0,					/* 4-byte value follows */
+				'f', 'i', 'l', 'e',		/* keyword's value is "file" */
+
+				EDONKEY_SEARCH_META,	/* = 02 */
+				05, 00,					/* 5-byte value follows */
+				'a', 'u', 'd', 'i', 'o', /* value is "audio" */
+				1, 0,					/* 1-byte tagname follows */
+				EDONKEY_STAG_TYPE,	/* = 03 */
+
+			EDONKEY_SEARCH_LIMIT,		/* = 03, numeric limit follows */
+			0xd2, 0x04, 0x00, 0x00,		/* limit is 0x4d2 = 1234 */
+			EDONKEY_SEARCH_MIN,			/* = 01, min value */
+			1, 0,						/* 1-byte tagname follows */
+			EDONKEY_STAG_SIZE,			/* = 02 */
+
+
+		EDONKEY_SEARCH_LIMIT,		/* = 03, numeric limit follows */
+		0x2e, 0x16, 0x00, 0x00,		/* limit is 0x162e = 5678 */
+		EDONKEY_SEARCH_MAX,			/* = 01, min value */
+		1, 0,						/* 1-byte tagname follows */
+		EDONKEY_STAG_SIZE			/* = 02 */
+};
+
+/* OP AND(OP AND(OP AND ("filename", Format="txt"), Size>=1), Size<=5678) */
+unsigned char sf2[] = {
+	EDONKEY_SEARCH_BOOL, EDONKEY_SEARCH_AND,
+		EDONKEY_SEARCH_BOOL, EDONKEY_SEARCH_AND,
+			EDONKEY_SEARCH_BOOL, EDONKEY_SEARCH_AND,
+				EDONKEY_SEARCH_NAME,	/* = 01 */
+				8, 0,					/* 8-byte value follows */
+				'f', 'i', 'l', 'e', 'n', 'a', 'm', 'e',	/* keyword's value is "filename" */
+
+				EDONKEY_SEARCH_META,	/* = 02 */
+				3, 0,					/* 3-byte value follows */
+				't', 'x', 't', 			/* value is "txt" */
+				1, 0,					/* 1-byte tagname follows */
+				EDONKEY_STAG_FORMAT,	/* = 03 */
+
+			EDONKEY_SEARCH_LIMIT,		/* = 03, numeric limit follows */
+			0x01, 0x00, 0x00, 0x00,		/* limit is 1 */
+			EDONKEY_SEARCH_MIN,			/* = 01, min value */
+			1, 0,						/* 1-byte tagname follows */
+			EDONKEY_STAG_SIZE,			/* = 02 */
+
+
+		EDONKEY_SEARCH_LIMIT,		/* = 03, numeric limit follows */
+		0x2e, 0x16, 0x00, 0x00,		/* limit is 0x162e = 5678 */
+		EDONKEY_SEARCH_MAX,			/* = 01, min value */
+		1, 0,						/* 1-byte tagname follows */
+		EDONKEY_STAG_SIZE			/* = 02 */
+};
+
+****** Parameter in OVERNET_SEARCH
+
+OVERNET_SEARCH packets contain a one-byte field (between the OVERNET_MESSAGE (0xe3) and the hash to search for) the meaning of which is commonly assumed to be "find node/find value" as described in [Maymounkov-Mazieres]. Actually, all OVERNET_SEARCH are "find node" operations (they don't stop as soon as data is found), and the parameter seems instead to be related to the purpose of the search. In particular:
+
+   Search for loc or metadata: uses only 0x02
+   Publishing:                 uses only 0x04
+   Lookup for its own hash:    uses only 0x14
+
+The lookup for own hash is probably done to refresh the k-bucket array with low-distance neighbours (recommended as part of the boot-up procedure at the end of section 2.3 of [Maymounkov-Mazieres]). Overnet, eMuleKAD and RevConnectKAD also have a separate boot mechanism making use of OVERNET_CONNECT / OVERNET_CONNECT_REPLY sessions.
+
+****** On NATting firewalling
+
+There are a few possible meaning of a node "being firewalled". The most common is that its TCP port in not accessible from an external TCP client, usually depending on dynamic Network Address Translation. A node can check if this is the case by issuing an OVERNET_IP_QUERY request to a known peer. the latter will reply immediately with a OVERNET_IP_QUERY_ANSWER, and at the same time will try to open a TCP connection to the TCP port declared in the OVERNET_IP_QUERY packet. In case of success, it will also send a OVERNET_IP_QUERY_END; otherwise, it won't. The initiating peer may use this to infer whether its TCP port was accessible. As TCP access is a purely auxiliary functionality, unrelated to the DHT function, having the TCP port firewalled does not seriously impact the applicability of this library.
+
+A second meaning of a node "being firewalled" is its inability to receive on its UDP port datagrams sent by peers that have NOT recently received UDP packets by the node. Most of NATting devices currently in use punch a temporary "hole" for incoming UDP packets in order to allow responses sent to the same sending port. This makes it possible for a node to "reach out" and transact with any peer on the Net; however, ONLY recently-queried peers will be able to send UDP packets to that node. Here, the precise meaning of "recently" depends on the implementation of the specific NATting device, but in general it means "a few minutes ago". A node firewalled in this sense will be able to publish and retrieve metadata to/from the DHT, but will NOT be able to receive and procss "publish" or "search" commands. In other words, it will not be an "ultrapeer" or "supernode", to use Gnutella or FastTrack jargon. That won't impact its useability, but will not bring any benefit to the community because the local store won't be part of the DHT. To avoid confusion, we'll call this condition "NATted" rather than firewalled (although its initial cause could be different from NAT). A node advertising in the payload an IP address OR a UDP port different from the one contained in the UDP/IP headers shall be said to be in "leaf mode". KadC allows to be put in leaf mode even when not NATted by setting the flag "leafmode" in the KadEngine structure (pKE->leafmode = 1). In that case, outgoing packets will always declare for the sender node an IP address and a UDP port number equal to zero. 
+
+****** The OVERNET_PEER_NOTFOUND (33, 0x21) opcode 
+
+It appears that packets with opcode 0x21 are sent to nodes that in a OVERNET_SEARCH_NEXT had recommended a peer that turned out to be dead. The packet contains hash, IP and UDP port of the peer that had been recommended, followed by a flag which is 0 if that peer had not answered to OVERNET_SEARCH, and 0xfd in some other cases (?). Probably, the intended action for the recipient is to downgrade the peer by raising its type in both kbuckets/kspace and contacts rbt's.
+
+****** Currently unresolved issues
+
+What is the meaning of the two unsigned short ints after the hash in OvernetSearchResult packets?
+
+#define OVERNET_SEARCH_RESULT               0x11  /* < <SEARCH_HASH> <FILE_HASH> <CNT4> <META>[cnt]*//* OvernetSearchResult in mldonkey */
+/* the two ushorts are listed by OvernetClc:
+> s fat day -Audio
+> Got results. (2650,2650)
+  Got results. (4564,4564)
+Meaning?? */
+
+---------
+
+Which use should a receiving peer make of the previously mentioned parameter in OVERNET_SEARCH (0x02, 0x04 or 0x14)?
+
+---------
+
+
+****** Appendix - Values of constants used by different flavours of Kademlia, and structure of various packet types 
+
+---------
+
+/* eMule KAD */
+#define OP_KADEMLIAHEADER		0xE4
+#define OP_KADEMLIAPACKEDPROT	0xE5
+
+#define KADEMLIA_BOOTSTRAP_REQ	0x00	/* <PEER (sender) [25]>				*/
+#define KADEMLIA_BOOTSTRAP_RES	0x08	/* <CNT [2]> <PEER [25]>*(CNT)		*/
+#define KADEMLIA_HELLO_REQ	 	0x10	/* <PEER (sender) [25]>				*/
+#define KADEMLIA_HELLO_RES     	0x18	/* <PEER (reciever) [25]>			*/
+#define KADEMLIA_FIREWALLED_REQ	0x50	/* <TCPPORT (sender) [2]>			*/
+#define KADEMLIA_FIREWALLED_RES	0x58	/* <IP (sender) [4]>				*/
+#define KADEMLIA_FIREWALLED_ACK	0x59	/* (null) (sent if TCP connection to the declared port did actually succeed)	*/
+#define KADEMLIA_REQ		   	0x20	/* <TYPE [1]> <HASH (target) [16]> <HASH (reciever) 16> */
+#define KADEMLIA_RES			0x28	/* <HASH (target) [16]> <CNT> <PEER [25]>*(CNT) */
+#define KADEMLIA_SEARCH_REQ		0x30	/* <HASH (key) [16]> <ext 0/1 [1]> <SEARCH_TREE>[ext] */
+#define KADEMLIA_SEARCH_RES		0x38	/* <HASH (key) [16]> <CNT1 [2]> (<HASH (answer) [16]> <CNT2 [2]> <META>*(CNT2))*(CNT1) */
+#define KADEMLIA_PUBLISH_REQ	0x40	/* <HASH (key) [16]> <CNT1 [2]> (<HASH (target) [16]> <CNT2 [2]> <META>*(CNT2))*(CNT1) */
+#define KADEMLIA_PUBLISH_RES	0x48	/* <HASH (key) [16]>				*/
+#define KADEMLIA_BUDDY_REQ		0x51	/* <TCPPORT (sender) [2]>			*/
+#define KADEMLIA_BUDDY_CON		0x52	/* 									*/
+#define KADEMLIA_BUDDY_ACK		0x57	/* <TCPPORT (sender) [2]>			*/
+
+/* KADEMLIA (parameter for KADEMLIA_REQ)
+   note: the three most sign. bits are reserved for future flags */
+#define KADEMLIA_FIND_VALUE		0x02
+#define KADEMLIA_STORE			0x04
+#define KADEMLIA_FIND_NODE		0x0B
+
+/***************************************************************************/
+
+/* RevConnect */
+#define OP_REVCONNHEADER		0xD0
+#define OP_REVCONNPACKEDPROT	0xD1
+
+/***************************************************************************/
+
+/* Overnet  - using symbolic names derived from Ethereal's plugin */
+/* In Overnet PEER is 23 byte long, as TCPport is missing */
+
+#define OP_EDONKEYHEADER		0xE3
+
+#define OVERNET_CONNECT                     0x0A  /* > <PEER (sender)[23]> [2+23=25]				*/
+#define OVERNET_CONNECT_REPLY               0x0B  /* < <LEN[2]> <PEER [23]>[len]	[2+2+23*LEN]		*/
+
+#define OVERNET_PUBLICIZE                   0x0C  /* > <PEER (sender)[23]> [2+23=25]				*/ /* OvernetPublicize in mldonkey */
+#define OVERNET_PUBLICIZE_ACK               0x0D  /* < (null) [2+0=2]								*/
+
+#define OVERNET_SEARCH                      0x0E  /* > <PARAMETER[1]> <HASH> [2+1+16=19]			*/ /* OvernetSearch in mldonkey */
+#define OVERNET_SEARCH_NEXT                 0x0F  /* < <HASH> <LEN[1]> <PEER>[len] 2+16+1+23*LEN]	*/ /* OvernetSearchReply in mldonkey */
+
+/* if the peer lists itself in the OVERNET_SEARCH_NEXT reply, the initiator may send it a OVERNET_SEARCH_INFO */
+#define OVERNET_SEARCH_INFO                 0x10  /* > <HASH> 0 <MIN> <MAX> [2+16+1+2+2 = 23]		*/ /* OvernetGetSearchResults in mldonkey */
+												  /*   <HASH> 1 <SEARCH_TREE> <MIN> <MAX> */ /* OvernetGetSearchResults in mldonkey */
+#define OVERNET_SEARCH_RESULT               0x11  /* < <SEARCH_HASH> <FILE_HASH> <CNT4> <META>[cnt]*//* OvernetSearchResult in mldonkey */
+/* the two ushorts are listed by OvernetClc:
+> s fat day -Audio
+> Got results. (2650,2650)
+  Got results. (4564,4564)
+Meaning?? */
+#define OVERNET_SEARCH_END                  0x12  /* < <HASH> <two ushorts> [2+16+4=22]*/	/* OvernetNoResult in mldonkey */
+
+/* cDonkey only publishes 2 METAs: filename (EDONKEY_STAG_NAME) and filesize (EDONKEY_STAG_SIZE) */
+/* OvernetClc publishes filename, filesize, filetype (EDONKEY_STAG_TYPE) fileformat (EDONKEY_STAG_FORMAT) and availability (EDONKEY_STAG_AVAILABILITY) */
+#define OVERNET_PUBLISH                     0x13  /* >  <kwHASH> <fileHASH> <CNT4> <META>[cnt] (publishing filename, filetype, fileformat, filesize...)
+														<fileHASH> <myHASH> <CNT4> <META>[cnt] (publishing loc) */	/* OvernetPublish in mldonkey */
+#define OVERNET_PUBLISH_ACK                 0x14  /* < <firstHASHinPublish>	[2+16=18]						*/	/* OvernetPublished in mldonkey */
+
+#define OVERNET_IDENTIFY                    0x1E  /* > (null)	[2+0=2]							*/ /* (not defined in mldonkey) */
+#define OVERNET_IDENTIFY_REPLY              0x15  /* < <CONTACT (sender)> [2+22=24]				*/	/* (not defined in mldonkey) */
+#define OVERNET_IDENTIFY_ACK                0x16  /* > <PORT_tcp (sender)> [2+2=4]				*/	/* (not defined in mldonkey) */
+
+/* please open a TCP connection to my PORT_tcp (and send me the file targetHASH?)  */
+#define OVERNET_FIREWALL_CONNECTION         0x18  /* > <targetHASH> <senderTcpPORT> [2+16+2=20]	*/ /* OvernetFirewallConnection in mldonkey */
+#define OVERNET_FIREWALL_CONNECTION_ACK     0x19  /* < <targetHASH>	[2+16=18]					*/ /* OvernetFirewallConnectionACK in mldonkey */
+#define OVERNET_FIREWALL_CONNECTION_NACK    0x1A  /* < <targetHASH>	[2+16=18]					*/ /* OvernetFirewallConnectionNACK in mldonkey */
+
+#define OVERNET_IP_QUERY                    0x1B  /* > <PORT_tcp> [2+2=4]						*/ /* OvernetGetMyIP in mldonkey */
+#define OVERNET_IP_QUERY_ANSWER             0x1C  /* < <IP>		[2+4=6]							*/ /* OvernetGetMyIPResult in mldonkey */
+#define OVERNET_IP_QUERY_END                0x1D  /* < (null)	[2+0=2] only if Tport accessible*/ /* OvernetGetMyIPDone in mldonkey */
+
+#define OVERNET_PEER_NOTFOUND				0x21  /* > <HASH> <IP> <PORT> <FLAG> mldonkey removes the peer when it receives it*/  /* OvernetPeerNotFound in mldonkey */
+
+/*
+   PARAMETER used in OVERNET_SEARCH:
+   Search for loc or metadata: uses only 0x02
+   Publishing:                 uses only 0x04
+   Lookup for its own hash:    uses only 0x14
+   Apparently during startup
+ */
+
+#define OVERNET_FIND_SEARCH		0x02 /* use when searching for metadata or loc - NOT used during publishing. */
+#define OVERNET_FIND_ONLY		0x04 /*    used during publishing */
+#define OVERNET_FIND_UNKN		0x0A /*    10 ?? never seen by EM */
+#define OVERNET_FIND_SELF		0x14 /*    20 - used only for node lookups of itself */
+
+/* EDONKEY TAG_TYPEs */
+#define EDONKEY_MTAG_UNKNOWN             0x00
+#define EDONKEY_MTAG_HASH                0x01
+#define EDONKEY_MTAG_STRING              0x02
+#define EDONKEY_MTAG_DWORD               0x03
+#define EDONKEY_MTAG_FLOAT               0x04
+#define EDONKEY_MTAG_BOOL                0x05
+#define EDONKEY_MTAG_BOOL_ARRAY          0x06
+#define EDONKEY_MTAG_BLOB                0x07
+
+/* EDONKEY SPECIAL TAGS */
+#define EDONKEY_STAG_UNKNOWN             0x00
+	/* only following 4 used in Overnet: */
+	/* Note: Overnet's GUI labels "format" the widget to select type;
+	   OvernetClc generates "format" tags for -<Type> command options */
+#define EDONKEY_STAG_NAME                0x01
+#define EDONKEY_STAG_SIZE                0x02
+#define EDONKEY_STAG_TYPE                0x03 /* audio, video, doc... */
+#define EDONKEY_STAG_FORMAT              0x04 /* MP3, zip... */
+
+#define EDONKEY_STAG_COLLECTION          0x05
+#define EDONKEY_STAG_PART_PATH           0x06
+#define EDONKEY_STAG_PART_HASH           0x07
+#define EDONKEY_STAG_COPIED              0x08
+#define EDONKEY_STAG_GAP_START           0x09
+#define EDONKEY_STAG_GAP_END             0x0a
+#define EDONKEY_STAG_DESCRIPTION         0x0b
+#define EDONKEY_STAG_PING                0x0c
+#define EDONKEY_STAG_FAIL                0x0d
+#define EDONKEY_STAG_PREFERENCE          0x0e
+#define EDONKEY_STAG_PORT                0x0f
+#define EDONKEY_STAG_IP                  0x10
+#define EDONKEY_STAG_VERSION             0x11
+#define EDONKEY_STAG_TEMPFILE            0x12
+#define EDONKEY_STAG_PRIORITY            0x13
+#define EDONKEY_STAG_STATUS              0x14
+#define EDONKEY_STAG_AVAILABILITY        0x15
+#define EDONKEY_STAG_QTIME               0x16
+#define EDONKEY_STAG_PARTS               0x17
+
+/* EMULE SPECIAL TAGS */
+#define EMULE_STAG_COMPRESSION         0x20
+#define EMULE_STAG_UDP_CLIENT_PORT     0x21
+#define EMULE_STAG_UDP_VERSION         0x22
+#define EMULE_STAG_SOURCE_EXCHANGE     0x23
+#define EMULE_STAG_COMMENTS            0x24
+#define EMULE_STAG_EXTENDED_REQUEST    0x25
+#define EMULE_STAG_COMPATIBLE_CLIENT   0x26
+
+
+/* SEARCH_TREE's are Forward Polish Notation expressions :
+
+SEARCH   ::= 	0x00 <OPERATOR> <SEARCH> <SEARCH>
+	   			0x01 <STRING>
+	   			0x02 <META_VALUE[]> <META_NAME[]>
+	   			0x03 <DWORD[4]> <MINMAX[1]> <META_NAME[]>
+OPERATOR ::=	0x00 // AND
+				0x01 // OR
+				0x02 // NOT AND
+MINMAX   ::=	0x01 // MIN
+				0x02 // MAX
+*/
+
+/* EDONKEY SEARCH TYPES */
+
+/* <Search> ::=  <Operator> <Search Query> <Search Query> */
+#define EDONKEY_SEARCH_BOOL              0x00
+
+/* <Search> ::=  <String> */
+#define EDONKEY_SEARCH_NAME              0x01
+
+/* <Search> ::=  <String> <Meta tag Name> */
+#define EDONKEY_SEARCH_META              0x02
+
+/* <Search> ::=  <SizeLimit (guint32)> <Minmax (1)> <Meta tag Name> */
+#define EDONKEY_SEARCH_LIMIT             0x03
+
+/* EDONKEY SEARCH OPERATORS */
+#define EDONKEY_SEARCH_AND               0x00
+#define EDONKEY_SEARCH_OR                0x01
+#define EDONKEY_SEARCH_ANDNOT            0x02
+
+/* EDONKEY SEARCH MIN/MAX   */
+#define EDONKEY_SEARCH_MIN               0x01
+#define EDONKEY_SEARCH_MAX               0x02
+
+
+
+****** Time intervals
+
+mldonkey uses these values:
+- every 3 minutes looks for better peers where to publish data that need to be published
+- every 3 hours republishes
+- before publishing, it waits for at least 50 seconds of bootstrap (OvernetConnect)
+- a search is terminated anyway after 140 s (or after finding enough hits, 200 by default)
+- queries are not repeated for at least 5 s
+
+

@@ -1,0 +1,21 @@
+Tinyconfig is a small bash script I wrote when I realized that I wasn't going to succeed in choosing the right initialization method for recursive mutexes just using #ifdef's. One of the reasons for that is that some constants (such as PTHREAD_MUTEX_RECURSIVE) are defined inside an enum, not with a #define, and therefore escape testing by cpp. It ain't no autoconf, but it does the job.
+
+The tinyconfig script generates a config.h containing #define directives that reflect the actual features of the platform where it's run (the Makefile runs it for you as needed). Any other source file may #include config.h and test the macros defined inside it. At present, the only module that includes config.h is pthreadutils.c, where the function pthreadutils_mutex_init_recursive() uses macros reflecting the available methods to initialize recursive mutexes. Here are the contents of config.h  produced by tinyconfig on various platforms:
+
+-------- Linux RH-7.0, GNU Pth 2.0.1:
+
+#define __MUTEX_RECURSIVE_ATTRIBUTE PTHREAD_MUTEX_RECURSIVE
+
+Linux RH-7.0, native threads:
+
+#define __MUTEX_RECURSIVE_ATTRIBUTE PTHREAD_MUTEX_RECURSIVE_NP
+
+-------- Cygwin, POSIX mode:
+
+#define __MUTEX_RECURSIVE_INITIALIZER PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#define __MUTEX_RECURSIVE_ATTRIBUTE PTHREAD_MUTEX_RECURSIVE
+
+-------- Cygwin, WIN32 (MinGW) mode:
+
+#define __MUTEX_RECURSIVE_ATTRIBUTE PTHREAD_MUTEX_RECURSIVE
+

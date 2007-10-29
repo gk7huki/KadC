@@ -1,0 +1,18 @@
+2006-10-19 (ajalkane at gmail.com):
+- Updated kadc.ini with valid contact nodes
+- API for writing an updated inifile
+- Inifile kept closed when not needed
+- Bug fix: inifile not written successfully on exit
+
+2006-08-02 (ajalkane at gmail.com):
+- Fixed overnet search to seed from only alive nodes instead of all
+- Rearranged connecting code to be faster by utilizing all threads more efficiently
+- New interface KadC_find2 that can be used to obtain the hits immediately with callback syntax
+- Searching code rearranged to be one-pass so that hits can be returned faster for the callback syntax
+- A modified example application of KadCmain.c called KadCcbmain.c that shows how the callback syntax can be used.
+- The bootstrap code and logic modified to prefer many threads initially for connecting and less aggressive node searching afterwards 
+- Added mgwz.dll to ease deployment on Windows
+- Some minor changes in Makefile and utility functions, rearranged external libs to its own directory (pthreads-win32 files to external_libs/win32)
+- The old code in regards to connecting/searching can be enabled with compile switches OLD_KBOOT and OLD_SEARCH_ONLY for the time being. Likely to remove the old code in next release unless problems found
+
+
