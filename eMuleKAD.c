@@ -28,7 +28,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-#define DEBUG 1
+
 #include <pthread.h>
 #include <zlib.h>
 #include <string.h>
@@ -210,13 +210,13 @@ int eMuleKadDumppkt(packet *pkt) {
 			ppn = (peernode *)malloc(sizeof(peernode));
 			getpeernode(ppn, &pb);
 #ifdef DEBUG
-			KadC_log("eMule KAD KADEMLIA_BOOTSTRAP_RES: peer %d of %d\n", i, npeers);
-			KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-			KadC_log(" IP: %s", htoa(ppn->ip));
-			KadC_log(" port: %d", ppn->port);
-			KadC_log(" tport: %d", ppn->tport);
-			KadC_log(" type: %d", ppn->type);
-			KadC_log("\n");
+			kc_logPrint("eMule KAD KADEMLIA_BOOTSTRAP_RES: peer %d of %d\n", i, npeers);
+			kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+			kc_logPrint(" IP: %s", htoa(ppn->ip));
+			kc_logPrint(" port: %d", ppn->port);
+			kc_logPrint(" tport: %d", ppn->tport);
+			kc_logPrint(" type: %d", ppn->type);
+			kc_logPrint("\n");
 #endif /* DEBUG */
 			free(ppn); /* // remove this when ppn is put in bucket...*/
 
@@ -233,13 +233,13 @@ int eMuleKadDumppkt(packet *pkt) {
 		ppn = (peernode *)malloc(sizeof(peernode));
 		getpeernode(ppn, &pb);
 #ifdef DEBUG
-		KadC_log("eMule KAD KADEMLIA_HELLO_RES\n");
-		KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-		KadC_log(" IP: %s", htoa(ppn->ip));
-		KadC_log(" port: %d", ppn->port);
-		KadC_log(" tport: %d", ppn->tport);
-		KadC_log(" type: %d", ppn->type);
-		KadC_log("\n");
+		kc_logPrint("eMule KAD KADEMLIA_HELLO_RES\n");
+		kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+		kc_logPrint(" IP: %s", htoa(ppn->ip));
+		kc_logPrint(" port: %d", ppn->port);
+		kc_logPrint(" tport: %d", ppn->tport);
+		kc_logPrint(" type: %d", ppn->type);
+		kc_logPrint("\n");
 #endif /* DEBUG */
 		free(ppn); /* // remove this when ppn is put in bucket...*/
 
@@ -251,9 +251,9 @@ int eMuleKadDumppkt(packet *pkt) {
 			break;	/* fixed length response: only one IP address */
 		myexternalip = getulong(&pb);
 #ifdef DEBUG
-		KadC_log("eMule KAD KADEMLIA_FIREWALLED_RES\n");
-		KadC_log(" My external IP: %s", htoa(myexternalip));
-		KadC_log("\n");
+		kc_logPrint("eMule KAD KADEMLIA_FIREWALLED_RES\n");
+		kc_logPrint(" My external IP: %s", htoa(myexternalip));
+		kc_logPrint("\n");
 #endif /* DEBUG */
 
 			/* now do something  (TBD) */
@@ -262,7 +262,7 @@ int eMuleKadDumppkt(packet *pkt) {
 		if(nrecvd != 2)
 			break;	/* fixed length response: no params returned */
 #ifdef DEBUG
-		KadC_log("eMule KAD KADEMLIA_FIREWALLED_ACK\n");
+		kc_logPrint("eMule KAD KADEMLIA_FIREWALLED_ACK\n");
 #endif /* DEBUG */
 
 			/* now do something  (TBD) */
@@ -274,13 +274,13 @@ int eMuleKadDumppkt(packet *pkt) {
 		ppn = (peernode *)malloc(sizeof(peernode));
 		getpeernode(ppn, &pb);
 #ifdef DEBUG
-		KadC_log("eMule KAD KADEMLIA_BOOTSTRAP_REQ\n");
-		KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-		KadC_log(" IP: %s", htoa(ppn->ip));
-		KadC_log(" port: %d", ppn->port);
-		KadC_log(" tport: %d", ppn->tport);
-		KadC_log(" type: %d", ppn->type);
-		KadC_log("\n");
+		kc_logPrint("eMule KAD KADEMLIA_BOOTSTRAP_REQ\n");
+		kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+		kc_logPrint(" IP: %s", htoa(ppn->ip));
+		kc_logPrint(" port: %d", ppn->port);
+		kc_logPrint(" tport: %d", ppn->tport);
+		kc_logPrint(" type: %d", ppn->type);
+		kc_logPrint("\n");
 #endif /* DEBUG */
 		free(ppn); /* // remove this when/if ppn is put in bucket...*/
 
@@ -288,13 +288,13 @@ int eMuleKadDumppkt(packet *pkt) {
 		break;
 	default:
 #ifdef DEBUG /* DEBUG ONLY */
-		KadC_log("eMuleKadDumppkt() can't recognize these %d bytes:\n", nrecvd);
+		kc_logPrint("eMuleKadDumppkt() can't recognize these %d bytes:\n", nrecvd);
 		for(i=0; i < nrecvd; i++) {
 			if((i % 16) == 0)
-				KadC_log("\n");
-			KadC_log("%02x ", buf[i]);
+				kc_logPrint("\n");
+			kc_logPrint("%02x ", buf[i]);
 		}
-		KadC_log("\n================================\n");
+		kc_logPrint("\n================================\n");
 #endif /* DEBUG */
 
 		unknownOpcode = 1;
@@ -324,13 +324,13 @@ void eMuleKADServerThread(SessionObject *psession, packet *pkt) {
 		ppn = (peernode *)malloc(sizeof(peernode));
 		getpeernode(ppn, &pb);
 #ifdef DEBUG
-		KadC_log("eMule KAD KADEMLIA_BOOTSTRAP_REQ\n");
-		KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-		KadC_log(" IP: %s", htoa(ppn->ip));
-		KadC_log(" port: %d", ppn->port);
-		KadC_log(" tport: %d", ppn->tport);
-		KadC_log(" type: %d", ppn->type);
-		KadC_log("\n");
+		kc_logPrint("eMule KAD KADEMLIA_BOOTSTRAP_REQ\n");
+		kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+		kc_logPrint(" IP: %s", htoa(ppn->ip));
+		kc_logPrint(" port: %d", ppn->port);
+		kc_logPrint(" tport: %d", ppn->tport);
+		kc_logPrint(" type: %d", ppn->type);
+		kc_logPrint("\n");
 		free(ppn); /* // remove this when ppn is put in bucket...*/
 #endif /* DEBUG */
 
@@ -345,7 +345,7 @@ void eMuleKADServerThread(SessionObject *psession, packet *pkt) {
 			status = sendbuf(psession, outbuf, sizeof(outbuf));
 #ifdef DEBUG
 			if(status != 0)
-				KadC_log("sendbuf() returned %d while sending an KADEMLIA_HELLO_RES\n", status);
+				kc_logPrint("sendbuf() returned %d while sending an KADEMLIA_HELLO_RES\n", status);
 #endif /* DEBUG */
 		}
 
@@ -365,13 +365,13 @@ void eMuleKADServerThread(SessionObject *psession, packet *pkt) {
 		ppn = (peernode *)malloc(sizeof(peernode));
 		getpeernode(ppn, &pb);
 #ifdef DEBUG
-		KadC_log("eMule KAD KADEMLIA_BOOTSTRAP_REQ\n");
-		KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-		KadC_log(" IP: %s", htoa(ppn->ip));
-		KadC_log(" port: %d", ppn->port);
-		KadC_log(" tport: %d", ppn->tport);
-		KadC_log(" type: %d", ppn->type);
-		KadC_log("\n");
+		kc_logPrint("eMule KAD KADEMLIA_BOOTSTRAP_REQ\n");
+		kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+		kc_logPrint(" IP: %s", htoa(ppn->ip));
+		kc_logPrint(" port: %d", ppn->port);
+		kc_logPrint(" tport: %d", ppn->tport);
+		kc_logPrint(" type: %d", ppn->type);
+		kc_logPrint("\n");
 		free(ppn); /* // remove this when ppn is put in bucket...*/
 #endif /* DEBUG */
 
@@ -380,7 +380,7 @@ void eMuleKADServerThread(SessionObject *psession, packet *pkt) {
 			if(pkt != NULL)
 				destroypkt(pkt);
 		}
-		KadC_log("End sleep\n");
+		kc_logPrint("End sleep\n");
 
 			/* now maybe do something ;-) (TBD) */
 		break;
@@ -398,7 +398,7 @@ int eMuleKADinifileread(FILE *inifile, peernode *pmynode,
 	/* Read local params from INI file */
 	if(findsection(inifile, "[local]") != 0) {
 #ifdef DEBUG
-		KadC_log("can't find [local] section in KadCmain.ini\n");
+		kc_logPrint("can't find [local] section in KadCmain.ini\n");
 #endif
 		return -1;
 	} else {
@@ -407,7 +407,7 @@ int eMuleKADinifileread(FILE *inifile, peernode *pmynode,
 			char *p = trimfgets(line, sizeof(line), inifile);
 			if(p == NULL) {
 #ifdef DEBUG
-				KadC_log("can't find data under [local] section of KadCmain.ini\n");
+				kc_logPrint("can't find data under [local] section of KadCmain.ini\n");
 #endif
 				return -2;		/* EOF */
 			}
@@ -416,20 +416,20 @@ int eMuleKADinifileread(FILE *inifile, peernode *pmynode,
 				continue;	/* skip comments and blank lines */
 			if(pb[0][0] == '[') {
 #ifdef DEBUG
-				KadC_log("can't find data under [local] section of KadCmain.ini\n");
+				kc_logPrint("can't find data under [local] section of KadCmain.ini\n");
 #endif
 				return -2;		/* start of new section */
 			}
 			if(npars != 5) {
 #ifdef DEBUG
-				KadC_log("bad format for local node data: skipping...\n");
+				kc_logPrint("bad format for local node data: skipping...\n");
 #endif
 				continue;
 			}
 			break;
 		}
 		string2int128((int128)pmynode->hash, pb[0]);
-		pmynode->ip = domain2hip(pb[1]);
+		pmynode->ip = gethostbyname_s(pb[1]);
 		pmynode->port = (unsigned short int)atoi(pb[2]);
 		pmynode->tport = (unsigned short int)atoi(pb[3]);
 		pmynode->type = (unsigned char)atoi(pb[4]);
@@ -437,7 +437,7 @@ int eMuleKADinifileread(FILE *inifile, peernode *pmynode,
 	/* Read contacts from INI file */
 	if(findsection(inifile, "[eMuleKAD_peers]") != 0) {
 #ifdef DEBUG
-		KadC_log("can't find [eMuleKAD_peers] section in KadCmain.ini\n");
+		kc_logPrint("can't find [eMuleKAD_peers] section in KadCmain.ini\n");
 #endif
 		return -3;
 	} else {
@@ -458,13 +458,13 @@ int eMuleKADinifileread(FILE *inifile, peernode *pmynode,
 			}
 			if(npars != 5) {
 #ifdef DEBUG
-				KadC_log("bad format for contact %d lines after [eMuleKAD_peers]: skipping...\n", i);
+				kc_logPrint("bad format for contact %d lines after [eMuleKAD_peers]: skipping...\n", i);
 #endif
 				continue;
 			}
 			contact[nnodes] = (peernode *)malloc(sizeof(peernode));
 			string2int128((int128)contact[nnodes]->hash, pb[0]);
-			contact[nnodes]->ip = domain2hip(pb[1]);
+			contact[nnodes]->ip = gethostbyname_s(pb[1]);
 			contact[nnodes]->port = (unsigned short int)atoi(pb[2]);
 			contact[nnodes]->tport = (unsigned short int)atoi(pb[3]);
 			contact[nnodes]->type = (unsigned char)atoi(pb[4]);
@@ -472,7 +472,7 @@ int eMuleKADinifileread(FILE *inifile, peernode *pmynode,
 		}
 		if(nnodes == 0) {
 #ifdef DEBUG
-			KadC_log("can't find data under [eMuleKAD_peers] section of KadCmain.ini\n");
+			kc_logPrint("can't find data under [eMuleKAD_peers] section of KadCmain.ini\n");
 #endif
 			return -4;		/* EOF */
 		}
@@ -492,7 +492,7 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 		SessionObject *psession;
 		packet *pkt;
 
-		KadC_log("CMD>");
+		kc_logPrint("CMD>");
 		p = fgets(line, sizeof(line) -1, stdin);
 		if(p == NULL) /* EOF? */
 			goto exit;
@@ -507,25 +507,25 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 
 		if(strcmp(cmd, "boot") == 0) {
 			/* temporary: */
-			psession = sendEmKadBootReq(pKE, domain2hip(par1), atoi(par2));
+			psession = sendEmKadBootReq(pKE, gethostbyname_s(par1), atoi(par2));
 			pkt = getpkt(psession);
 			if(pkt == NULL) { 	/* Timeout */
-				KadC_log("*TIMEOUT*\n");
+				kc_logPrint("*TIMEOUT*\n");
 			} else {
 				if(eMuleKadDumppkt(pkt))
-					KadC_log("Response unknown\n");
+					kc_logPrint("Response unknown\n");
 				free(pkt->buf);
 				free(pkt);
 			}
 			destroySessionObject(psession);
 		} else if(strcmp(cmd, "hello") == 0) {
-			psession = sendEmKadHelloReq(pKE, domain2hip(par1), atoi(par2));
+			psession = sendEmKadHelloReq(pKE, gethostbyname_s(par1), atoi(par2));
 			pkt = getpkt(psession);
 			if(pkt == NULL) { 	/* Timeout */
-				KadC_log("*TIMEOUT*\n");
+				kc_logPrint("*TIMEOUT*\n");
 			} else {
 				if(eMuleKadDumppkt(pkt))
-					KadC_log("Response unknown\n");
+					kc_logPrint("Response unknown\n");
 				free(pkt->buf);
 				free(pkt);
 			}
@@ -533,23 +533,23 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 		} else if(strcmp(cmd, "fwcheck") == 0) {
 			/* temporary: */
 			unsigned long int mytcpport = pKE->localnode.tport;
-			psession = sendEmKadFwReq(pKE, mytcpport, domain2hip(par1), atoi(par2));
+			psession = sendEmKadFwReq(pKE, mytcpport, gethostbyname_s(par1), atoi(par2));
 
 			pkt = getpkt(psession);
 			if(pkt == NULL) { 	/* Timeout */
-				KadC_log("*TIMEOUT*\n");
+				kc_logPrint("*TIMEOUT*\n");
 			} else {
 				if(eMuleKadDumppkt(pkt))
-					KadC_log("Response unknown\n");
+					kc_logPrint("Response unknown\n");
 				free(pkt->buf);
 				free(pkt);
 
 				pkt = getpkt(psession);
 				if(pkt == NULL) { 	/* Timeout */
-					KadC_log("*TIMEOUT*\n");
+					kc_logPrint("*TIMEOUT*\n");
 				} else {
 					if(eMuleKadDumppkt(pkt))
-						KadC_log("Response unknown\n");
+						kc_logPrint("Response unknown\n");
 					free(pkt->buf);
 					free(pkt);
 				}
@@ -560,9 +560,9 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 			{
 				void *rbt = pKE->SessionsTable;
 				void *iter;
-				for(iter = rbt_begin(rbt); iter != NULL; iter = rbt_next(rbt, iter)) {
-					SessionObject *psession = (SessionObject *)rbt_value(iter);
-					KadC_log("Forcing timeout on entry %lx {%d>%s:%d %s} fifo: %lx\n",
+				for(iter = rbtBegin(rbt); iter != NULL; iter = rbtNext(rbt, iter)) {
+					SessionObject *psession = (SessionObject *)rbtValue(rbt, iter);
+					kc_logPrint("Forcing timeout on entry %lx {%d>%s:%d %s} fifo: %lx\n",
 							(unsigned long)psession,
 							psession->ID.KF, htoa(psession->ID.IP),
 							psession->ID.port,
@@ -581,7 +581,7 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 			if(ntok > 1 && par1 != NULL && strlen(par1) > 0) {
 				dumpfile = fopen(par1, "wt");
 				if(dumpfile == NULL) {
-					KadC_log("can't open for write the dump file %s\n", par1);
+					kc_logPrint("can't open for write the dump file %s\n", par1);
 					continue;
 				}
 			}
@@ -592,13 +592,13 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 
 				void *rbt = pKE->SessionsTable;
 				void *iter;
-				KadC_log("------- Session Service Table -------\n");
-				for(iter = rbt_begin(rbt); iter != NULL; iter = rbt_next(rbt, iter)) {
+				kc_logPrint("------- Session Service Table -------\n");
+				for(iter = rbtBegin(rbt); iter != NULL; iter = rbtNext(rbt, iter)) {
 					int i;
-					SessionID *key = (SessionID *)rbt_key(iter);
-					SessionObject *psession = (SessionObject *)rbt_value(iter);
+					SessionID *key = (SessionID *)rbtKey(rbt, iter);
+					SessionObject *psession = (SessionObject *)rbtValue(rbt, iter);
 					qnode *cur;
-					KadC_log("%d>%s:%d: entry %lx {%d>%s:%d %s} fifo holds %d: (",
+					kc_logPrint("%d>%s:%d: entry %lx {%d>%s:%d %s} fifo holds %d: (",
 							key->KF, htoa(key->IP), key->port, (unsigned long)psession,
 							psession->ID.KF, htoa(psession->ID.IP),
 							psession->ID.port,
@@ -607,18 +607,18 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 					pthread_mutex_lock(&psession->mutex);
 					for(i=0, cur=psession->fifo->head; cur != NULL; i++, cur = cur->next) {
 						packet *pkt = (packet *)cur->data;
-						KadC_log("[%d]: %lx[%d]; ", i, (unsigned long int)pkt->buf, pkt->len);
+						kc_logPrint("[%d]: %lx[%d]; ", i, (unsigned long int)pkt->buf, pkt->len);
 					}
 					pthread_mutex_unlock(&psession->mutex);
-					KadC_log(")\n");
+					kc_logPrint(")\n");
 				}
-				KadC_log("------- Dead Sessions Table -------\n");
+				kc_logPrint("------- Dead Sessions Table -------\n");
 				pthread_mutex_lock(&pKE->mutex);
 				for(i=0, cur=pKE->DeadServerSessionsFifo->head; cur != NULL; i++, cur = cur->next) {
 					int j;
 					qnode *cur1;
 					SessionObject *psession = (SessionObject *)cur->data;
-					KadC_log("%d>%s:%d %s: entry %lx fifo holds %d: (",
+					kc_logPrint("%d>%s:%d %s: entry %lx fifo holds %d: (",
 							psession->ID.KF,
 							htoa(psession->ID.IP),
 							psession->ID.port,
@@ -628,10 +628,10 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 					pthread_mutex_lock(&psession->mutex);
 					for(j=0, cur1=psession->fifo->head; cur1 != NULL; j++, cur1 = cur1->next) {
 						packet *pkt = (packet *)cur1->data;
-						KadC_log("[%d]: %lx[%d]; ", j, (unsigned long int)pkt->buf, pkt->len);
+						kc_logPrint("[%d]: %lx[%d]; ", j, (unsigned long int)pkt->buf, pkt->len);
 					}
 					pthread_mutex_unlock(&psession->mutex);
-					KadC_log(")\n");
+					kc_logPrint(")\n");
 				}
 				pthread_mutex_unlock(&pKE->mutex);
 			}
@@ -639,7 +639,7 @@ int eMuleKadCommandLoop(KadEngine *pKE) {
 			KadC_list_outstanding_mallocs(3);
 
 		} else {
-			KadC_log("Commands: boot host port | hello host port | fwcheck host port \n");
+			kc_logPrint("Commands: boot host port | hello host port | fwcheck host port \n");
 			/* UDPsend(&ul, (unsigned char *)line, strlen(line), ul.remoteip, ul.remoteport); */
 		}
 

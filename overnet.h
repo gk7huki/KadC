@@ -27,6 +27,9 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef _KADC_OVERNET_H
+#define _KADC_OVERNET_H
+
 /* puts in the buffer pointed by *ppb our IP and port.
    If pKE->leafmode is true, always puts 0; otherwise,
    if external IP is available, put that one, else
@@ -63,3 +66,13 @@ void *OvernetBGthread(void *p);
 
 int OvernetCommandLoop(KadEngine *pKE);
 int Overnet_ping(KadEngine *pKE, unsigned long int ip, unsigned short int port, int millistimeout);
+
+int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nthreads);
+#ifndef OLD_SEARCH_ONLY
+void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned char *psfilter, int sfilterlen, time_t *pstoptime, KadCfind_params *pfpar);
+#endif
+void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned char *psfilter, int sfilterlen, time_t *pstoptime, int max_hits, int nthreads);
+int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nthreads);
+
+
+#endif /* _KADC_OVERNET_H */

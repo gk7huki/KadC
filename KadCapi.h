@@ -1,3 +1,6 @@
+#ifndef KADC_KADCAPI_H
+#define KADC_KADCAPI_H
+
 /* Possible status values in KadCcontext.s */
 typedef enum {
 	KADC_OK,
@@ -8,7 +11,7 @@ typedef enum {
 	KADC_START_REVCONNECT_SECTION_INI_FILE_ERROR,
 	KADC_START_BAD_LOCALNODE_ADDRESS,
 	KADC_START_NO_MEMORY,
-	KADC_START_UDPIO_FAILED,
+	KADC_START_kc_udpIo_FAILED,
 	KADC_START_OVERNET_KADENGINE_FAILED,
 	KADC_START_EMULEKAD_KADENGINE_FAILED,
 	KADC_START_REVCONNECT_KADENGINE_FAILED,
@@ -19,7 +22,7 @@ typedef enum {
 	KADC_STOP_EMULEKAD_FAILED,
 	KADC_STOP_REVCONNECT_FAILED,
 	KADC_STOP_RTP_FAILED,
-	KADC_STOP_UDPIO_FAILED,
+	KADC_STOP_kc_udpIo_FAILED,
 	KADC_STOP_CANT_CREATE_NEW_INI_FILE
 } KadC_status;
 
@@ -34,7 +37,7 @@ typedef struct _KadCcontext {
 	char *errmsg1;
 	char *errmsg2;
 	/* === private fields below, not for user API consumption === */
-	/* UDPIO */ void *pul;
+	/* kc_udpIo */ void *pul;
 	/* KadEngine */ void *pOKE;
 	/* KadEngine */ void *pEKE;
 	/* KadEngine */ void *pRKE;
@@ -247,7 +250,7 @@ KadCtag_type KadCtag_next(KadCtag_iter *iter);
  */
 KadCtag_type KadCtag_find(KadCdictionary *pkd, char *name, KadCtag_iter *iter);
 
-/* prints a text representation of the KadCdictionary through KadC_log
+/* prints a text representation of the KadCdictionary through kc_logPrint
  */
 void KadCdictionary_dump(KadCdictionary *pkd);
 
@@ -305,3 +308,5 @@ typedef struct _KadC_version_t {
 } KadC_version_t;
 
 extern const KadC_version_t KadC_version;
+
+#endif /* KADC_KADCAPI_H */

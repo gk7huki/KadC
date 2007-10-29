@@ -27,7 +27,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
-
+#ifndef KADC_KADCTHREAD_H
+#define KADC_KADCTHREAD_H
 
 typedef enum {
 	EMULE,
@@ -50,7 +51,7 @@ typedef struct _KadEngine {		/* one per flavour */
 	pthread_mutex_t	mutex;		/* a mutex controlling access to the KE */
 	int ServerThreadsPoolsize;	/* number of server threads that can be created at any time */
 	queue *DeadServerSessionsFifo;/* pointer to FIFO holding dead server threads */
-	UDPIO *pul;					/* pointer to UDPIO in charge for I/O */
+	kc_udpIo *pul;					/* pointer to kc_udpIo in charge for I/O */
 	peernode localnode;			/* data of our node for this KE */
 	unsigned long int extip;	/* IP address as seen from outside NAT */
 	unsigned notfw;				/* 0 = we are NAT/firewalled, 1 = we aren't */
@@ -100,7 +101,7 @@ SessionObject *getSessionObject(KadEngine *pKE, unsigned long int IP, unsigned s
 
 int destroySessionObject(SessionObject *psession);
 
-KadEngine *startKadEngine(UDPIO *pul, KadFlavour KF);
+KadEngine *startKadEngine(kc_udpIo *pul, KadFlavour KF);
 int stopKadEngine(KadEngine *pKE);
 
 int reapDeadServerThreads(KadEngine *pKE);
@@ -120,3 +121,5 @@ packet *getpktt(SessionObject *psession, int timeoutmilli);
 packet *waitforpkt(SessionObject *psession, unsigned char opcode1, unsigned char opcode2);
 
 void SessionsTable_dump(KadEngine *pKE);
+
+#endif /* KADC_KADCTHREAD_H */

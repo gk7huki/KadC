@@ -29,15 +29,15 @@ of the following e-mail addresses (replace "(at)" with "@"):
 \****************************************************************/
 
 #include <pthread.h>
-#include <Debug_pthreads.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
-#include <queue.h>
 #include <stdio.h>
-#include <pthreadutils.h>
 
-#include <KadCalloc.h>
+#include "Debug_pthreads.h"
+#include "pthreadutils.h"
+#include "KadCalloc.h"
+#include "queue.h"
 
 /* returns 0 if successful, -1 if no memory, 1 if queue full.
    enq'ing NULL simulates a timeout on the deqw() (and deqw()),

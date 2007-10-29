@@ -81,7 +81,7 @@ KadCcontext KadC_start(char *inifilename, int leafmode, int init_network) {
 	peernode mynode;
 	int ncontacts;
 	KadEngine *pKE;
-	UDPIO *pul;
+	kc_udpIo *pul;
 	int maxcontacts = 2048;
 	void *Ocontacts;
 	FILE *inifile = NULL;
@@ -114,7 +114,7 @@ KadCcontext KadC_start(char *inifilename, int leafmode, int init_network) {
 	}
 #endif
 
-	Ocontacts = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	Ocontacts = rbtNew(int128cmp);
 	if((ncontacts = overnetinifileread(inifile, &mynode, Ocontacts, maxcontacts)) < 0) {
 		static char errnum[16];	/* we don't need to be thread safe here */
 		fclose(inifile);
@@ -126,7 +126,7 @@ KadCcontext KadC_start(char *inifilename, int leafmode, int init_network) {
 	}
 
 #if 0
-	Econtacts = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	Econtacts = rbtNew(int128cmp);
 	if((ncontacts = eMuleKADinifileread(kcc.inifile, &mynode, Econtacts, maxcontacts)) < 0) {
 		static char errnum[16];	/* we don't need to be thread safe here */
 		sprintf(errnum, "%d", ncontacts);
@@ -136,7 +136,7 @@ KadCcontext KadC_start(char *inifilename, int leafmode, int init_network) {
 		return kcc;
 	}
 
-	Rcontacts = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	Rcontacts = rbtNew(int128cmp);
 	if((ncontacts = revconnectinifileread(kcc.inifile, &mynode, Rcontacts, maxcontacts)) < 0) {
 		static char errnum[16];	/* we don't need to be thread safe here */
 		sprintf(errnum, "%d", ncontacts);
@@ -157,31 +157,31 @@ KadCcontext KadC_start(char *inifilename, int leafmode, int init_network) {
 	}
 	port = mynode.port;
 
-	kcc.pul = malloc(sizeof(UDPIO));
+	kcc.pul = malloc(sizeof(kc_udpIo));
 	if(kcc.pul == NULL) {
 		fclose(inifile);
-		kcc.errmsg1 = "malloc(sizeof(UDPIO)) returned NULL";
+		kcc.errmsg1 = "malloc(sizeof(kc_udpIo)) returned NULL";
 		kcc.errmsg2 = "no memory";
 		kcc.s = KADC_START_NO_MEMORY;
 		return kcc;
 	}
 	pul = kcc.pul;
-	memset(pul, 0, sizeof(UDPIO));
+	memset(pul, 0, sizeof(kc_udpIo));
 	pul->bufsize = 2048;
 	pul->localip = ip;
 	pul->localport = port;
 
-	status = startUDPIO(pul);
+	status = startkc_udpIo(pul);
 
 	if(status) {
 		fclose(inifile);
-		kcc.errmsg1 = "startUDPIO() failed returning";
+		kcc.errmsg1 = "startkc_udpIo() failed returning";
 #ifdef __WIN32__
 		kcc.errmsg2 = WSAGetLastErrorMessageOccurred();
 #else
 		kcc.errmsg2 = strerror(errno);
 #endif
-		kcc.s = KADC_START_UDPIO_FAILED;
+		kcc.s = KADC_START_kc_udpIo_FAILED;
 		return kcc;
 	}
 
@@ -196,10 +196,10 @@ KadCcontext KadC_start(char *inifilename, int leafmode, int init_network) {
 	   P2PnewSessionsend(pp2ph, buffer, buflen, destip, destport)
 	   (and P2Psend for continuing the same session, if necessary)
 	   and each received packet will trigger a call to
-	   UDPIOdispatcher(UDPIO *pul). Now start the UDP
-	   handlers, associating them to the UDPIO object.
+	   kc_udpIodispatcher(kc_udpIo *pul). Now start the UDP
+	   handlers, associating them to the kc_udpIo object.
 	   This will result in service routines being invoked
-	   by a separate, dedicated thread (created by startUDPIO()
+	   by a separate, dedicated thread (created by startkc_udpIo()
 	   and usually waiting on a recv() on the UDP socket)
 	   every time a UDP packet is received.
 	 */
@@ -286,7 +286,7 @@ KadC_status KadC_stop(KadCcontext *pkcc) {
 #if 0
 	KadEngine *pEKE, *pRKE;
 #endif
-	UDPIO *pul;
+	kc_udpIo *pul;
 	char *inifilename;
 
 	if(pkcc == NULL)
@@ -314,17 +314,17 @@ KadC_status KadC_stop(KadCcontext *pkcc) {
 		pRKE->shutdown = 1;	/* tell background threads to shut down cleanly */
 #endif
 
-	status = stopUDPIO(pul); /* close UDP I/O */
+	status = stopkc_udpIo(pul); /* close UDP I/O */
 	if(status) {
 		static char errnum[16];	/* we don't need to be thread safe here */
 		sprintf(errnum, "%d", status);
-		pkcc->errmsg1 = "stopUDPIO(&pkcc-pul) failed:";
+		pkcc->errmsg1 = "stopkc_udpIo(&pkcc-pul) failed:";
 #ifdef __WIN32__
 		pkcc->errmsg2 = WSAGetLastErrorMessageOccurred();
 #else
 		pkcc->errmsg2 = strerror(errno);
 #endif
-		pkcc->s = KADC_STOP_UDPIO_FAILED;
+		pkcc->s = KADC_STOP_kc_udpIo_FAILED;
 		return pkcc->s;
 	}
 
@@ -338,21 +338,19 @@ KadC_status KadC_stop(KadCcontext *pkcc) {
 #endif
 
 	if(pOKE != NULL) {
-		int rbt_status;
 		/* Destroy resources allocated in KadC_start() */
 		for(;;) {
 			peernode *ppn;
 			void *iter;
 			
-			iter = rbt_begin(pOKE->contacts);
+			iter = rbtBegin(pOKE->contacts);
 			if(iter == NULL)
 				break;
-			ppn = rbt_value(iter);
-			rbt_erase(pOKE->contacts, iter);
+			ppn = rbtValue(pOKE->contacts, iter);
+			rbtErase(pOKE->contacts, iter);
 			free(ppn);
 		}
-		rbt_status = rbt_destroy(pOKE->contacts);
-		assert(rbt_status == RBT_STATUS_OK); /* otherwise rbt wasn't empty... */		
+		rbtDelete(pOKE->contacts);
 	}
 
 #if 0
@@ -533,18 +531,18 @@ KadC_status KadC_write_inifile(KadCcontext *pkcc, const char *target_file) {
 		if (status == -1) break;
 		fprintf(wfile, "%s\n", section);
 	#ifdef DEBUG
-		KadC_log("KadC_write_inifile: found section %s\n", section);
+		kc_logPrint("KadC_write_inifile: found section %s\n", section);
 	#endif
 		
 		if (strcasecmp(section, "[blacklisted_nodes]") == 0) {
 		#ifdef DEBUG
-			KadC_log("KadC_write_inifile: writing blacklisted nodes\n");
+			kc_logPrint("KadC_write_inifile: writing blacklisted nodes\n");
 		#endif
 			node_blacklist_dump(pkcc->pul, wfile);	
 			blacklist_written = 1;
 		} else if (strcasecmp(section, "[overnet_peers]") == 0) {
 		#ifdef DEBUG
-			KadC_log("KadC_write_inifile: writing overnet_peers\n");
+			kc_logPrint("KadC_write_inifile: writing overnet_peers\n");
 		#endif
 			overnetinifilesectionwrite(wfile, pOKE);
 		} else {
@@ -554,14 +552,14 @@ KadC_status KadC_write_inifile(KadCcontext *pkcc, const char *target_file) {
 
 	if (!blacklist_written) {
 		#ifdef DEBUG
-			KadC_log("KadC_write_inifile: blacklisted nodes section not found, writing now\n");
+			kc_logPrint("KadC_write_inifile: blacklisted nodes section not found, writing now\n");
 		#endif
 		fprintf(wfile, "[blacklisted_nodes]\n");
 		node_blacklist_dump(pkcc->pul, wfile);
 	}
 
 	#ifdef DEBUG
-		KadC_log("KadC_write_inifile: done and closing\n");
+		kc_logPrint("KadC_write_inifile: done and closing\n");
 	#endif
 	
 	fclose(inifile);
@@ -569,11 +567,11 @@ KadC_status KadC_write_inifile(KadCcontext *pkcc, const char *target_file) {
 
 	if (target_file == NULL) {
 	#ifdef DEBUG
-		KadC_log("KadC_write_inifile: renaming %s to %s\n", tfilename, inifilename);
+		kc_logPrint("KadC_write_inifile: renaming %s to %s\n", tfilename, inifilename);
 	#endif
 		remove(inifilename); /* Remove the old one */
 		if (rename(tfilename, inifilename)) {
-			KadC_log("WARNING: failed rename %s -> %s: %d (%s)\n",
+			kc_logPrint("WARNING: failed rename %s -> %s: %d (%s)\n",
 			         tfilename, inifilename, errno, strerror(errno));
 		}
 	}
@@ -618,21 +616,21 @@ int KadC_getncontacts(KadCcontext *pkcc) {
 	pKE = pkcc->pOKE;
 	if(pKE != NULL) {
 		pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK contacts \\\\\\ */
-		ncontacts += rbt_size(pKE->contacts);
+		ncontacts += rbtSize(pKE->contacts);
 		pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK contacts ///// */
 	}
 
 	pKE = pkcc->pEKE;
 	if(pKE != NULL) {
 		pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK contacts \\\\\\ */
-		ncontacts += rbt_size(pKE->contacts);
+		ncontacts += rbtSize(pKE->contacts);
 		pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK contacts ///// */
 	}
 
 	pKE = pkcc->pRKE;
 	if(pKE != NULL) {
 		pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK contacts \\\\\\ */
-		ncontacts += rbt_size(pKE->contacts);
+		ncontacts += rbtSize(pKE->contacts);
 		pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK contacts ///// */
 	}
 	return ncontacts;
@@ -755,9 +753,9 @@ void *KadC_find2(KadCcontext *pkcc, const char *index, KadCfind_params *pfpar) {
 	else
 		MD4((unsigned char *)hashbuf, (unsigned char *)index, strlen(index));
 
-	KadC_log("Searching for hash ");
+	kc_logPrint("Searching for hash ");
 	KadC_int128flog(stdout, hashbuf);
-	KadC_log("...\n");
+	kc_logPrint("...\n");
 
 	/* pnsf = make_nsfilter(filter); */
 	pf = KadC_parsefilter((char *)pfpar->filter);
@@ -778,15 +776,15 @@ void *KadC_find2(KadCcontext *pkcc, const char *index, KadCfind_params *pfpar) {
 
 	psf = psfilter;
 	if(psf != NULL) {
-		KadC_log("Filtering with:\n");
+		kc_logPrint("Filtering with:\n");
 		if(s_filter_dump(&psf, psf+sfilterlen) < 0)
-			KadC_log("--Malformed filter!");
-		KadC_log("\n");
+			kc_logPrint("--Malformed filter!");
+		kc_logPrint("\n");
 	}
 
 	pks = Overnet_find2(pKE, hashbuf, 1, psfilter, sfilterlen, &stoptime, pfpar);
 
-	nhits = rbt_size(pks->rbt);
+	nhits = rbtSize(pks->rbt);
 
 	if(pnsf != NULL)
 		free(pnsf);
@@ -802,10 +800,10 @@ void *KadC_find2(KadCcontext *pkcc, const char *index, KadCfind_params *pfpar) {
 	if (pfpar->hit_callback != NULL &&
 	    pfpar->hit_callback_mode != KADC_COLLECT_HITS) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("hit_callback != NULL, destroying rbt and returning NULL, nhits: %d\n", nhits);
+		kc_logPrint("hit_callback != NULL, destroying rbt and returning NULL, nhits: %d\n", nhits);
 #endif
 		assert(nhits == 0);
-		rbt_destroy(rbt);
+		rbtDelete(rbt);
 		rbt = NULL;
 	}
 	return rbt;
@@ -845,9 +843,9 @@ void *KadC_find(KadCcontext *pkcc, const char *index, const char *filter, int nt
 	else
 		MD4((unsigned char *)hashbuf, (unsigned char *)index, strlen(index));
 
-	KadC_log("Searching for hash ");
+	kc_logPrint("Searching for hash ");
 	KadC_int128flog(stdout, hashbuf);
-	KadC_log("...\n");
+	kc_logPrint("...\n");
 
 	/* pnsf = make_nsfilter(filter); */
 	pf = KadC_parsefilter((char *)filter);
@@ -868,15 +866,15 @@ void *KadC_find(KadCcontext *pkcc, const char *index, const char *filter, int nt
 
 	psf = psfilter;
 	if(psf != NULL) {
-		KadC_log("Filtering with:\n");
+		kc_logPrint("Filtering with:\n");
 		if(s_filter_dump(&psf, psf+sfilterlen) < 0)
-			KadC_log("--Malformed filter!");
-		KadC_log("\n");
+			kc_logPrint("--Malformed filter!");
+		kc_logPrint("\n");
 	}
 
 	pks = Overnet_find(pKE, hashbuf, 1, psfilter, sfilterlen, &stoptime, maxhits, nthreads);
 
-	nhits = rbt_size(pks->rbt);
+	nhits = rbtSize(pks->rbt);
 
 	if(pnsf != NULL)
 		free(pnsf);
@@ -919,9 +917,9 @@ int KadC_republish(KadCcontext *pkcc, const char *index, const char *value, cons
 		return -1;
 	}
 /*
-	KadC_log("Publishing k-object ");
+	kc_logPrint("Publishing k-object ");
 	kobject_dump(pko, ";");
-	KadC_log("\n");
+	kc_logPrint("\n");
 */
 	/* this is an "instant publishing": pko is not stored for
 	   periodic auto-republishing by BGthread (that is to be implemented) */
@@ -1045,31 +1043,31 @@ void KadCdictionary_dump(KadCdictionary *pkd) {
 
 	for(i = 0, KadCtag_begin(pkd, &iter); i < iter.tagsleft; i++, KadCtag_next(&iter)) {
 		if(i > 0)
-			KadC_log(";");
-		KadC_log("%s=", iter.tagname);
+			kc_logPrint(";");
+		kc_logPrint("%s=", iter.tagname);
 		if(iter.tagtype == KADCTAG_HASH)
 			int128print(stdout, (int128)iter.tagvalue);
 		else if(iter.tagtype == KADCTAG_STRING)
-			KadC_log("%s", (char *)iter.tagvalue);
+			kc_logPrint("%s", (char *)iter.tagvalue);
 		else if(iter.tagtype == KADCTAG_ULONGINT)
-			KadC_log("%lu", *(unsigned long int *)iter.tagvalue);
+			kc_logPrint("%lu", *(unsigned long int *)iter.tagvalue);
 		else {
-			KadC_log("*INVALID TAG*");
+			kc_logPrint("*INVALID TAG*");
 			break;
 		}
 	}
 }
 
 int KadC_is_blacklisted(KadCcontext *pkcc, unsigned long int ip, unsigned short int port) {
-	return node_is_blacklisted((UDPIO *)(pkcc->pul), ip, port);
+	return node_is_blacklisted((kc_udpIo *)(pkcc->pul), ip, port);
 }
 
 int KadC_blacklist(KadCcontext *pkcc, unsigned long int ip, unsigned short int port, int howmanysecs) {
-	return node_blacklist((UDPIO *)(pkcc->pul), ip, port, howmanysecs);
+	return node_blacklist((kc_udpIo *)(pkcc->pul), ip, port, howmanysecs);
 }
 
 int KadC_unblacklist(KadCcontext *pkcc, unsigned long int ip, unsigned short int port) {
-	return node_unblacklist((UDPIO *)(pkcc->pul), ip, port);
+	return node_unblacklist((kc_udpIo *)(pkcc->pul), ip, port);
 }
 
 void KadC_listkbuckets(KadCcontext *pkcc) {

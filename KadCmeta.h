@@ -27,6 +27,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef KADC_KADCMETA_H
+#define KADC_KADCMETA_H
 
 /* same as strdup but for memory buffers of given size */
 char *memdup(const char *p, size_t size);
@@ -168,3 +170,4 @@ typedef struct _specialxtable {
 /* print an eDonkey/Overnet TCP Hello message */
 void printHelloMsg(char *buf, char *bufend, unsigned long peerIP);
 
+#endif /* KADC_KADCMETA_H */

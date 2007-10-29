@@ -1,3 +1,6 @@
+#ifndef KADC_MD4_H
+#define KADC_MD4_H
+
 /* Caller must allocate state and digest as unsigned char[16],
    invoke MD4_init() once, process input data with MD4_update(),
    and retrieve digest with MD4_digest().
@@ -17,3 +20,5 @@ unsigned char *MD4_digest (const MD4_state *state, unsigned char *digest);
    and call MD4(), which will return digest's address and the MD4
    hash inside it. */
 unsigned char *MD4(unsigned char *digest, const unsigned char *buf, int len);
+
+#endif /* KADC_MD4_H */

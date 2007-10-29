@@ -140,19 +140,19 @@ exit:
 #endif
 
 void KadC_list_outstanding_mallocs(int maxentries) {
-	KadC_log("Total malloc's: %d, total free's: %d \n",
+	kc_logPrint("Total malloc's: %d, total free's: %d \n",
 			malloc_cnt, free_cnt);
 #ifdef TRACKALLOCATIONS
 	{
 		int i;
-		KadC_log("Outstanding blocks now: %d all-time high: %d\n",
+		kc_logPrint("Outstanding blocks now: %d all-time high: %d\n",
 				nused, nused_max);
 		for(i=0; i < nused && i < maxentries; i++) {
-			KadC_log("0x%8lx: alloc'd in %s, line %d\n",
+			kc_logPrint("0x%8lx: alloc'd in %s, line %d\n",
 				(unsigned long int)inuse[i].p, inuse[i].sfile, inuse[i].lineno);
 		}
 		if(i < nused)
-			KadC_log("(%d additional outstanding blocks are not listed)\n", nused - i);
+			kc_logPrint("(%d additional outstanding blocks are not listed)\n", nused - i);
 	}
 #endif
 }
@@ -168,13 +168,13 @@ void *KadC_realloc(void *p, size_t size, char *sf, int ln) {
 		malloc_cnt++;
 		p = malloc(size);
 		if(p == NULL) {
-			KadC_log("Warning: call to malloc(%d) returned NULL in %s, line %d\n",
+			kc_logPrint("Warning: call to malloc(%d) returned NULL in %s, line %d\n",
 						size, sf, ln);
 		}
 #ifdef TRACKALLOCATIONS
 		status = p_insert(p, sf, ln);
 		if(status != 0){	/* catches table full and malloc() bugs */
-			KadC_log("Fatal: p_insert(%lx, %s, %d) returned NULL in %s, line %d\n",
+			kc_logPrint("Fatal: p_insert(%lx, %s, %d) returned NULL in %s, line %d\n",
 					(unsigned long int)p, sf, ln, __FILE__, __LINE__);
 		}
 #endif
@@ -182,7 +182,7 @@ void *KadC_realloc(void *p, size_t size, char *sf, int ln) {
 #ifdef TRACKALLOCATIONS
 		status = p_remove(p);
 		if(status != 0) {	/* catches double-frees */
-			KadC_log("can't free(%lx): double free? Called in %s, line %d\n",
+			kc_logPrint("can't free(%lx): double free? Called in %s, line %d\n",
 					(unsigned long int)p, sf, ln);
 			assert(status == 0);
 		}
@@ -190,12 +190,12 @@ void *KadC_realloc(void *p, size_t size, char *sf, int ln) {
 		free_cnt++;
 		free(p);
 	} else if(p == NULL && size == 0) {	/* uhm, malloc(0) */
-		KadC_log("Warning: call to malloc(0) or realloc(NULL,0) in %s, line %d\n", sf, ln);
+		kc_logPrint("Warning: call to malloc(0) or realloc(NULL,0) in %s, line %d\n", sf, ln);
 	} else { /* a true realloc() to resize an existing block */
 #ifdef TRACKALLOCATIONS
 		status = p_remove(p);
 		if(status != 0) {	/* catches double-frees */
-			KadC_log("can't free(%lx): double free? Called in %s, line %d\n",
+			kc_logPrint("can't free(%lx): double free? Called in %s, line %d\n",
 					(unsigned long int)p, sf, ln);
 			assert(status == 0);
 		}

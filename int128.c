@@ -37,7 +37,9 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <int128.h>
 #include <pthread.h>
 
-int128 int128move(int128 dest, int128 src) {
+int128
+int128move(int128 dest, int128 src)
+{
 	int i;
 	int128 dest1 = dest;
 	for(i=0; i<16; i++)
@@ -45,6 +47,22 @@ int128 int128move(int128 dest, int128 src) {
 	return dest1;
 }
 
+int128
+int128dup( const int128 org )
+{
+    int128 i1 = calloc( 16, sizeof( char* ) );
+    return int128move( i1, org );
+}
+
+/* TODO: Check if this is equivalent to the ones below */
+int int128cmp( const void* i1, const void* i2 )
+{
+    const int128 *ii1 = (const int128*)i1;
+    const int128 *ii2 = (const int128*)i2;
+    return memcmp( ii1, ii2, 16 );
+}
+
+#if 0
 int int128eq(int128 i1, int128 i2) {
 #if 0
 	int i;
@@ -66,7 +84,7 @@ int int128lt(int128 i1, int128 i2) {
 	}
 	return 0;	/* if they are equal, return 0 */
 }
-
+#endif
 
 /* dest may also coincide with opn1 or opn2 */
 int128 int128xor(int128 dest, int128 opn1, int128 opn2) {
@@ -100,7 +118,9 @@ const static char logtable[256] = {
    (from 0 to 127) to be set to 1: in other words, the integer
    part of its log in base 2. If op is zero it returns -1
    meaning "error" (log(0) is undefined). */
-int int128log(int128 op) {
+int
+int128log(int128 op)
+{
 	int i;
 	int l = 120;
 	for(i=0; i < 16; i++, op++) {
@@ -113,25 +133,45 @@ int int128log(int128 op) {
 	return -1; /* all bytes were zero */
 }
 
-int int128xorlog(int128 opn1, int128 opn2) {
+int
+int128xorlog(int128 opn1, int128 opn2)
+{
 	unsigned char buf[16];
 	int128xor((int128)buf, opn1, opn2);
 	return int128log(buf);
 }
 
-int128 int128setrandom(int128 i128) {
+int128
+int128random( void )
+{
+    int128 i128 = calloc( 16, sizeof( char* ) );
 	int i;
 	for(i=0; i<16; i++)
-		i128[i] = rand();
+		i128[i] = random();
 	return i128;
 }
 
-int128 int128setrandom_r(int128 i128, unsigned int *seed) {
+int128
+int128srandom( unsigned long seed )
+{
+    int128 i128 = calloc( 16, sizeof( char* ) );
+	int i;
+    srandom( seed );
+	for(i=0; i<16; i++)
+		i128[i] = random();
+	return i128;
+}
+
+#if 0 /* UNUSED */
+int128
+int128random_r(int128 i128, unsigned int *seed)
+{
 	int i;
 	for(i=0; i<16; i++)
 		i128[i] = rand_r(seed);
 	return i128;
 }
+#endif
 
 int128 int128eMule2KadC(int128 kadc128int, unsigned long int *emule128int) {
 	int i, ii=0;

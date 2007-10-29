@@ -35,7 +35,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #define RTP_FLAG ('r')
 
 /* hook up the RTP callback and start the RTP out thread  */
-int startRTP(UDPIO *pul);
+int startRTP(kc_udpIo *pul);
 
 /* stop the RTP in callback and RTP out thread */
-int stopRTP(UDPIO *pul);
+int stopRTP(kc_udpIo *pul);

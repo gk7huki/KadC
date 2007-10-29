@@ -27,40 +27,48 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef KADC_KADCLOG_H
+#define KADC_KADCLOG_H
 
+#include <int128.h>
 
-void setup_kba(KadEngine *pKE, int kbsize);
-void destroy_kba(KadEngine *pKE);
-void dump_kba(KadEngine *pKE);
-void dump_kspace(KadEngine *pKE);
+typedef enum {
+    KADC_LOG_VERBOSEDEBUG,
+    KADC_LOG_DEBUG,
+    KADC_LOG_NORMAL,
+    KADC_LOG_ALERT
+} kc_logLevel;
 
-/* Seek a knode in kspace and kbuckets.
-   If not in kbuckets and kspace,
-   			if(isalive) try to add it.
+/* opens filename in append mode and uses it as logfile
+   (internally calls KadClog_setfile() */
+FILE *
+kc_logOpen(char *filename);
 
-   If it's already there:
-   			If isalive reset type to 0;
-   			If ! isalive , increment type;
-   			If type >= 5, remove the corresponding knode from both tables and free it
+/* use as logfile the open stream pointed by the parameter
+   if not set here or by KadClog_open(), logfile defaults to stdout */
+void
+kc_logSetFile( FILE *f );
 
-   In any case, ppn is left alone (not free'd).
-   Returns:
+/* like fprintf(f, fmt, ...) but mutex-locking with log output */
+void
+kc_logFile( kc_logLevel lvl, FILE *f, const char *fmt, ... );
 
-   	-1 our own node or non-routable address: nothing done
+/* like fprintf(logfile, fmt, ...) but mutex-locking with log output */
+void
+kc_logPrint( kc_logLevel lvl, const char *fmt, ... );
 
-	if isalive:
-	 0 added or left there
-     1 could no be added because bucket full
+/* as above, but line is prefixed by ctime(NULL) */
+void
+kc_logTime( kc_logLevel lvl, const char *fmt, ... );
 
-   	if ! isalive:
-   	 0 it was, and was left there, or was not there already
-   	 1 it was there, but it was removed due to type >= 5
+/* like fgets(s, size, stdin) but mutex-locking with log output */
+char *
+KadC_getsn(char *s, int size);
 
- */
-int UpdateNodeStatus(peernode *ppn, KadEngine *pKE, int isalive);
+/* like fprintf for int128 data types in %32x format and mutex-locking with log output */
+#if 0
+void KadC_int128flog(FILE *f, int128 i128);
+void KadC_int128log(int128 i128);
+#endif
 
-/* count the number of knodes */
-int knodes_count(KadEngine *pKE);
-
-/* remove all knodes and return how many they were */
-int erase_knodes(KadEngine *pKE);
+#endif /* KADC_KADCLOG_H */

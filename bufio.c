@@ -46,7 +46,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
  */
 
 /* get an unsigned short stored as little endian */
-unsigned short int getushortle(unsigned char **ppb) {
+short int
+getushortle( char **ppb ) {
 	unsigned short u;
 	u = *(*ppb)++;
 	u += (*(*ppb)++)<<8 ;
@@ -54,7 +55,8 @@ unsigned short int getushortle(unsigned char **ppb) {
 }
 
 /* get an unsigned long stored as little endian */
-unsigned long int getulongle(unsigned char **ppb) {
+long int
+getulongle( char **ppb ) {
 	unsigned long u;
 	u = *(*ppb)++;
 	u += (*(*ppb)++)<<8;
@@ -64,7 +66,8 @@ unsigned long int getulongle(unsigned char **ppb) {
 }
 
 /* get an IP address stored in network byte order (big endian) */
-unsigned long int getipn(unsigned char **ppb) {
+long int
+getipn( char **ppb ) {
 	unsigned long u;
 	u = *(*ppb)++;
 	u = u<<8;
@@ -78,7 +81,8 @@ unsigned long int getipn(unsigned char **ppb) {
 
 
 /* get an int128 stored in network byte order (big endian) */
-int128 getint128n(int128 hash, unsigned char **ppb) {
+int128
+getint128n( int128 hash, char **ppb ) {
 	int i;
 	for(i=0; i<16; i++)
 		hash[i] = *(*ppb)++;
@@ -86,14 +90,16 @@ int128 getint128n(int128 hash, unsigned char **ppb) {
 }
 
 /* store an unsigned short as little endian */
-unsigned char *putushortle(unsigned char **ppb, unsigned short int u) {
+char *
+putushortle( char **ppb, short u ) {
 	*(*ppb)++ = (unsigned char)u; u = u>>8;
 	*(*ppb)++ = (unsigned char)u;
 	return *ppb;
 }
 
 /* store an unsigned long as little endian */
-unsigned char *putulongle(unsigned char **ppb, unsigned long int u) {
+char *
+putulongle( char **ppb, long u ) {
 	*(*ppb)++ = (unsigned char)u; u = u>>8;
 	*(*ppb)++ = (unsigned char)u; u = u>>8;
 	*(*ppb)++ = (unsigned char)u; u = u>>8;
@@ -102,7 +108,8 @@ unsigned char *putulongle(unsigned char **ppb, unsigned long int u) {
 }
 
 /* store an IP address in network byte order (big endian) */
-unsigned char *putipn(unsigned char **ppb, unsigned long int u) {
+char *
+putipn( char **ppb, long u ) {
 	*(*ppb)++ = (unsigned char)(u>>24);
 	*(*ppb)++ = (unsigned char)(u>>16);
 	*(*ppb)++ = (unsigned char)(u>>8);
@@ -111,7 +118,8 @@ unsigned char *putipn(unsigned char **ppb, unsigned long int u) {
 }
 
 /* store an int128 in network byte order (big endian) */
-unsigned char *putint128n(unsigned char **ppb, int128 hash) {
+char *
+putint128n( char **ppb, int128 hash ) {
 	int i;
 	for(i=0; i<16; i++)
 		*(*ppb)++ = hash[i];

@@ -27,6 +27,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef KADC_KADCALLOC_H
+#define KADC_KADCALLOC_H
 
 void *KadC_realloc(void *p, size_t size, char *sf, int ln);
 void *KadC_malloc(size_t size, char *sf, int ln);
@@ -35,6 +37,7 @@ void *KadC_calloc(size_t nelem, size_t elsize, char *sf, int ln);
 char *KadC_strdup(char *s, char *sf, int ln);
 void KadC_list_outstanding_mallocs(int maxentries);
 
+#define __KADC_DO_NOT_REDEFINE_ALLOC_MACROS__
 #ifndef __KADC_DO_NOT_REDEFINE_ALLOC_MACROS__
 #undef realloc
 #define realloc(a,b) KadC_realloc((a),(b), __FILE__, __LINE__)
@@ -47,3 +50,5 @@ void KadC_list_outstanding_mallocs(int maxentries);
 #undef strdup
 #define strdup(s) KadC_strdup(s, __FILE__, __LINE__)
 #endif
+
+#endif /* KADC_KADCALLOC_H */

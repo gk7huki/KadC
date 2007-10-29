@@ -28,6 +28,9 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
+#ifndef _KADC_QUEUE_H
+#define _KADC_QUEUE_H
+
 /* Queues */
 typedef struct _qnode {
 	struct _qnode *next;
@@ -95,3 +98,4 @@ typedef struct _queue {
 /* allocates queue and initializes all fields incl. methods */
 queue *new_queue(int size);
 
+#endif /* _KADC_QUEUE_H */

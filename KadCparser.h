@@ -27,6 +27,9 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef KADC_KADCPARSER_H
+#define KADC_KADCPARSER_H
+
 /* possible status codes returned in the err field of a KadC_parsedfilter
    The concatenation of errmsg1 and errmsg2 gives more detail */
 typedef enum {
@@ -60,3 +63,4 @@ typedef struct _KadC_parsedfilter {
 
 KadC_parsedfilter KadC_parsefilter(char *stringex);
 
+#endif /* KADC_KADCPARSER_H */

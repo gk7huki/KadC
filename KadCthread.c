@@ -28,7 +28,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-/* #define DEBUG 1 */
 #include <pthread.h>
 #include <stdio.h>
 #include <Debug_pthreads.h>
@@ -58,9 +57,9 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 static const pthread_mutex_t mutex_initializer = PTHREAD_MUTEX_INITIALIZER;
 
-static void KAD_UDPlistener(UDPIO *pul);
+static void KAD_UDPlistener(kc_udpIo *pul);
 static int deallocSessionObject(SessionObject *psession);
-
+#if 0
 static int sid_compLT(void *a, void *b) {
 	SessionID *pa = a;
 	SessionID *pb = b;
@@ -80,10 +79,28 @@ static int sid_compEQ(void *a, void *b) {
 	return pa->KF == pb->KF && pa->IP == pb->IP
 		&& pa->port == pb->port && pa->isServerSession == pb->isServerSession;
 }
-
+#endif
+/* TODO: Check this is equivalent to the above... */
+static int sid_cmp(const void *a, const void *b) {
+	const SessionID *pa = a;
+	const SessionID *pb = b;
+    if ( pa->isServerSession != pb->isServerSession )
+        return ( pa->isServerSession < pb->isServerSession ? -1 : 1 );
+    
+    if ( pa->KF != pb->KF )
+        return ( pa->KF < pb->KF ? -1 : 1 );
+    
+    if (pa->IP != pb->IP)
+		return ( pa->IP < pb->IP ? -1 : 1 );
+	
+	if ( pa->port != pb->port)
+        return ( pa->port < pb->port ? -1 : 1 );
+    
+	return 0;
+}
 /* Starts the Kademlia engine for all the implemented flavours */
 
-KadEngine *startKadEngine(UDPIO *pul, KadFlavour KF){
+KadEngine *startKadEngine(kc_udpIo *pul, KadFlavour KF){
 	KadEngine *pKE;
  	int status;
 
@@ -94,9 +111,8 @@ KadEngine *startKadEngine(UDPIO *pul, KadFlavour KF){
 
 		pthreadutils_mutex_init_recursive(&pKE->mutex);
 
-		pKE->SessionsTable = rbt_new(&sid_compLT, &sid_compEQ);
+		pKE->SessionsTable = rbtNew( sid_cmp );
 		if(pKE->SessionsTable != NULL) {
-			rbt_StatusEnum rbt_status;
 
 			pKE->ServerThreadsPoolsize = MAXSERVERTHREADS;
 			pKE->DeadServerSessionsFifo = new_queue(MAXSERVERTHREADS+1);
@@ -121,8 +137,7 @@ KadEngine *startKadEngine(UDPIO *pul, KadFlavour KF){
 				pKE->cmutex = mutex_initializer;
 				return pKE;
 			}
-			rbt_status = rbt_destroy(pKE->SessionsTable);
-			assert(rbt_status == RBT_STATUS_OK);
+			rbtDelete(pKE->SessionsTable);
 			status = pthread_mutex_destroy(&pKE->mutex);
 			assert(status == 0);
 		}
@@ -132,9 +147,8 @@ KadEngine *startKadEngine(UDPIO *pul, KadFlavour KF){
 }
 
 int stopKadEngine(KadEngine *pKE) {
-	UDPIO *pul = pKE->pul;
+	kc_udpIo *pul = pKE->pul;
 	void *iter;
-	rbt_StatusEnum rbt_status;
 
 	pthread_mutex_lock(&pKE->mutex);	/* \\\\\\ LOCK pKE \\\\\\ */
 	if(pKE->KF == EMULE) {
@@ -147,18 +161,18 @@ int stopKadEngine(KadEngine *pKE) {
 		pul->callback[OP_REVCONNPACKEDPROT] = NULL;	/* unhook up I/O */
 	}
 
-	if(rbt_size(pKE->SessionsTable) != 0) {
+	if(rbtSize(pKE->SessionsTable) != 0) {
 
-		KadC_log("**** Sessions Table not empty ****\n");
+		kc_logPrint("**** Sessions Table not empty ****\n");
 		SessionsTable_dump(pKE);
-		KadC_log("Now attempting to flush the stuck sessions\n");
+		kc_logPrint("Now attempting to flush the stuck sessions\n");
 
 		/* empty SessionsTable */
-		for(iter = rbt_begin(pKE->SessionsTable); iter != NULL; iter = rbt_next(pKE->SessionsTable, iter)) {
+		for(iter = rbtBegin(pKE->SessionsTable); iter != NULL; iter = rbtNext(pKE->SessionsTable, iter)) {
 			SessionObject *psession;
 
-			psession = rbt_value(iter);
-			KadC_log("Posting a NULL to session 0x%08x's FIFO\n");
+			psession = rbtValue(pKE->SessionsTable, iter);
+			kc_logPrint("Posting a NULL to session 0x%08x's FIFO\n");
 			postbuffer2fifo(psession, NULL, 0);	/* force a timeout killing session */
 		}
 	}
@@ -167,10 +181,8 @@ int stopKadEngine(KadEngine *pKE) {
 	reapDeadServerThreads(pKE);
 	pKE->DeadServerSessionsFifo->destroy(pKE->DeadServerSessionsFifo);
 	pthread_mutex_lock(&pKE->mutex);	/* \\\\\\ LOCK pKE \\\\\\ */
-	rbt_status = rbt_destroy(pKE->SessionsTable);
+	rbtDelete(pKE->SessionsTable);
 	pthread_mutex_unlock(&pKE->mutex);	/* ///// UNLOCK pKE ///// */
-	if(rbt_status != RBT_STATUS_OK)
-		KadC_log("Groan, still pending session. Oh well.\n");
 
 	pthread_mutex_destroy(&pKE->mutex);
 	pthread_mutex_destroy(&pKE->cmutex);
@@ -287,16 +299,16 @@ void *ServerSessionThread(void *arg) {
 #ifdef DEBUG /* DEBUG ONLY */
 	{
 		int i;
-		KadC_log("ServerSessionThread: received from fifo %d bytes\n", pkt->len);
-		KadC_log("the sender's address/port was ");
-		KadC_log("%s:%d", htoa(psession->ID.IP), psession->ID.port);
+		kc_logPrint("ServerSessionThread: received from fifo %d bytes\n", pkt->len);
+		kc_logPrint("the sender's address/port was ");
+		kc_logPrint("%s:%d", htoa(psession->ID.IP), psession->ID.port);
 		for(i=0; i < pkt->len /* && i < 48 */; i++) {
 			if((i % 16) == 0)
-				KadC_log("\n");
-			KadC_log("%02x ", pkt->buf[i]);
+				kc_logPrint("\n");
+			kc_logPrint("%02x ", pkt->buf[i]);
 		}
 	}
-	KadC_log("\n================================\n");
+	kc_logPrint("\n================================\n");
 #endif
 
 	if(psession->ID.KF == EMULE) {
@@ -307,7 +319,7 @@ void *ServerSessionThread(void *arg) {
 		;	/* To be implemented */
 	} else {
 #ifdef DEBUG /* DEBUG ONLY */
-		KadC_log("Unknown Kademlia Flavour %d\n", psession->ID.KF);
+		kc_logPrint("Unknown Kademlia Flavour %d\n", psession->ID.KF);
 #endif
 	}
 
@@ -343,7 +355,7 @@ int reapDeadServerThreads(KadEngine *pKE) {
 	return i;
 }
 
-static void KAD_UDPlistener(UDPIO *pul) {
+static void KAD_UDPlistener(kc_udpIo *pul) {
 
 	SessionID sid;
 	SessionObject *psession;
@@ -365,16 +377,16 @@ static void KAD_UDPlistener(UDPIO *pul) {
 		int i;
 		/* diag only */
 		/* pul->buf[pul->nrecv] = 0; */
-		KadC_log("| UDPListener: from fd %d received %d characters\n", pul->fd, pul->nrecv);
-		KadC_log("| the sender's address/port was ");
-		KadC_log("| %s:%d", htoa(pul->remoteip), pul->remoteport);
-		/* KadC_log("buffer: <%s>\n", pul->buf); */
+		kc_logPrint("| UDPListener: from fd %d received %d characters\n", pul->fd, pul->nrecv);
+		kc_logPrint("| the sender's address/port was ");
+		kc_logPrint("| %s:%d", htoa(pul->remoteip), pul->remoteport);
+		/* kc_logPrint("buffer: <%s>\n", pul->buf); */
 		for(i=0; i < pul->nrecv /* && i < 48 */; i++) {
 			if((i % 16) == 0)
-				KadC_log("\n| ");
-			KadC_log("%02x ", pul->buf[i]);
+				kc_logPrint("\n| ");
+			kc_logPrint("%02x ", pul->buf[i]);
 		}
-		KadC_log("\n `--------------------------------\n");
+		kc_logPrint("\n `--------------------------------\n");
 	}
 #endif
 
@@ -388,13 +400,13 @@ static void KAD_UDPlistener(UDPIO *pul) {
 		zstatus = uncompress(decompr + 2, &unpackedsize, pul->buf + 2, pul->nrecv - 2);
 		if(zstatus != Z_OK) {
 #ifdef DEBUG
-			KadC_log("uncompress failed returning %d; nrecv = %d\n",
+			kc_logPrint("uncompress failed returning %d; nrecv = %d\n",
 				zstatus, pul->nrecv); /* uncompress failed, hmmm... */
 #endif
 			return;	/* drop packet */
 		} else {
 #ifdef DEBUG
-			KadC_log("uncompress succeeded expanding from %d to %lu bytes\n",
+			kc_logPrint("uncompress succeeded expanding from %d to %lu bytes\n",
 				pul->nrecv - 2, unpackedsize);
 #endif
 		}
@@ -443,16 +455,16 @@ static void KAD_UDPlistener(UDPIO *pul) {
 		/* deposit packet in FIFO queue of the existing session found */
 			status = postbuffer2fifo(psession, buf, pul->nrecv);
 #ifdef VERBOSE_DEBUG
-			KadC_log("Posted packet with opcode %02x to client session %lx\n",
+			kc_logPrint("Posted packet with opcode %02x to client session %lx\n",
 					buf[1], (unsigned long int)psession);
 			if(status != 0) {
-				KadC_log("postbuffer2fifo() failed returning %d\n", status);
+				kc_logPrint("postbuffer2fifo() failed returning %d\n", status);
 			}
 #endif
 		} else {
 #ifdef DEBUG
 			if(psession == NULL) {
-				KadC_log("Strange: a RESponse arrived without a Client Session already open!\n");
+				kc_logPrint("Strange: a RESponse arrived without a Client Session already open!\n");
 			}
 #endif
 		}
@@ -468,7 +480,7 @@ static void KAD_UDPlistener(UDPIO *pul) {
 			pthread_mutex_unlock(&pKE->mutex);	/* //////////////////////////// */
 			if(psession == NULL) {
 	#ifdef DEBUG
-				KadC_log("newSessionObject() failed in UDPlistener()\n");
+				kc_logPrint("newSessionObject() failed in UDPlistener()\n");
 	#endif
 				return;	/* and drop the packet */
 			} else {
@@ -479,7 +491,7 @@ static void KAD_UDPlistener(UDPIO *pul) {
 				status = pthread_create(&psession->thread, NULL, ServerSessionThread, psession);
 				if(status != 0) {
 		#ifdef DEBUG
-					KadC_log("pthread_create() failed returning %d\n", status);
+					kc_logPrint("pthread_create() failed returning %d\n", status);
 		#endif
 					destroySessionObject(psession);
 					return;	/* and drop the packet */
@@ -491,12 +503,12 @@ static void KAD_UDPlistener(UDPIO *pul) {
 		/* put packet into FIFO queue of the server session found or created */
 		status = postbuffer2fifo(psession, buf, pul->nrecv);
 #ifdef VERBOSE_DEBUG
-			KadC_log("Posted packet with opcode %02x to server session %lx\n",
+			kc_logPrint("Posted packet with opcode %02x to server session %lx\n",
 					buf[1], (unsigned long int)psession);
 #endif
 		if(status != 0) {
 #ifdef DEBUG
-			KadC_log("postbuffer2fifo() failed returning %d\n", status);
+			kc_logPrint("postbuffer2fifo() failed returning %d\n", status);
 #endif
 			return;		/* drop the packet */
 		}
@@ -536,7 +548,7 @@ int postbuffer2fifo(SessionObject *psession, unsigned char *buf, int buflen) {
    return NULL if such session existed already */
 SessionObject *newSessionObject(KadEngine *pKE, unsigned long int IP, unsigned short int port, int isServerSession) {
 	SessionObject *psession = NULL;
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	SessionID sid;
 	void *iter;
 
@@ -547,11 +559,11 @@ SessionObject *newSessionObject(KadEngine *pKE, unsigned long int IP, unsigned s
 
 	pthread_mutex_lock(&pKE->mutex);		/* \\\\\\ lock \\\\\\ */
 
-	rbt_status = rbt_find(pKE->SessionsTable, &sid, &iter);
+	iter = rbtFind(pKE->SessionsTable, &sid);
 
-	if(rbt_status != RBT_STATUS_KEY_NOT_FOUND) {
+	if(iter == NULL) {
 #ifdef DEBUG
-		KadC_log("rbt_find() failed returning %d in newSessionObject() while ensuring non-existence of session {%d>%s:%u(%c)}\n",
+		kc_logPrint("rbtFind() failed returning %d in newSessionObject() while ensuring non-existence of session {%d>%s:%u(%c)}\n",
 				rbt_status, sid.KF, htoa(sid.IP), sid.port, sid.isServerSession? 'S' : 'C');
 #endif
 		pthread_mutex_unlock(&pKE->mutex);		/* ///// unlock ///// */
@@ -574,15 +586,15 @@ SessionObject *newSessionObject(KadEngine *pKE, unsigned long int IP, unsigned s
 			psession->fifo = new_queue(MAXPACKETS);
 			if(psession->fifo == NULL) {
 	#ifdef DEBUG
-				KadC_log("new_queue() failed in newSessionObject()\n");
+				kc_logPrint("new_queue() failed in newSessionObject()\n");
 	#endif
 				free(psession);
 				psession = NULL;
 			} else {
-				rbt_status = rbt_insert(pKE->SessionsTable, &psession->ID, psession, 0);
+				rbt_status = rbtInsert(pKE->SessionsTable, &psession->ID, psession);
 				if(rbt_status != RBT_STATUS_OK) {
 		#ifdef DEBUG
-					KadC_log("rbt_insert() failed returning %d\n", rbt_status);
+					kc_logPrint("rbtInsert() failed returning %d\n", rbt_status);
 		#endif
 					psession->fifo->destroy(psession->fifo);	/* deallocate newly created FIFO */
 					pthread_mutex_destroy(&psession->mutex);	/* destroy mutex */
@@ -602,7 +614,7 @@ SessionObject *newSessionObject(KadEngine *pKE, unsigned long int IP, unsigned s
 /* retrieves an existing session object for <KF, IP, port, isServerSession>, or return NULL if there aren't any */
 SessionObject *retrieveSessionObject(KadEngine *pKE, unsigned long int IP, unsigned short int port, int isServerSession) {
 	SessionObject *psession = NULL;
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	SessionID sid;
 	void *iter;
 
@@ -613,17 +625,17 @@ SessionObject *retrieveSessionObject(KadEngine *pKE, unsigned long int IP, unsig
 
 	pthread_mutex_lock(&pKE->mutex);		/* \\\\\\ lock \\\\\\ */
 
-	rbt_status = rbt_find(pKE->SessionsTable, &sid, &iter);
+	iter = rbtFind(pKE->SessionsTable, &sid);
 
-	if(rbt_status != RBT_STATUS_OK && rbt_status != RBT_STATUS_KEY_NOT_FOUND) {
+	if(iter == NULL) {
 #ifdef DEBUG
-		KadC_log("rbt_find() failed returning %d in getSessionObject() while looking for session {%d>%s:%u(%c)}\n",
+		kc_logPrint("rbtFind() failed returning %d in getSessionObject() while looking for session {%d>%s:%u(%c)}\n",
 				rbt_status, sid.KF, htoa(sid.IP), sid.port, sid.isServerSession? 'S' : 'C');
 #endif
 	}
 
 	if(rbt_status == RBT_STATUS_OK) {
-		psession = (SessionObject *)rbt_value(iter); /* retrieve found session */
+		psession = (SessionObject *)rbtValue(pKE->SessionsTable, iter); /* retrieve found session */
 	}
 
 	pthread_mutex_unlock(&pKE->mutex); 		/* ////// unlock ///// */
@@ -654,17 +666,17 @@ SessionObject *getSessionObject(KadEngine *pKE, unsigned long int IP, unsigned s
    Server Session has called destroySessionObject() . */
 
 int destroySessionObject(SessionObject *psession) {
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	queue *pdssq;
 	int status;
 
 	pthread_mutex_lock(&psession->pKE->mutex);	/* \\\\\\\ lock \\\\\\\ */
 	/* remove it from the Kademlia Engine's Session Table */
-	rbt_status = rbt_eraseKey(psession->pKE->SessionsTable, &psession->ID);
+	rbt_status = rbtEraseKey(psession->pKE->SessionsTable, &psession->ID);
 	pthread_mutex_unlock(&psession->pKE->mutex); /* ////// unlock ///// */
 	if(rbt_status != RBT_STATUS_OK) {
 #ifdef DEBUG
-		KadC_log("In destroySessionObject(), rbt_eraseKey() failed returning %d\n", rbt_status);
+		kc_logPrint("In destroySessionObject(), rbtEraseKey() failed returning %d\n", rbt_status);
 #endif
 		return 1;	/* error, SO not found in SessionsTable */
 	}
@@ -674,7 +686,7 @@ int destroySessionObject(SessionObject *psession) {
 		status = pdssq->enq(pdssq, psession);
 		if(status != 0) {
 #ifdef DEBUG /* DEBUG ONLY */
-			KadC_log("in destroySessionObject(), enq of session data to DSSQ failed returning %d\n", status);
+			kc_logPrint("in destroySessionObject(), enq of session data to DSSQ failed returning %d\n", status);
 			return 2;
 #endif
 		}
@@ -697,7 +709,7 @@ static int deallocSessionObject(SessionObject *psession) {
 	packet *pkt;
 
 #ifdef DEBUG
-		KadC_log("deallocSessionObject(%lx)%s\n", (unsigned long int)psession,
+		kc_logPrint("deallocSessionObject(%lx)%s\n", (unsigned long int)psession,
 		(psession->ID.isServerSession?"(server session)":""));
 #endif
 	if(psession->ID.isServerSession) {			/* only for server  sessions */
@@ -708,7 +720,7 @@ static int deallocSessionObject(SessionObject *psession) {
 	}
 	if(psession->fifo == NULL) {	/* it should NEVER happen */
 #ifdef DEBUG
-		KadC_log("deallocSessionObject() found a NULL fifo field!!\n");
+		kc_logPrint("deallocSessionObject() found a NULL fifo field!!\n");
 #endif
 	} else {
 		pthread_mutex_lock(&psession->mutex);	/* \\\\\\\ lock \\\\\\\ */
@@ -729,7 +741,7 @@ static int deallocSessionObject(SessionObject *psession) {
 }
 
 /* Get the existing thread for <KF, IP, port>, or creates a new one (of client type) if
-   none is found, and then sends an UDP datagram through the UDPIO
+   none is found, and then sends an UDP datagram through the kc_udpIo
    using the given packet. Does NOT deallocate the packet. */
 
 SessionObject *P2Psend(KadEngine *pKE, unsigned char *kadbuf, int kadbuflen, unsigned long int remoteip, unsigned short int remoteport) {
@@ -756,14 +768,14 @@ SessionObject *P2PnewSessionsend(KadEngine *pKE, unsigned char *kadbuf, int kadb
 	SessionObject *psession;
 	if(isnonroutable(remoteip) || remoteip == pKE->extip || remoteip == pKE->localnode.ip) {
 #ifdef DEBUG
-		KadC_log("bad IP in P2PnewSessionsend(...%02x, %s:%u) \n", kadbuf[1], htoa(remoteip), remoteport);
+		kc_logPrint("bad IP in P2PnewSessionsend(...%02x, %s:%u) \n", kadbuf[1], htoa(remoteip), remoteport);
 #endif
 		return NULL;
 	}
 	psession = (SessionObject *)newSessionObject(pKE, remoteip, remoteport, 0);
 	if(psession == NULL) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("new session creation failed in P2PnewSessionsend(...%02x, %s:%u) \n", kadbuf[1], htoa(remoteip), remoteport);
+		kc_logPrint("new session creation failed in P2PnewSessionsend(...%02x, %s:%u) \n", kadbuf[1], htoa(remoteip), remoteport);
 #endif
 		return NULL;
 	}
@@ -772,7 +784,7 @@ SessionObject *P2PnewSessionsend(KadEngine *pKE, unsigned char *kadbuf, int kadb
 		return psession;
 	else {
 #ifdef DEBUG
-		KadC_log("UDPsend returned %d in P2PnewSessionsend\n", status);
+		kc_logPrint("UDPsend returned %d in P2PnewSessionsend\n", status);
 #endif
 		destroySessionObject(psession);	/* !!!! destroy before returning NULL ! */
 		return NULL;
@@ -784,12 +796,12 @@ void SessionsTable_dump(KadEngine *pKE) {
 	void *iter;
 
 	pthread_mutex_lock(&pKE->mutex);	/* \\\\\\ LOCK pKE \\\\\\ */
-	for(iter = rbt_begin(rbt); iter != NULL; iter = rbt_next(rbt, iter)) {
+	for(iter = rbtBegin(rbt); iter != NULL; iter = rbtNext(rbt, iter)) {
 		int i;
-		SessionID *key = (SessionID *)rbt_key(iter);
-		SessionObject *psession = (SessionObject *)rbt_value(iter);
+		SessionID *key = (SessionID *)rbtKey(rbt, iter);
+		SessionObject *psession = (SessionObject *)rbtValue(rbt, iter);
 		qnode *cur;
-		KadC_log("%d>%s:%d: entry %lx {%d>%s:%d %s} fifo holds %d: (",
+		kc_logPrint("%d>%s:%d: entry %lx {%d>%s:%d %s} fifo holds %d: (",
 				key->KF, htoa(key->IP), key->port, (unsigned long)psession,
 				psession->ID.KF, htoa(psession->ID.IP),
 				psession->ID.port,
@@ -798,10 +810,10 @@ void SessionsTable_dump(KadEngine *pKE) {
 		pthread_mutex_lock(&psession->mutex);	/* \\\\\\ LOCK session \\\\\\ */
 		for(i=0, cur=psession->fifo->head; cur != NULL; i++, cur = cur->next) {
 			packet *pkt = (packet *)cur->data;
-			KadC_log("[%d]: %lx[%d]; ", i, (unsigned long int)pkt->buf, pkt->len);
+			kc_logPrint("[%d]: %lx[%d]; ", i, (unsigned long int)pkt->buf, pkt->len);
 		}
 		pthread_mutex_unlock(&psession->mutex);	/* ///// UNLOCK session ///// */
-		KadC_log(")\n");
+		kc_logPrint(")\n");
 	}
 	pthread_mutex_unlock(&pKE->mutex);	/* ///// UNLOCK pKE ///// */
 }

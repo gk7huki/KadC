@@ -41,31 +41,31 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <KadClog.h>
 #include <RTP.h>
 
-/* called by UDPIOdispatcher if first byte is RTP_FLAG */
-void RTP_UDPlistener(UDPIO *pul){
+/* called by kc_udpIodispatcher if first byte is RTP_FLAG */
+void RTP_UDPlistener(kc_udpIo *pul){
 	int i;
 
 	/* pul->arg[pul->buf[0]] contains NULL, or a void* preset by startRTP() */
 
-	KadC_log("RTPin: received %d bytes\n", pul->nrecv);
-	KadC_log("the sender's address/port was ");
-	KadC_log("%s:%d", htoa(pul->remoteip), pul->remoteport);
+	kc_logPrint("RTPin: received %d bytes\n", pul->nrecv);
+	kc_logPrint("the sender's address/port was ");
+	kc_logPrint("%s:%d", htoa(pul->remoteip), pul->remoteport);
 	for(i=0; i < pul->nrecv; i++) {
 		if((i % 16) == 0)
-			KadC_log("\n");
-		KadC_log("%02x ", pul->buf[i]);
+			kc_logPrint("\n");
+		kc_logPrint("%02x ", pul->buf[i]);
 	}
-	KadC_log("\n================================\n");
+	kc_logPrint("\n================================\n");
 
 }
 
-/* Hook the RTP_UDPlistener to the UDPIO's UDP listener
-   of the UDPIO referenced by pul. Packets starting with
+/* Hook the RTP_UDPlistener to the kc_udpIo's UDP listener
+   of the kc_udpIo referenced by pul. Packets starting with
    RTP_FLAG as first byte will cause a call to RTP_UDPlistener
    Optionally, a single reference to any data block may be placed in
    pul->callback[RTP_FLAG] and retrieved by the listener as (void *).
  */
-int startRTP(UDPIO *pul) {
+int startRTP(kc_udpIo *pul) {
 
 	/* setup hardware, launch thread to handle mike and send RTP stream */
 	/* (not implemented yet) */
@@ -80,7 +80,7 @@ int startRTP(UDPIO *pul) {
 
 /* stop the RTP in callback and RTP out thread */
 
-int stopRTP(UDPIO *pul) {
+int stopRTP(kc_udpIo *pul) {
 
 	/* Unhook UDP listener */
 	pul->callback[RTP_FLAG] = NULL;

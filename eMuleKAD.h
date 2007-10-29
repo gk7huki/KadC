@@ -27,6 +27,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef KADC_EMULEKAD_H
+#define KADC_EMULEKAD_H
 
 SessionObject *sendEmKadBootReq(KadEngine *pKE, unsigned long int bootip, int bootport);
 SessionObject *sendEmKadHelloReq(KadEngine *pKE, unsigned long int bootip, int bootport);
@@ -38,3 +40,5 @@ int iseMuleREQ(unsigned char opcode);
 
 int eMuleKADinifileread(FILE *contactfile, peernode *pmynode, peernode *contact[], int ncontacts);
 int eMuleKadCommandLoop(KadEngine *pKE);
+
+#endif /* KADC_EMULEKAD_H */

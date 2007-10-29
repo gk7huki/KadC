@@ -28,13 +28,13 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 /*#define OPTIMIZE_BY_RECURSING_ONLY_ON_PEERS_BETTER_THAN_CURRENT_BEST 1*/
+
 #include <pthread.h>
-#define DEBUG 1
-/* #define VERBOSE_DEBUG 1 */
-#ifdef NDEBUG
+
+/*#ifdef NDEBUG
 #undef DEBUG
 #undef VERBOSE_DEBUG
-#endif
+#endif*/
 
 
 #include <string.h>
@@ -276,18 +276,18 @@ static void contact_status_update(KadEngine *pKE, peernode *ppn, int isalive) {
 	} else {
 		ppn->type++;
 		if(ppn->type >= NONRESPONSE_THRESHOLD) {
-			rbt_StatusEnum rbt_status;
+			RbtStatus rbt_status;
 			pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-			rbt_status = rbt_eraseKey(pKE->contacts, ppn->hash);
+			rbt_status = rbtEraseKey(pKE->contacts, ppn->hash);
 			pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 			if(rbt_status == RBT_STATUS_OK) { /* it could also not be, if the entry was removed why the rbt was unlocked */
 	#ifdef VERBOSE_DEBUG
-				KadC_log("in BG thread: peer %s:%u evicted from contacts table as its type (%d) exceeded the limit\n",htoa(ppn->ip), ppn->port, ppn->type);
+				kc_logPrint("in BG thread: peer %s:%u evicted from contacts table as its type (%d) exceeded the limit\n",htoa(ppn->ip), ppn->port, ppn->type);
 	#endif
 				free(ppn);
 			} else {
 	#ifdef DEBUG
-				KadC_log("in BG thread: failed eviction of peer %s:%u, type %d: rbt_status = %d\n",htoa(ppn->ip), ppn->port, ppn->type, rbt_status);
+				kc_logPrint("in BG thread: failed eviction of peer %s:%u, type %d: rbt_status = %d\n",htoa(ppn->ip), ppn->port, ppn->type, rbt_status);
 	#endif
 			}
 		}
@@ -327,7 +327,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 	
 	/* spawn threads to process queue */
 #ifdef VERBOSE_DEBUG
-		KadC_log("Going to spawn %d copies of overnet_kboot_th", nthreads);
+		kc_logPrint("Going to spawn %d copies of overnet_kboot_th", nthreads);
 #endif
 	for(i=0; i < nthreads; i++) {
 		pthread_create(&th[i], NULL, &overnet_kboot_th, &pblk);
@@ -346,40 +346,40 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 		/* Seed threads with peers to check from contacts */
 		for (j = pblk.checkingnodes; j < nthreads; j++) {			
 		#ifdef VERBOSE_DEBUG
-			KadC_log("Checking peer from contacts\n");
-			KadC_log("thread %d randhash before setrandom ", pthread_self());
+			kc_logPrint("Checking peer from contacts\n");
+			kc_logPrint("thread %d randhash before setrandom ", pthread_self());
 			KadC_int128log(randhash);
-			KadC_log("\n"); /*, rand_seed is %d, original %d\n", rand_seed, rand_seed_orig); */
+			kc_logPrint("\n"); /*, rand_seed is %d, original %d\n", rand_seed, rand_seed_orig); */
 		#endif
 			int128setrandom(randhash);
 	#ifdef VERBOSE_DEBUG
-			KadC_log("thread %d Pinging peer with hash  ", pthread_self());
+			kc_logPrint("thread %d Pinging peer with hash  ", pthread_self());
 			KadC_int128log(randhash);
-			KadC_log("\n"); /* , rand_seed is %d, original %d, randhash %p\n", rand_seed, rand_seed_orig, randhash); */
+			kc_logPrint("\n"); /* , rand_seed is %d, original %d, randhash %p\n", rand_seed, rand_seed_orig, randhash); */
 	#endif
-			rbt_find(pKE->contacts, randhash, &iter);
+			iter = rbtFind(pKE->contacts, randhash);
 	
 			if(iter != NULL) {
 				peernode *ppndup;
-				ppn = rbt_value(iter);
+				ppn = rbtValue(pKE->contacts, iter);
 
 				ppndup = malloc(sizeof(peernode));
 				memcpy(ppndup, ppn, sizeof(peernode));
 				/* prime the queue with bootstrap peer */
 				if(pblk.fifo_check_peer->enq(pblk.fifo_check_peer, ppndup) != 0) {
 #ifdef VERBOSE_DEBUG
-					KadC_log("Failed to enque the node\n");
+					kc_logPrint("Failed to enque the node\n");
 #endif
 					free(ppndup);	 /* if there is no space in FIFO queue, throw away */
 				} else {
 					pblk.checkingnodes++;
 #ifdef VERBOSE_DEBUG
-					KadC_log("Enqued the node, checkingnodes now %d\n", pblk.checkingnodes);
+					kc_logPrint("Enqued the node, checkingnodes now %d\n", pblk.checkingnodes);
 #endif
 				}
 			} else {
 #ifdef VERBOSE_DEBUG
-				KadC_log("No peer found for the hash???\n");
+				kc_logPrint("No peer found for the hash???\n");
 #endif				
 			}
 		}
@@ -387,12 +387,12 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 				
 		/* Wait for peer nodes that will be used for IP request */
 #ifdef VERBOSE_DEBUG
-		KadC_log("Waiting for peer nodes\n", nthreads);
+		kc_logPrint("Waiting for peer nodes\n", nthreads);
 #endif		
 		ppn = pblk.fifo_check_ip->deqtw(pblk.fifo_check_ip, 1000);
 		if (!ppn) {
 	#ifdef VERBOSE_DEBUG
-			KadC_log("None found\n");
+			kc_logPrint("None found\n");
 	#endif		
 			continue;
 		}
@@ -411,7 +411,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 			pthread_create(&tcpsrv, NULL, &tcpsrv_th, &tcpsrvparblock);	/* launch TCP listener */
 
 #ifdef VERBOSE_DEBUG
-			KadC_log("Ping OK with %s:%d but extip still unchecked: trying sendOvernetIpReq()\n",
+			kc_logPrint("Ping OK with %s:%d but extip still unchecked: trying sendOvernetIpReq()\n",
 				htoa(ppn->ip), ppn->port);
 #endif
 			psession = sendOvernetIpReq(pKE, pKE->localnode.tport, ppn->ip, ppn->port);
@@ -419,7 +419,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 				pkt = getpktt(psession, 5000);				/* expect OVERNET_IP_QUERY_ANSWER */
 				if(pkt == NULL) { 	/* Timeout */
 #ifdef VERBOSE_DEBUG
-					KadC_log("TIMEOUT while expecting OVERNET_IP_QUERY_ANSWER\n");
+					kc_logPrint("TIMEOUT while expecting OVERNET_IP_QUERY_ANSWER\n");
 #endif
 					tcpsrvparblock.quit = 1;
 				} else {
@@ -427,20 +427,20 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 					if(pkt->len == 6) {
 						extip = getipn(&p);
 #ifdef VERBOSE_DEBUG
-						KadC_log("Our IP: %s\n", htoa(extip));
+						kc_logPrint("Our IP: %s\n", htoa(extip));
 #endif
 						ipchecked = 1;
 					} else {
 #ifdef VERBOSE_DEBUG
-						KadC_log("Hmm, pkt->len was %d instead of 6:\n", pkt->len);
+						kc_logPrint("Hmm, pkt->len was %d instead of 6:\n", pkt->len);
 						{
 							int i;
 							for(i=0; i < pkt->len; i++) {
 								if((i % 16) == 0)
-									KadC_log("\n");
-								KadC_log("%02x ", pkt->buf[i]);
+									kc_logPrint("\n");
+								kc_logPrint("%02x ", pkt->buf[i]);
 							}
-							KadC_log("\n--------------------------------\n");
+							kc_logPrint("\n--------------------------------\n");
 						}
 #endif
 					}
@@ -451,13 +451,13 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 				destroySessionObject(psession);
 			} else {
 #ifdef VERBOSE_DEBUG
-				KadC_log("Can't create session for OVERNET_IP_QUERY to peer %s:%u\n", htoa(ppn->ip), ppn->port);
-				/* KadC_log("%s:%d Session allocation failed to send OVERNET_IP_QUERY\n", __FILE__, __LINE__); */
+				kc_logPrint("Can't create session for OVERNET_IP_QUERY to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+				/* kc_logPrint("%s:%d Session allocation failed to send OVERNET_IP_QUERY\n", __FILE__, __LINE__); */
 #endif
 			}
 			pthread_join(tcpsrv, NULL);
 #ifdef VERBOSE_DEBUG
-			KadC_log("joined tcpsrv_th thread %lx\n", tcpsrv);
+			kc_logPrint("joined tcpsrv_th thread %lx\n", tcpsrv);
 #endif
 			if(ipchecked) {
 				pKE->fwstatuschecked = 1;
@@ -477,7 +477,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 	}
 
 #ifdef VERBOSE_DEBUG
-		KadC_log("waiting for overnet_boot_th threads\n");
+		kc_logPrint("waiting for overnet_boot_th threads\n");
 #endif
 
 	pblk.exiting = 1;
@@ -485,7 +485,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 	for(i=0; i < nthreads; i++) {
 		pthread_join(th[i], NULL);		/* reap terminated threads */
 #ifdef VERBOSE_DEBUG
-		KadC_log("joined overnet_boot_th thread %lx\n", (unsigned long int)&th[i]);
+		kc_logPrint("joined overnet_boot_th thread %lx\n", (unsigned long int)&th[i]);
 #endif
 	}
 
@@ -497,7 +497,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 		free(ppnr);	/* flush FIFO queue */
 	}
 #ifdef VERBOSE_DEBUG
-	KadC_log("Flushing kboot queue found %d peernodes\n", pblk.addednodes);
+	kc_logPrint("Flushing kboot queue found %d peernodes\n", pblk.addednodes);
 #endif
 	pblk.fifo_check_ip->destroy(pblk.fifo_check_ip);
 	pblk.fifo_check_peer->destroy(pblk.fifo_check_peer);
@@ -516,7 +516,7 @@ void *overnet_kboot_th(void *p) {
 	for(;; i++) {
 	#ifdef VERBOSE_DEBUG
 		/* Keep this away unless testing, it's not thread safe */
-		/* KadC_log("Checking nodes amount: %d\n", ppblk->checkingnodes); */
+		/* kc_logPrint("Checking nodes amount: %d\n", ppblk->checkingnodes); */
 	#endif
 		if (ppn != NULL) {
 			/* Decrease last checking nodes amount from last round */
@@ -544,8 +544,8 @@ void *overnet_kboot_th(void *p) {
 
 		/* ping with OVERNET_PUBLICIZE and if OK send a OVERNET_IP_QUERY */
 #ifdef VERBOSE_DEBUG
-		KadC_log("Pinging %s:%d ", htoa(ppn->ip), ppn->port);
-		KadC_log("(pKE->extip = %s)\n", htoa(pKE->extip));
+		kc_logPrint("Pinging %s:%d ", htoa(ppn->ip), ppn->port);
+		kc_logPrint("(pKE->extip = %s)\n", htoa(pKE->extip));
 #endif
 		ping = Overnet_ping(pKE, ppn->ip, ppn->port, 2000);
 		/* -1 means usually some other thread is already 
@@ -572,7 +572,7 @@ void *overnet_kboot_th(void *p) {
 			}
 			
 #ifdef VERBOSE_DEBUG
-			KadC_log("-- Seed %s:%d received from boot FIFO\n", htoa(ppn->ip), ppn->port);
+			kc_logPrint("-- Seed %s:%d received from boot FIFO\n", htoa(ppn->ip), ppn->port);
 #endif
 			ppn->type = 0;	/* FIXME: why?? */
 			psession = sendOvernetBootReq(ppblk->pKE, ppn->ip, ppn->port);
@@ -587,7 +587,7 @@ void *overnet_kboot_th(void *p) {
 						int npeers = getushortle(&pb);
 						if(nrecvd == 4 + npeers * 23) { /* packet must contain npeers 23-byte peers */
 							int i;
-							rbt_StatusEnum rbt_status;
+							RbtStatus rbt_status;
 							int updstatus;
 
 							for(i=0; i < npeers; i++) {
@@ -600,7 +600,7 @@ void *overnet_kboot_th(void *p) {
 
 
 								pthread_mutex_lock(&ppblk->pKE->cmutex);			/* \\\\\\ LOCK CONTACTS \\\\\\ */
-								rbt_status = rbt_find(ppblk->pKE->contacts, ppnr->hash, &iter);
+								iter = rbtFind(ppblk->pKE->contacts, ppnr->hash);
 								pthread_mutex_unlock(&ppblk->pKE->cmutex);			/* ///// UNLOCK CONTACTS ///// */
 								if(rbt_status == RBT_STATUS_OK ||	/* if already in contacts... */
 								   ppblk->fifo_check_peer->enq(ppblk->fifo_check_peer, ppnr) != 0) /*...or FIFO FULL... */
@@ -617,21 +617,21 @@ void *overnet_kboot_th(void *p) {
 
 							if(updstatus == 0) {
 #ifdef VERBOSE_DEBUG
-								KadC_log("new peer %s:%d inserted in kbucket %d\n", htoa(ppn->ip), ppn->port, int128xorlog(ppn->hash, ppblk->pKE->localnode.hash));
+								kc_logPrint("new peer %s:%d inserted in kbucket %d\n", htoa(ppn->ip), ppn->port, int128xorlog(ppn->hash, ppblk->pKE->localnode.hash));
 #endif
 							} else if(updstatus == -1) {
 #ifdef VERBOSE_DEBUG
-								KadC_log("new peer %s:%d had nonroutable address, or referred to ourselves\n", htoa(ppn->ip), ppn->port);
+								kc_logPrint("new peer %s:%d had nonroutable address, or referred to ourselves\n", htoa(ppn->ip), ppn->port);
 #endif
 							}
 
 							/* regardless, see if there is space in aux contacts rbt */
 							pthread_mutex_lock(&ppblk->pKE->cmutex);			/* \\\\\\ LOCK CONTACTS \\\\\\ */
-							if(rbt_size(ppblk->pKE->contacts) < ppblk->pKE->maxcontacts) {
-								rbt_status = rbt_insert(ppblk->pKE->contacts, ppn->hash, ppn, 0);
+							if(rbtSize(ppblk->pKE->contacts) < ppblk->pKE->maxcontacts) {
+								rbt_status = rbtInsert(ppblk->pKE->contacts, ppn->hash, ppn);
 								if(rbt_status == RBT_STATUS_OK) {
 #ifdef VERBOSE_DEBUG
-									KadC_log("new peer %s:%d inserted in contacts table\n", htoa(ppn->ip), ppn->port);
+									kc_logPrint("new peer %s:%d inserted in contacts table\n", htoa(ppn->ip), ppn->port);
 #endif
 									ppblk->addednodes++;
 									ppn = NULL; /* so its free()ing will be postponed */
@@ -644,7 +644,7 @@ void *overnet_kboot_th(void *p) {
 				}
 			} else {
 			#ifdef VERBOSE_DEBUG
-				KadC_log("Can't create session for OVERNET_CONNECT to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+				kc_logPrint("Can't create session for OVERNET_CONNECT to peer %s:%u\n", htoa(ppn->ip), ppn->port);
 			#endif
 			}
 			if(free_ppn && ppn != NULL)
@@ -677,7 +677,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 	unsigned char randhash[16];
 
 #ifdef VERBOSE_DEBUG
-		KadC_log("Starting kboot\n", nthreads);
+		kc_logPrint("Starting kboot\n", nthreads);
 #endif
 
 	if(nthreads > arraysize(th))
@@ -689,7 +689,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 
 	/* spawn threads to process queue */
 #ifdef VERBOSE_DEBUG
-		KadC_log("Going to spawn %d copies of overnet_kboot_th\n", nthreads);
+		kc_logPrint("Going to spawn %d copies of overnet_kboot_th\n", nthreads);
 #endif
 	for(i=0; i < nthreads; i++) {
 		pthread_create(&th[i], NULL, &overnet_kboot_th, &pblk);
@@ -701,35 +701,35 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 	for(i=0; *pstoptime > time(NULL) && !pKE->shutdown; i++) {
 		int128setrandom(randhash);
 #ifdef VERBOSE_DEBUG
-		KadC_log("Pinging peer with hash  ");
+		kc_logPrint("Pinging peer with hash  ");
 		KadC_int128log(randhash);
-		KadC_log("\n");
+		kc_logPrint("\n");
 #endif
 		pthread_mutex_lock(&pKE->cmutex);		/* \\\\\\ LOCK CONTACTS \\\\\\ */
-		rbt_find(pKE->contacts, randhash, &iter);
+		rbtFind(pKE->contacts, randhash, &iter);
 
 		if(iter == NULL) {
 		#ifdef VERBOSE_DEBUG
-				KadC_log("No peer founds found from contacts for the hash???");
+				kc_logPrint("No peer founds found from contacts for the hash???");
 		#endif			
 			pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 			continue;
 		}
-		ppn = rbt_value(iter);
+		ppn = rbtValue(rbt, iter);
 		pthread_mutex_unlock(&pKE->cmutex);		/* ///// UNLOCK CONTACTS ///// */
 
 		/* ping with OVERNET_PUBLICIZE and if OK send a OVERNET_IP_QUERY */
 
 		if(i >= 4 && pKE->extip != 0) {
 		#ifdef VERBOSE_DEBUG
-				KadC_log("Breaking out");
+				kc_logPrint("Breaking out");
 		#endif			
 			
 			break;
 		}
 #ifdef VERBOSE_DEBUG
-		KadC_log("Pinging %s:%d ", htoa(ppn->ip), ppn->port);
-		KadC_log("(pKE->extip = %s, i = %d)\n", htoa(pKE->extip), i);
+		kc_logPrint("Pinging %s:%d ", htoa(ppn->ip), ppn->port);
+		kc_logPrint("(pKE->extip = %s, i = %d)\n", htoa(pKE->extip), i);
 #endif
 		if(Overnet_ping(pKE, ppn->ip, ppn->port, 2000) == 1) {
 			peernode *ppndup;
@@ -748,7 +748,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 				pthread_create(&tcpsrv, NULL, &tcpsrv_th, &tcpsrvparblock);	/* launch TCP listener */
 
 #ifdef VERBOSE_DEBUG
-				KadC_log("Ping OK with %s:%d but extip still unchecked: trying sendOvernetIpReq()\n",
+				kc_logPrint("Ping OK with %s:%d but extip still unchecked: trying sendOvernetIpReq()\n",
 					htoa(ppn->ip), ppn->port);
 #endif
 				psession = sendOvernetIpReq(pKE, pKE->localnode.tport, ppn->ip, ppn->port);
@@ -756,7 +756,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 					pkt = getpktt(psession, 5000);				/* expect OVERNET_IP_QUERY_ANSWER */
 					if(pkt == NULL) { 	/* Timeout */
 #ifdef VERBOSE_DEBUG
-						KadC_log("TIMEOUT while expecting OVERNET_IP_QUERY_ANSWER\n");
+						kc_logPrint("TIMEOUT while expecting OVERNET_IP_QUERY_ANSWER\n");
 #endif
 						tcpsrvparblock.quit = 1;
 					} else {
@@ -764,20 +764,20 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 						if(pkt->len == 6) {
 							extip = getipn(&p);
 #ifdef VERBOSE_DEBUG
-							KadC_log("Our IP: %s\n", htoa(extip));
+							kc_logPrint("Our IP: %s\n", htoa(extip));
 #endif
 							ipchecked = 1;
 						} else {
 #ifdef VERBOSE_DEBUG
-							KadC_log("Hmm, pkt->len was %d instead of 6:\n", pkt->len);
+							kc_logPrint("Hmm, pkt->len was %d instead of 6:\n", pkt->len);
 							{
 								int i;
 								for(i=0; i < pkt->len; i++) {
 									if((i % 16) == 0)
-										KadC_log("\n");
-									KadC_log("%02x ", pkt->buf[i]);
+										kc_logPrint("\n");
+									kc_logPrint("%02x ", pkt->buf[i]);
 								}
-								KadC_log("\n--------------------------------\n");
+								kc_logPrint("\n--------------------------------\n");
 							}
 #endif
 						}
@@ -788,13 +788,13 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 					destroySessionObject(psession);
 				} else {
 #ifdef VERBOSE_DEBUG
-					KadC_log("Can't create session for OVERNET_IP_QUERY to peer %s:%u\n", htoa(ppn->ip), ppn->port);
-					/* KadC_log("%s:%d Session allocation failed to send OVERNET_IP_QUERY\n", __FILE__, __LINE__); */
+					kc_logPrint("Can't create session for OVERNET_IP_QUERY to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+					/* kc_logPrint("%s:%d Session allocation failed to send OVERNET_IP_QUERY\n", __FILE__, __LINE__); */
 #endif
 				}
 				pthread_join(tcpsrv, NULL);
 #ifdef VERBOSE_DEBUG
-				KadC_log("joined tcpsrv_th thread %lx\n", tcpsrv);
+				kc_logPrint("joined tcpsrv_th thread %lx\n", tcpsrv);
 #endif
 				if(ipchecked) {
 					pKE->fwstatuschecked = 1;
@@ -823,7 +823,7 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 	for(i=0; i < nthreads; i++) {
 		pthread_join(th[i], NULL);		/* reap terminated threads */
 #ifdef VERBOSE_DEBUG
-		KadC_log("joined overnet_boot_th thread %lx\n", (unsigned long int)&th[i]);
+		kc_logPrint("joined overnet_boot_th thread %lx\n", (unsigned long int)&th[i]);
 #endif
 	}
 
@@ -831,12 +831,12 @@ static int overnet_kboot(KadEngine *pKE, time_t *pstoptime, int nthreads) {
 		free(ppnr);	/* flush FIFO queue */
 	}
 #ifdef VERBOSE_DEBUG
-	KadC_log("Flushing kboot queue found %d peernodes\n", pblk.addednodes);
+	kc_logPrint("Flushing kboot queue found %d peernodes\n", pblk.addednodes);
 #endif
 	pblk.fifo->destroy(pblk.fifo);
 
 #ifdef VERBOSE_DEBUG
-		KadC_log("Stopping kboot");
+		kc_logPrint("Stopping kboot");
 #endif			
 
 	return pblk.addednodes;
@@ -858,7 +858,7 @@ static void *overnet_kboot_th(void *p) {
 			packet *pkt;
 			SessionObject *psession;
 #ifdef VERBOSE_DEBUG
-			KadC_log("-- Seed %s:%d received from boot FIFO\n", htoa(ppn->ip), ppn->port);
+			kc_logPrint("-- Seed %s:%d received from boot FIFO\n", htoa(ppn->ip), ppn->port);
 #endif
 			ppn->type = 0;	/* FIXME: why?? */
 			psession = sendOvernetBootReq(ppblk->pKE, ppn->ip, ppn->port);
@@ -873,7 +873,7 @@ static void *overnet_kboot_th(void *p) {
 						int npeers = getushortle(&pb);
 						if(nrecvd == 4 + npeers * 23) { /* packet must contain npeers 23-byte peers */
 							int i;
-							rbt_StatusEnum rbt_status;
+							RbtStatus rbt_status;
 							int updstatus;
 
 							for(i=0; i < npeers; i++) {
@@ -886,7 +886,7 @@ static void *overnet_kboot_th(void *p) {
 
 
 								pthread_mutex_lock(&ppblk->pKE->cmutex);			/* \\\\\\ LOCK CONTACTS \\\\\\ */
-								rbt_status = rbt_find(ppblk->pKE->contacts, ppnr->hash, &iter);
+								rbt_status = rbtFind(ppblk->pKE->contacts, ppnr->hash, &iter);
 								pthread_mutex_unlock(&ppblk->pKE->cmutex);			/* ///// UNLOCK CONTACTS ///// */
 								if(rbt_status == RBT_STATUS_OK ||	/* if already in contacts... */
 								   ppblk->fifo->enq(ppblk->fifo, ppnr) != 0) /*...or FIFO FULL... */
@@ -898,21 +898,21 @@ static void *overnet_kboot_th(void *p) {
 
 							if(updstatus == 0) {
 #ifdef VERBOSE_DEBUG
-								KadC_log("new peer %s:%d inserted in kbucket %d\n", htoa(ppn->ip), ppn->port, int128xorlog(ppn->hash, ppblk->pKE->localnode.hash));
+								kc_logPrint("new peer %s:%d inserted in kbucket %d\n", htoa(ppn->ip), ppn->port, int128xorlog(ppn->hash, ppblk->pKE->localnode.hash));
 #endif
 							} else if(updstatus == -1) {
 #ifdef VERBOSE_DEBUG
-								KadC_log("new peer %s:%d had nonroutable address, or referred to ourselves\n", htoa(ppn->ip), ppn->port);
+								kc_logPrint("new peer %s:%d had nonroutable address, or referred to ourselves\n", htoa(ppn->ip), ppn->port);
 #endif
 							}
 
 							/* regardless, see if there is space in aux contacts rbt */
 							pthread_mutex_lock(&ppblk->pKE->cmutex);			/* \\\\\\ LOCK CONTACTS \\\\\\ */
-							if(rbt_size(ppblk->pKE->contacts) < ppblk->pKE->maxcontacts) {
-								rbt_status = rbt_insert(ppblk->pKE->contacts, ppn->hash, ppn, 0);
+							if(rbtSize(ppblk->pKE->contacts) < ppblk->pKE->maxcontacts) {
+								rbt_status = rbtInsert(ppblk->pKE->contacts, ppn->hash, ppn, 0);
 								if(rbt_status == RBT_STATUS_OK) {
 #ifdef VERBOSE_DEBUG
-									KadC_log("new peer %s:%d inserted in contacts table\n", htoa(ppn->ip), ppn->port);
+									kc_logPrint("new peer %s:%d inserted in contacts table\n", htoa(ppn->ip), ppn->port);
 #endif
 									ppblk->addednodes++;
 									ppn = NULL; /* so its free()ing will be postponed */
@@ -925,14 +925,14 @@ static void *overnet_kboot_th(void *p) {
 				}
 			} else {
 #ifdef VERBOSE_DEBUG
-				KadC_log("Can't create session for OVERNET_CONNECT to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+				kc_logPrint("Can't create session for OVERNET_CONNECT to peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
 			}
 			if(ppn != NULL)
 				free(ppn);	/* the seed ones were from the contacts rbt, not malloc'ed here */
 		} else {
 #ifdef VERBOSE_DEBUG
-			KadC_log("overnet_kboot_th timed out while waiting for seeds...\n");
+			kc_logPrint("overnet_kboot_th timed out while waiting for seeds...\n");
 #endif
 		}
 	}	/* end for(;;) */
@@ -959,7 +959,7 @@ int Overnet_ping(KadEngine *pKE, unsigned long int ip, unsigned short int port, 
 		}
 	} else {
 #ifdef VERBOSE_DEBUG
-		KadC_log("Can't create session for OVERNET_PUBLICIZE to peer %s:%u\n", htoa(ip), port);
+		kc_logPrint("Can't create session for OVERNET_PUBLICIZE to peer %s:%u\n", htoa(ip), port);
 #endif
 		isalive = -1;
 	}
@@ -1002,7 +1002,7 @@ int Overnet_ping(KadEngine *pKE, unsigned long int ip, unsigned short int port, 
    of decreasing closeness to the target, but the caller must
    remember to XOR their hash again using:
    int128xor(ppn->hash, ppn->hash, targethash). That must be done
-   AFTER removing each peernode from the rbt (with rbt_erase), or
+   AFTER removing each peernode from the rbt (with rbtErase), or
    else the rbt structure will be messed up (the hashes are the indices...)
 
    Finally, if the parameter dosearch is 1, each thread, instead of
@@ -1070,7 +1070,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 #if 0	/* DISABLED FOR NOW */
 	if(ppn->type > NONRESPONSE_THRESHOLD) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("not sending OVERNET_SEARCH_INFO to sleepy peer %s:%u type: %d\n", htoa(ppn->ip), ppn->port, ppn->type);
+		kc_logPrint("not sending OVERNET_SEARCH_INFO to sleepy peer %s:%u type: %d\n", htoa(ppn->ip), ppn->port, ppn->type);
 #endif
 		return;
 	}
@@ -1083,7 +1083,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 
 	if(psession == NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 #ifdef VERBOSE_DEBUG
-			KadC_log("Client session cannot be created to send an OVERNET_SEARCH_INFO\n");
+			kc_logPrint("Client session cannot be created to send an OVERNET_SEARCH_INFO\n");
 #endif
 	} else {
 		int endarrived = 0;
@@ -1094,7 +1094,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 			packet *pkt = getpktt(psession, 2000);	/* 2 s timeout */
 			if(pkt == NULL) {
 #ifdef VERBOSE_DEBUG
-				KadC_log("timeout while waiting for OVERNET_SEARCH_RESULT or OVERNET_SEARCH_END from %s:%u\n",
+				kc_logPrint("timeout while waiting for OVERNET_SEARCH_RESULT or OVERNET_SEARCH_END from %s:%u\n",
 							htoa(ppn->ip), ppn->port);
 #endif
 				UpdateNodeStatus(&pnunx, pfb->pKE, 0);
@@ -1112,7 +1112,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 						int allow_hit_callback = 1;
 						
 #ifdef VERBOSE_DEBUG
-						KadC_log("Results from %s:%u\n", htoa(pnunx.ip), pnunx.port);
+						kc_logPrint("Results from %s:%u\n", htoa(pnunx.ip), pnunx.port);
 #endif
 						pko = kobject_new(&buf[2], nrecvd-2);
 
@@ -1121,13 +1121,13 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 						if(psf != NULL && s_filter(pko, &psf, psf+pfb->sfilterlen) != 1) {
 #ifdef VERBOSE_DEBUG
 							psf = pfb->psfilter;
-							KadC_log("kobject ");
+							kc_logPrint("kobject ");
 							kobject_dump(pko, ";");
-							KadC_log(" from %s:%u does not pass the s-filter ", htoa(pnunx.ip), pnunx.port);
+							kc_logPrint(" from %s:%u does not pass the s-filter ", htoa(pnunx.ip), pnunx.port);
 							s_filter_dump(&psf, psf+pfb->sfilterlen);
-							KadC_log("\n");
+							kc_logPrint("\n");
 #elif DEBUG
-							KadC_log("X");	/* post-filtering blocked record escaped from faulty server filter on peer's side */
+							kc_logPrint("X");	/* post-filtering blocked record escaped from faulty server filter on peer's side */
 #endif
 							kobject_destroy(pko);
 						} else {
@@ -1147,19 +1147,19 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 									kobject_destroy(pko); /* because insert failed */
 									allow_hit_callback = 0;
 	#ifdef VERBOSE_DEBUG
-									KadC_log("kstore_insert returned status %d for results returned by peer %s:%u\n", kstatus,  htoa(pnunx.ip), pnunx.port);
+									kc_logPrint("kstore_insert returned status %d for results returned by peer %s:%u\n", kstatus,  htoa(pnunx.ip), pnunx.port);
 	#elif DEBUG
 									if(kstatus == 1) {
-										KadC_log(".");	/* store full, stop! (geddit?) */
+										kc_logPrint(".");	/* store full, stop! (geddit?) */
 									} else {
-										KadC_log("D");	/* rbt error, most likely duplicate key */
+										kc_logPrint("D");	/* rbt error, most likely duplicate key */
 									}
 #endif
 								} else {
 	#ifdef VERBOSE_DEBUG
-									KadC_log("Results from peer %s:%u inserted in k-store\n", htoa(pnunx.ip), pnunx.port);
+									kc_logPrint("Results from peer %s:%u inserted in k-store\n", htoa(pnunx.ip), pnunx.port);
 	#elif DEBUG
-									KadC_log("!");	/* inserted! */
+									kc_logPrint("!");	/* inserted! */
 	#endif
 								}
 							}
@@ -1179,20 +1179,20 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 					} else if (buf[1] == OVERNET_SEARCH_END) {
 #ifdef VERBOSE_DEBUG
 						unsigned char *pb = buf+18;
-						KadC_log("OVERNET_SEARCH_END received from peer %s:%u (%u, %u)\n",
+						kc_logPrint("OVERNET_SEARCH_END received from peer %s:%u (%u, %u)\n",
 									htoa(pnunx.ip), pnunx.port, getushortle(&pb), getushortle(&pb));
 #endif
 						/* #### FIXME: do something (what??) with the two ushorts */
 						endarrived = 1;
 					} else {
 #ifdef VERBOSE_DEBUG
-						KadC_log("Unexpected packet with opcode 0x%02x from peer %s:%u \n",
+						kc_logPrint("Unexpected packet with opcode 0x%02x from peer %s:%u \n",
 								buf[1], htoa(pnunx.ip), pnunx.port);
 #endif
 					}
 				} else {
 #ifdef VERBOSE_DEBUG
-					KadC_log("peer %s:%u sent a reply too short (%d bytes)\n",
+					kc_logPrint("peer %s:%u sent a reply too short (%d bytes)\n",
 							htoa(pnunx.ip), pnunx.port, nrecvd);
 #endif
 				}
@@ -1217,7 +1217,6 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 	int i;
 	int addednodes;
 	void *iter;
-	rbt_StatusEnum rbt_status;
 	findblk fb;	/* block shared between main thread and children threads */
 	pthread_t th[20];
 	int logd_target_local = int128xorlog(pKE->localnode.hash, targethash);
@@ -1233,9 +1232,9 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 	fb.psfilter = psfilter;
 	fb.sfilterlen = sfilterlen;
 	fb.pKE = pKE;
-	fb.find_input_rbt = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	fb.find_input_rbt = rbtNew(int128cmp);
 	fb.fimutex = mutex_initializer;
-	fb.find_results_rbt = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	fb.find_results_rbt = rbtNew(int128cmp);
 	fb.frmutex = mutex_initializer;
 	fb.fsmutex = mutex_initializer;
 	if(dosearch)
@@ -1245,11 +1244,11 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 	if(fb.find_results_avail < 10)
 		fb.find_results_avail = 10;	/* at least lookup to gather 10 hits */
 #ifdef VERBOSE_DEBUG
-	KadC_log("Will lookup not more than %d nodes\n", fb.find_results_avail);
+	kc_logPrint("Will lookup not more than %d nodes\n", fb.find_results_avail);
 #endif
 	fb.pstoptime = pstoptime;
 #ifdef VERBOSE_DEBUG
-	KadC_log("Creating a kstore with room for %d objects\n", pfpar->max_hits);
+	kc_logPrint("Creating a kstore with room for %d objects\n", pfpar->max_hits);
 #endif
 	fb.ks = kstore_new(pfpar->max_hits);
 	fb.kstore_full = 0;
@@ -1266,47 +1265,47 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 		void *iterf, *iterb;
 
 		pthread_mutex_lock(&pKE->mutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-		rbt_find(pKE->kspace, targethash, &iterf);	/* forward iterator */
+		iterf = rbtFind(pKE->kspace, targethash);	/* forward iterator */
 		if(iterf == NULL)
-			iterf = rbt_end(pKE->kspace);	/* if targethash is past the end, use last */
-		iterb = rbt_previous(pKE->kspace, iterf);		/* backward iterator */
+			iterf = rbtEnd(pKE->kspace);	/* if targethash is past the end, use last */
+		iterb = rbtPrevious(pKE->kspace, iterf);		/* backward iterator */
 		for(addednodes=0; addednodes < 20; ) {
 			if(iterf == NULL && iterb == NULL)
 				break;
 			if(iterf != NULL) {
-				peernode *ppn = rbt_value(iterf);
+				peernode *ppn = rbtValue(pKE->kspace, iterf);
 				peernode *newppn = malloc(sizeof(peernode));
 				*newppn = *ppn;
 				int128xor(newppn->hash, newppn->hash, targethash);	/* XORing to sort on dist from targethash... */
-				rbt_insert(fb.find_input_rbt, newppn->hash, newppn, 0);/* add to find_input_rbt */
+				rbtInsert(fb.find_input_rbt, newppn->hash, newppn);/* add to find_input_rbt */
 #ifdef VERBOSE_DEBUG
-				KadC_log(">Priming with ");
+				kc_logPrint(">Priming with ");
 				KadC_int128flog(stdout, ppn->hash);
-				KadC_log(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
+				kc_logPrint(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
 #endif
 				addednodes++;
-				iterf = rbt_next(pKE->kspace, iterf);
+				iterf = rbtNext(pKE->kspace, iterf);
 			}
 			if(iterb != NULL) {
-				peernode *ppn = rbt_value(iterb);
+				peernode *ppn = rbtValue(pKE->kspace, iterb);
 				peernode *newppn = malloc(sizeof(peernode));
 				*newppn = *ppn;
 				int128xor(newppn->hash, newppn->hash, targethash);	/* XORing to sort on dist from targethash... */
-				rbt_insert(fb.find_input_rbt, newppn->hash, newppn, 0);/* add to find_input_rbt */
+				rbtInsert(fb.find_input_rbt, newppn->hash, newppn);/* add to find_input_rbt */
 #ifdef VERBOSE_DEBUG
-				KadC_log("<Priming with ");
+				kc_logPrint("<Priming with ");
 				KadC_int128flog(stdout, ppn->hash);
-				KadC_log(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
+				kc_logPrint(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
 #endif
 				addednodes++;
-				iterb = rbt_previous(pKE->kspace, iterb);
+				iterb = rbtPrevious(pKE->kspace, iterb);
 			}
 		}
 		pthread_mutex_unlock(&pKE->mutex);	/* ///// UNLOCK CONTACTS ///// */
 	}
 
 #ifdef VERBOSE_DEBUG
-	KadC_log("launching %d-thread Overnet_find_th\n", pfpar->threads);
+	kc_logPrint("launching %d-thread Overnet_find_th\n", pfpar->threads);
 #endif
 	for(i=0; i < pfpar->threads; i++) {
 		pthread_create(&th[i], NULL, &Overnet_find_th, &fb);
@@ -1316,41 +1315,40 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 	for(i=0; i < pfpar->threads; i++) {
 		pthread_join(th[i], NULL);		/* reap terminated threads */
 #ifdef VERBOSE_DEBUG
-		KadC_log("joined Overnet_find_th thread %lx\n", (unsigned long int)&th[i]);
+		kc_logPrint("joined Overnet_find_th thread %lx\n", (unsigned long int)&th[i]);
 #endif
 	}
 #ifdef VERBOSE_DEBUG
-	KadC_log("All threads joined, could not get %d hits out of %d\n",
+	kc_logPrint("All threads joined, could not get %d hits out of %d\n",
 		fb.find_results_avail, pfpar->max_hits);
 #endif
 	/* fb.find_input_rbt must now be destroyed together with its content */
 
 #ifdef VERBOSE_DEBUG
-	KadC_log("- Going to destroy input set and its %d peers\n", rbt_size(fb.find_input_rbt));
+	kc_logPrint("- Going to destroy input set and its %d peers\n", rbtSize(fb.find_input_rbt));
 #endif
 
-	for(i = rbt_size(fb.find_input_rbt);; i--) {
+	for(i = rbtSize(fb.find_input_rbt);; i--) {
 		peernode *ppn;
-		iter=rbt_begin(fb.find_input_rbt);
+		iter=rbtBegin(fb.find_input_rbt);
 		if(iter == NULL)
 			break;
 		if(i <= 0) {
 #ifdef DEBUG
-			KadC_log("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
+			kc_logPrint("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
 					__FILE__, __LINE__, i);
 #endif
 			break;
 		}
-		ppn = rbt_value(iter);
-		rbt_erase(fb.find_input_rbt, iter);
+		ppn = rbtValue(fb.find_input_rbt, iter);
+		rbtErase(fb.find_input_rbt, iter);
 		free(ppn);
 	}
-	rbt_status = rbt_destroy(fb.find_input_rbt);
-	assert(rbt_status == RBT_STATUS_OK); /* should be empty now... */
+	rbtDelete(fb.find_input_rbt);
 
 	if(! dosearch) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("- Going to destroy empty search set\n");
+		kc_logPrint("- Going to destroy empty search set\n");
 #endif
 		kstore_destroy(fb.ks, 0);
 	} else {
@@ -1360,8 +1358,8 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 		/* again in parallel, remove entries from results and establish
 		   OVERNET_SEARCH_INFO sessions with them */
 #ifdef DEBUG
-		KadC_log("got %d results from node lookup\n", rbt_size(fb.find_results_rbt));
-		KadC_log("now launching %d-thread OvernetSearchInfoSession_th\n", pfpar->threads);
+		kc_logPrint("got %d results from node lookup\n", rbtSize(fb.find_results_rbt));
+		kc_logPrint("now launching %d-thread OvernetSearchInfoSession_th\n", pfpar->threads);
 #endif
 		for(i=0; i < pfpar->threads; i++) {
 			pthread_create(&th[i], NULL, &OvernetSearchInfoSession_th, &fb);
@@ -1370,41 +1368,40 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 		for(i=0; i < pfpar->threads; i++) {
 			pthread_join(th[i], NULL);		/* reap terminated threads */
 #ifdef VERBOSE_DEBUG
-			KadC_log("joined OvernetSearchInfoSession_th thread %lx\n", (unsigned long int)&th[i]);
+			kc_logPrint("joined OvernetSearchInfoSession_th thread %lx\n", (unsigned long int)&th[i]);
 #endif
 		}
 #ifdef VERBOSE_DEBUG
-		KadC_log("All OvernetSearchInfoSession_th threads joined\n");
+		kc_logPrint("All OvernetSearchInfoSession_th threads joined\n");
 #endif
 #endif /* 0 */
 	}
 
-	if(dosearch || int128eq(targethash, pKE->localnode.hash)) {
+	if(dosearch || (int128cmp(targethash, pKE->localnode.hash) == 0)) {
 		/* destroy results rbt (if necessary after extracting all
 		   the remaining content), as it's not needed */
 		int j;
 #ifdef VERBOSE_DEBUG
-		KadC_log("- Going to destroy results set and its %d peers\n", rbt_size(fb.find_results_rbt));
+		kc_logPrint("- Going to destroy results set and its %d peers\n", rbtSize(fb.find_results_rbt));
 #endif
-		for(i = rbt_size(fb.find_results_rbt), j = 0;; i--, j++) {
+		for(i = rbtSize(fb.find_results_rbt), j = 0;; i--, j++) {
 			peernode *ppn;
-			iter=rbt_begin(fb.find_results_rbt);
+			iter=rbtBegin(fb.find_results_rbt);
 			if(iter == NULL)
 				break;
 			if(i <= 0) {
 #ifdef DEBUG
-				KadC_log("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
+				kc_logPrint("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
 						__FILE__, __LINE__, i);
 #endif
 				break;
 			}
-			ppn = rbt_value(iter);
-			rbt_erase(fb.find_results_rbt, iter);
+			ppn = rbtValue(fb.find_results_rbt, iter);
+			rbtErase(fb.find_results_rbt, iter);
 
 			free(ppn);
 		}
-		rbt_status = rbt_destroy(fb.find_results_rbt);
-		assert(rbt_status == RBT_STATUS_OK); /* should be empty now... */
+		rbtDelete(fb.find_results_rbt);
 	}
 
 	pthread_mutex_destroy(&fb.fimutex);
@@ -1413,18 +1410,18 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 
 	if(dosearch) {
 #ifdef DEBUG
-		KadC_log("- Returning kstore with %d k-objects as result\n", rbt_size(fb.ks->rbt));
+		kc_logPrint("- Returning kstore with %d k-objects as result\n", rbtSize(fb.ks->rbt));
 #endif
 
 		return (void *)fb.ks;	/* kstore of k-objects */
-	} else if(int128eq(targethash, pKE->localnode.hash)) {
+	} else if(int128cmp(targethash, pKE->localnode.hash) == 0) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("- Returning NULL\n");
+		kc_logPrint("- Returning NULL\n");
 #endif
 		return NULL;	/* self lookup, no need to return anything */
 	} else {
 #ifdef DEBUG
-		KadC_log("Returning %d peers as result\n", rbt_size(fb.find_results_rbt));
+		kc_logPrint("Returning %d peers as result\n", rbtSize(fb.find_results_rbt));
 #endif
 		return fb.find_results_rbt; /* rbt of peers, with hashes XOR'd with targethash */
 	}
@@ -1445,7 +1442,7 @@ void *Overnet_find2(KadEngine *pKE, int128 targethash, int dosearch, unsigned ch
 static void *Overnet_find_th(void *p) {
 	findblk *pfb = p;
 	peernode *ppn;
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	int morehitsneeded = 1;
 	/* while(not time_over and not shutdown)  */
 	while(time(NULL) < *(pfb->pstoptime) - 2  && /* reserve 2 s for OVERNET_SEARCH_RESULT */
@@ -1466,9 +1463,9 @@ static void *Overnet_find_th(void *p) {
 
 		pthread_mutex_lock(&pfb->fimutex);			/* \\\\\\ LOCK FI \\\\\\ */
 #ifdef VERBOSE_DEBUG
-		KadC_log("pfb->nworking_on_fi: %d backlog: %d\n", pfb->nworking_on_fi, rbt_size(pfb->find_input_rbt));
+		kc_logPrint("pfb->nworking_on_fi: %d backlog: %d\n", pfb->nworking_on_fi, rbtSize(pfb->find_input_rbt));
 #endif
-		iter = rbt_begin(pfb->find_input_rbt);
+		iter = rbtBegin(pfb->find_input_rbt);
 		if(iter == NULL) {		/* no more input nodes... */
 #ifdef OVERNET_FIND_TH_TERMINATES_WHEN_INPUT_RBT_EMPTY
 			pthread_mutex_unlock(&pfb->fimutex);	/* ///// UNLOCK FI ///// */
@@ -1486,15 +1483,15 @@ static void *Overnet_find_th(void *p) {
 			continue;			/* see if there is work now */
 #endif
 		}
-		ppn = rbt_value(iter);
-		rbt_status = rbt_erase(pfb->find_input_rbt, iter);	/* remove node from input rbt */
+		ppn = rbtValue(pfb->find_input_rbt, iter);
+		rbt_status = rbtErase(pfb->find_input_rbt, iter);	/* remove node from input rbt */
 		assert(rbt_status == RBT_STATUS_OK);	/* it was there, wasn't it? */
 		pthread_mutex_unlock(&pfb->fimutex);		/* ///// UNLOCK FI ///// */
 
 		if((ppn->ip == pfb->pKE->extip && ppn->port == pfb->pKE->localnode.port) ||
 			isnonroutable(ppn->ip)) {
 #ifdef VERBOSE_DEBUG
-			KadC_log("ignoring peer %s:%u - our own or nonroutable address\n",
+			kc_logPrint("ignoring peer %s:%u - our own or nonroutable address\n",
 						htoa(ppn->ip), ppn->port);
 #endif
 			free(ppn);	/* ignore peers with IP/port equal to us or nonroutable */
@@ -1508,11 +1505,11 @@ static void *Overnet_find_th(void *p) {
 
 		/* see if ppn is in results rbt; if yes, exit, if not, put it provisionally there */
 		pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-		rbt_status = rbt_insert(pfb->find_results_rbt, ppn->hash, ppn, 0);
+		rbt_status = rbtInsert(pfb->find_results_rbt, ppn->hash, ppn);
 		pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 		if(rbt_status != RBT_STATUS_OK) {
 #ifdef VERBOSE_DEBUG
-			KadC_log("rbt_insert() returned %d: ignoring peer %s:%u already queried successfully\n",
+			kc_logPrint("rbtInsert() returned %d: ignoring peer %s:%u already queried successfully\n",
 						rbt_status, htoa(ppn->ip), ppn->port);
 #endif
 			free(ppn);	/* ignore peers already queried successfully */
@@ -1521,7 +1518,7 @@ static void *Overnet_find_th(void *p) {
 
 		if(pfb->dosearch)
 			parameter = 2;	/* search? */
-		else if(int128eq(pfb->targethash, pfb->pKE->localnode.hash))
+		else if(int128cmp(pfb->targethash, pfb->pKE->localnode.hash) == 0)
 			parameter = 20;	/* node lookup for self */
 		else
 			parameter = 4;	/* node lookup to publish */
@@ -1531,10 +1528,10 @@ static void *Overnet_find_th(void *p) {
 
 		if(psession == NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 #ifdef VERBOSE_DEBUG
-			KadC_log("Can't create session for OVERNET_SEARCH to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+			kc_logPrint("Can't create session for OVERNET_SEARCH to peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -1549,15 +1546,15 @@ static void *Overnet_find_th(void *p) {
 		if(pkt == NULL) { 	/* if it did not answer */
 #ifdef VERBOSE_DEBUG
 			pthread_mutex_lock(&pfb->fimutex);		/* \\\\\ LOCK FI \\\\\ */
-			KadC_log("timeout on OVERNET_SEARCH_NEXT from ");
+			kc_logPrint("timeout on OVERNET_SEARCH_NEXT from ");
 			KadC_int128flog(stdout, pnunx.hash);
-			KadC_log(" %s:%u.%d\n",
+			kc_logPrint(" %s:%u.%d\n",
 				htoa(ppn->ip), ppn->port, ppn->type);
 			pthread_mutex_unlock(&pfb->fimutex);	/* ///// UNLOCK FI ///// */
 #endif
 			UpdateNodeStatus(&pnunx, pfb->pKE, 0);
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -1575,7 +1572,7 @@ static void *Overnet_find_th(void *p) {
 				is_not_overnet_search_next = 0;
 			} else if(memcmp(&buf[3], pfb->targethash, 15) == 0) {
 #ifdef VERBOSE_DEBUG
-				KadC_log("Trying to fix broken OVERNET_SEARCH_NEXT format sent by %s:%u.%d\n",
+				kc_logPrint("Trying to fix broken OVERNET_SEARCH_NEXT format sent by %s:%u.%d\n",
 					htoa(ppn->ip), ppn->port, ppn->type);
 #endif
 				memmove(&buf[2], pfb->targethash, 16);
@@ -1586,31 +1583,31 @@ static void *Overnet_find_th(void *p) {
 		if(is_not_overnet_search_next) {
 
 #ifdef DEBUG
-			KadC_log("not a OVERNET_SEARCH_NEXT in response to an OVERNET_SEARCH!\n");
-			KadC_log("nrecvd = %d, buf[1] = %02x hash: ", nrecvd, buf[1]);
+			kc_logPrint("not a OVERNET_SEARCH_NEXT in response to an OVERNET_SEARCH!\n");
+			kc_logPrint("nrecvd = %d, buf[1] = %02x hash: ", nrecvd, buf[1]);
 			KadC_int128flog(stdout, &buf[2]);
-			KadC_log("\nSent by: ");
+			kc_logPrint("\nSent by: ");
 			KadC_int128flog(stdout, pnunx.hash);
-			KadC_log(" %s:%u.%d\n",
+			kc_logPrint(" %s:%u.%d\n",
 				htoa(ppn->ip), ppn->port, ppn->type);
 			{
 				int i;
-				UDPIO *pul = pfb->pKE->pul;
-				pthread_mutex_lock(&pul->mutex);	/* \\\\\\ LOCK UDPIO \\\\\\ */
+				kc_udpIo *pul = pfb->pKE->pul;
+				pthread_mutex_lock(&pul->mutex);	/* \\\\\\ LOCK kc_udpIo \\\\\\ */
 				for(i=0; i < nrecvd && i < 48 ; i++) {
 					if((i % 16) == 0)
-						KadC_log("\n");
-					KadC_log("%02x ", buf[i]);
+						kc_logPrint("\n");
+					kc_logPrint("%02x ", buf[i]);
 				}
-				KadC_log("\n================================\n");
-				pthread_mutex_unlock(&pul->mutex);	/* ///// UNLOCK UDPIO ///// */
+				kc_logPrint("\n================================\n");
+				pthread_mutex_unlock(&pul->mutex);	/* ///// UNLOCK kc_udpIo ///// */
 			}
 
 #endif
 			destroypkt(pkt);
 
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -1622,12 +1619,12 @@ static void *Overnet_find_th(void *p) {
 		npeers = *pb++;
 		if(nrecvd != (2+16+1) + npeers * 23) { /* packet must contain npeers 23-byte peers */
 #ifdef DEBUG
-			KadC_log("malformed packet!\n");
+			kc_logPrint("malformed packet!\n");
 #endif
 			destroypkt(pkt);
 
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -1648,8 +1645,8 @@ static void *Overnet_find_th(void *p) {
 			getpeernode(ppnr, &pb);
 #ifdef VERBOSE_DEBUG
 			/* out of curiosity, see if this new candidate has lower distance from target than pnunx */
-			KadC_log("ppnr %s ", htoa(ppnr->ip));
-			KadC_log("proposed by %s has logdistance %d (ppn has %d)\n",
+			kc_logPrint("ppnr %s ", htoa(ppnr->ip));
+			kc_logPrint("proposed by %s has logdistance %d (ppn has %d)\n",
 						htoa(pnunx.ip),
 						int128xorlog(ppnr->hash, pfb->targethash),
 						int128xorlog(pnunx.hash, pfb->targethash)
@@ -1659,7 +1656,7 @@ static void *Overnet_find_th(void *p) {
 			if(pnunx.ip == ppnr->ip && pnunx.port == ppnr->port) {	/* if peer references itself... */
 				recommends_itself = 1;
 #ifdef VERBOSE_DEBUG
-				KadC_log("######### peer %s:%u recommends itself, with logdistance = %d\n",
+				kc_logPrint("######### peer %s:%u recommends itself, with logdistance = %d\n",
 							htoa(pnunx.ip), pnunx.port, int128xorlog(pnunx.hash, pfb->targethash) );
 #endif
 			}
@@ -1668,16 +1665,16 @@ static void *Overnet_find_th(void *p) {
 			/* put returned peer into find_input_rbt */
 			pthread_mutex_lock(&pfb->fimutex);			/* \\\\\\ LOCK FI \\\\\\ */
 #ifdef OPTIMIZE_BY_RECURSING_ONLY_ON_PEERS_BETTER_THAN_CURRENT_BEST
-			iter = rbt_begin(pfb->find_input_rbt);
+			iter = rbtBegin(pfb->find_input_rbt);
 			rbt_status = RBT_STATUS_DUPLICATE_KEY;	/* by default, so that insert skipped == insert failed */
-			if(iter == NULL || int128lt(ppnr->hash, ((peernode *)rbt_value(iter))->hash)) /* if rbt empty, or new better than rbt's best */
+			if(iter == NULL || int128lt(ppnr->hash, ((peernode *)rbtValue(rbt, iter))->hash)) /* if rbt empty, or new better than rbt's best */
 #endif
 			/* Might be better to catch here already cases that are already in
 			   results_input_rbt, as its bound to happen many different
 			   peers will report same nodes. Also, inserting a node
 			   that recommends itself is unnecessary.
 			 */
-				rbt_status = rbt_insert(pfb->find_input_rbt, ppnr->hash, ppnr, 0);
+				rbt_status = rbtInsert(pfb->find_input_rbt, ppnr->hash, ppnr);
 			pthread_mutex_unlock(&pfb->fimutex);		/* ///// UNLOCK FI ///// */
 			if(rbt_status != RBT_STATUS_OK)
 				free(ppnr);	/* if already there, throw away */
@@ -1686,7 +1683,7 @@ static void *Overnet_find_th(void *p) {
 		destroypkt(pkt);
 		if(pfb->dosearch /* && recommends_itself */) {
 #ifdef VERBOSE_DEBUG
-			KadC_log("Launching OvernetSearchInfoSession\n");
+			kc_logPrint("Launching OvernetSearchInfoSession\n");
 #endif			
 			OvernetSearchInfoSession(pfb, ppn);
 #if 0
@@ -1698,10 +1695,10 @@ static void *Overnet_find_th(void *p) {
 			      been done OvernetSearchInfoSession? */
 			 
 #ifdef VERBOSE_DEBUG
-			KadC_log("Removing from find_results_rbt\n");
+			kc_logPrint("Removing from find_results_rbt\n");
 #endif			
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 #endif /* 0 */
 			
@@ -1747,7 +1744,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 #if 0	/* DISABLED FOR NOW */
 	if(ppn->type > NONRESPONSE_THRESHOLD) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("not sending OVERNET_SEARCH_INFO to sleepy peer %s:%u type: %d\n", htoa(ppn->ip), ppn->port, ppn->type);
+		kc_logPrint("not sending OVERNET_SEARCH_INFO to sleepy peer %s:%u type: %d\n", htoa(ppn->ip), ppn->port, ppn->type);
 #endif
 		return;
 	}
@@ -1760,7 +1757,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 
 	if(psession == NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 #ifdef VERBOSE_DEBUG
-			KadC_log("Client session cannot be created to send an OVERNET_SEARCH_INFO\n");
+			kc_logPrint("Client session cannot be created to send an OVERNET_SEARCH_INFO\n");
 #endif
 	} else {
 		int endarrived = 0;
@@ -1771,7 +1768,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 			packet *pkt = getpktt(psession, 2000);	/* 2 s timeout */
 			if(pkt == NULL) {
 #ifdef VERBOSE_DEBUG
-				KadC_log("timeout while waiting for OVERNET_SEARCH_RESULT or OVERNET_SEARCH_END from %s:%u\n",
+				kc_logPrint("timeout while waiting for OVERNET_SEARCH_RESULT or OVERNET_SEARCH_END from %s:%u\n",
 							htoa(ppn->ip), ppn->port);
 #endif
 				UpdateNodeStatus(&pnunx, pfb->pKE, 0);
@@ -1788,7 +1785,7 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 						int kstatus;
 
 #ifdef VERBOSE_DEBUG
-						KadC_log("Results from %s:%u\n", htoa(pnunx.ip), pnunx.port);
+						kc_logPrint("Results from %s:%u\n", htoa(pnunx.ip), pnunx.port);
 #endif
 						pko = kobject_new(&buf[2], nrecvd-2);
 
@@ -1797,13 +1794,13 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 						if(psf != NULL && s_filter(pko, &psf, psf+pfb->sfilterlen) != 1) {
 #ifdef VERBOSE_DEBUG
 							psf = pfb->psfilter;
-							KadC_log("kobject ");
+							kc_logPrint("kobject ");
 							kobject_dump(pko, ";");
-							KadC_log(" from %s:%u does not pass the s-filter ", htoa(pnunx.ip), pnunx.port);
+							kc_logPrint(" from %s:%u does not pass the s-filter ", htoa(pnunx.ip), pnunx.port);
 							s_filter_dump(&psf, psf+pfb->sfilterlen);
-							KadC_log("\n");
+							kc_logPrint("\n");
 #elif DEBUG
-							KadC_log("X");	/* post-filtering blocked record escaped from faulty server filter on peer's side */
+							kc_logPrint("X");	/* post-filtering blocked record escaped from faulty server filter on peer's side */
 #endif
 							kobject_destroy(pko);
 						} else {
@@ -1820,40 +1817,40 @@ static void OvernetSearchInfoSession(findblk *pfb, peernode *ppn) {
 							if(kstatus != 0) {
 								kobject_destroy(pko); /* because insert failed */
 #ifdef VERBOSE_DEBUG
-								KadC_log("kstore_insert returned status %d for results returned by peer %s:%u\n", kstatus,  htoa(pnunx.ip), pnunx.port);
+								kc_logPrint("kstore_insert returned status %d for results returned by peer %s:%u\n", kstatus,  htoa(pnunx.ip), pnunx.port);
 #elif DEBUG
 								if(kstatus == 1) {
-									KadC_log(".");	/* store full, stop! (geddit?) */
+									kc_logPrint(".");	/* store full, stop! (geddit?) */
 								} else {
-									KadC_log("D");	/* rbt error, most likely duplicate key */
+									kc_logPrint("D");	/* rbt error, most likely duplicate key */
 								}
 #endif
 
 							} else {
 #ifdef VERBOSE_DEBUG
-								KadC_log("Results from peer %s:%u inserted in k-store\n", htoa(pnunx.ip), pnunx.port);
+								kc_logPrint("Results from peer %s:%u inserted in k-store\n", htoa(pnunx.ip), pnunx.port);
 #elif DEBUG
-								KadC_log("!");	/* inserted! */
+								kc_logPrint("!");	/* inserted! */
 #endif
 							}
 						}
 					} else if (buf[1] == OVERNET_SEARCH_END) {
 #ifdef VERBOSE_DEBUG
 						unsigned char *pb = buf+18;
-						KadC_log("OVERNET_SEARCH_END received from peer %s:%u (%u, %u)\n",
+						kc_logPrint("OVERNET_SEARCH_END received from peer %s:%u (%u, %u)\n",
 									htoa(pnunx.ip), pnunx.port, getushortle(&pb), getushortle(&pb));
 #endif
 						/* #### FIXME: do something (what??) with the two ushorts */
 						endarrived = 1;
 					} else {
 #ifdef VERBOSE_DEBUG
-						KadC_log("Unexpected packet with opcode 0x%02x from peer %s:%u \n",
+						kc_logPrint("Unexpected packet with opcode 0x%02x from peer %s:%u \n",
 								buf[1], htoa(pnunx.ip), pnunx.port);
 #endif
 					}
 				} else {
 #ifdef VERBOSE_DEBUG
-					KadC_log("peer %s:%u sent a reply too short (%d bytes)\n",
+					kc_logPrint("peer %s:%u sent a reply too short (%d bytes)\n",
 							htoa(pnunx.ip), pnunx.port, nrecvd);
 #endif
 				}
@@ -1871,7 +1868,7 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 	int i;
 	int addednodes;
 	void *iter;
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	findblk fb;	/* block shared between main thread and children threads */
 	pthread_t th[20];
 	int logd_target_local = int128xorlog(pKE->localnode.hash, targethash);
@@ -1887,9 +1884,9 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 	fb.psfilter = psfilter;
 	fb.sfilterlen = sfilterlen;
 	fb.pKE = pKE;
-	fb.find_input_rbt = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	fb.find_input_rbt = rbtNew(int128cmp);
 	fb.fimutex = mutex_initializer;
-	fb.find_results_rbt = rbt_new((rbtcomp *)int128lt, (rbtcomp *)int128eq);
+	fb.find_results_rbt = rbtNew(int128cmp);
 	fb.frmutex = mutex_initializer;
 	fb.fsmutex = mutex_initializer;
 	if(dosearch)
@@ -1899,11 +1896,11 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 	if(fb.find_results_avail < 10)
 		fb.find_results_avail = 10;	/* at least lookup to gather 10 hits */
 #ifdef VERBOSE_DEBUG
-	KadC_log("Will lookup not more than %d nodes\n", fb.find_results_avail);
+	kc_logPrint("Will lookup not more than %d nodes\n", fb.find_results_avail);
 #endif
 	fb.pstoptime = pstoptime;
 #ifdef VERBOSE_DEBUG
-	KadC_log("Creating a kstore with room for %d objects\n", max_hits);
+	kc_logPrint("Creating a kstore with room for %d objects\n", max_hits);
 #endif
 	fb.ks = kstore_new(max_hits);
 	fb.kstore_full = 0;
@@ -1919,47 +1916,47 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 		void *iterf, *iterb;
 
 		pthread_mutex_lock(&pKE->mutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-		rbt_find(pKE->kspace, targethash, &iterf);	/* forward iterator */
+		rbtFind(pKE->kspace, targethash, &iterf);	/* forward iterator */
 		if(iterf == NULL)
-			iterf = rbt_end(pKE->kspace);	/* if targethash is past the end, use last */
-		iterb = rbt_previous(pKE->kspace, iterf);		/* backward iterator */
+			iterf = rbtEnd(pKE->kspace);	/* if targethash is past the end, use last */
+		iterb = rbtPrevious(pKE->kspace, iterf);		/* backward iterator */
 		for(addednodes=0; addednodes < 20; ) {
 			if(iterf == NULL && iterb == NULL)
 				break;
 			if(iterf != NULL) {
-				peernode *ppn = rbt_value(iterf);
+				peernode *ppn = rbtValue(iterf);
 				peernode *newppn = malloc(sizeof(peernode));
 				*newppn = *ppn;
 				int128xor(newppn->hash, newppn->hash, targethash);	/* XORing to sort on dist from targethash... */
-				rbt_insert(fb.find_input_rbt, newppn->hash, newppn, 0);/* add to find_input_rbt */
+				rbtInsert(fb.find_input_rbt, newppn->hash, newppn, 0);/* add to find_input_rbt */
 #ifdef VERBOSE_DEBUG
-				KadC_log(">Priming with ");
+				kc_logPrint(">Priming with ");
 				KadC_int128flog(stdout, ppn->hash);
-				KadC_log(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
+				kc_logPrint(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
 #endif
 				addednodes++;
-				iterf = rbt_next(pKE->kspace, iterf);
+				iterf = rbtNext(pKE->kspace, iterf);
 			}
 			if(iterb != NULL) {
-				peernode *ppn = rbt_value(iterb);
+				peernode *ppn = rbtValue(iterb);
 				peernode *newppn = malloc(sizeof(peernode));
 				*newppn = *ppn;
 				int128xor(newppn->hash, newppn->hash, targethash);	/* XORing to sort on dist from targethash... */
-				rbt_insert(fb.find_input_rbt, newppn->hash, newppn, 0);/* add to find_input_rbt */
+				rbtInsert(fb.find_input_rbt, newppn->hash, newppn, 0);/* add to find_input_rbt */
 #ifdef VERBOSE_DEBUG
-				KadC_log("<Priming with ");
+				kc_logPrint("<Priming with ");
 				KadC_int128flog(stdout, ppn->hash);
-				KadC_log(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
+				kc_logPrint(" %s:%d logd = %d\n", htoa(newppn->ip), newppn->port, int128log(newppn->hash));
 #endif
 				addednodes++;
-				iterb = rbt_previous(pKE->kspace, iterb);
+				iterb = rbtPrevious(pKE->kspace, iterb);
 			}
 		}
 		pthread_mutex_unlock(&pKE->mutex);	/* ///// UNLOCK CONTACTS ///// */
 	}
 
 #ifdef VERBOSE_DEBUG
-	KadC_log("launching %d-thread Overnet_find_th\n", nthreads);
+	kc_logPrint("launching %d-thread Overnet_find_th\n", nthreads);
 #endif
 	for(i=0; i < nthreads; i++) {
 		pthread_create(&th[i], NULL, &Overnet_find_th, &fb);
@@ -1969,49 +1966,49 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 	for(i=0; i < nthreads; i++) {
 		pthread_join(th[i], NULL);		/* reap terminated threads */
 #ifdef VERBOSE_DEBUG
-		KadC_log("joined Overnet_find_th thread %lx\n", (unsigned long int)&th[i]);
+		kc_logPrint("joined Overnet_find_th thread %lx\n", (unsigned long int)&th[i]);
 #endif
 	}
 #ifdef VERBOSE_DEBUG
-	KadC_log("All threads joined, could not get %d hits out of %d\n",
+	kc_logPrint("All threads joined, could not get %d hits out of %d\n",
 		fb.find_results_avail, max_hits);
 #endif
 	/* fb.find_input_rbt must now be destroyed together with its content */
 
 #ifdef VERBOSE_DEBUG
-	KadC_log("- Going to destroy input set and its %d peers\n", rbt_size(fb.find_input_rbt));
+	kc_logPrint("- Going to destroy input set and its %d peers\n", rbtSize(fb.find_input_rbt));
 #endif
 
-	for(i = rbt_size(fb.find_input_rbt);; i--) {
+	for(i = rbtSize(fb.find_input_rbt);; i--) {
 		peernode *ppn;
-		iter=rbt_begin(fb.find_input_rbt);
+		iter=rbtBegin(fb.find_input_rbt);
 		if(iter == NULL)
 			break;
 		if(i <= 0) {
 #ifdef DEBUG
-			KadC_log("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
+			kc_logPrint("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
 					__FILE__, __LINE__, i);
 #endif
 			break;
 		}
-		ppn = rbt_value(iter);
-		rbt_erase(fb.find_input_rbt, iter);
+		ppn = rbtValue(rbt, iter);
+		rbtErase(fb.find_input_rbt, iter);
 		free(ppn);
 	}
-	rbt_status = rbt_destroy(fb.find_input_rbt);
+	rbt_status = rbtDelete(fb.find_input_rbt);
 	assert(rbt_status == RBT_STATUS_OK); /* should be empty now... */
 
 	if(! dosearch) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("- Going to destroy empty search set\n");
+		kc_logPrint("- Going to destroy empty search set\n");
 #endif
 		kstore_destroy(fb.ks, 0);
 	} else {
 		/* again in parallel, remove entries from results and establish
 		   OVERNET_SEARCH_INFO sessions with them */
 #ifdef DEBUG
-		KadC_log("got %d results from node lookup\n", rbt_size(fb.find_results_rbt));
-		KadC_log("now launching %d-thread OvernetSearchInfoSession_th\n", nthreads);
+		kc_logPrint("got %d results from node lookup\n", rbtSize(fb.find_results_rbt));
+		kc_logPrint("now launching %d-thread OvernetSearchInfoSession_th\n", nthreads);
 #endif
 		for(i=0; i < nthreads; i++) {
 			pthread_create(&th[i], NULL, &OvernetSearchInfoSession_th, &fb);
@@ -2020,11 +2017,11 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 		for(i=0; i < nthreads; i++) {
 			pthread_join(th[i], NULL);		/* reap terminated threads */
 #ifdef VERBOSE_DEBUG
-			KadC_log("joined OvernetSearchInfoSession_th thread %lx\n", (unsigned long int)&th[i]);
+			kc_logPrint("joined OvernetSearchInfoSession_th thread %lx\n", (unsigned long int)&th[i]);
 #endif
 		}
 #ifdef VERBOSE_DEBUG
-		KadC_log("All OvernetSearchInfoSession_th threads joined\n");
+		kc_logPrint("All OvernetSearchInfoSession_th threads joined\n");
 #endif
 	}
 
@@ -2033,26 +2030,26 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 		   the remaining content), as it's not needed */
 		int j;
 #ifdef VERBOSE_DEBUG
-		KadC_log("- Going to destroy results set and its %d peers\n", rbt_size(fb.find_results_rbt));
+		kc_logPrint("- Going to destroy results set and its %d peers\n", rbtSize(fb.find_results_rbt));
 #endif
-		for(i = rbt_size(fb.find_results_rbt), j = 0;; i--, j++) {
+		for(i = rbtSize(fb.find_results_rbt), j = 0;; i--, j++) {
 			peernode *ppn;
-			iter=rbt_begin(fb.find_results_rbt);
+			iter=rbtBegin(fb.find_results_rbt);
 			if(iter == NULL)
 				break;
 			if(i <= 0) {
 #ifdef DEBUG
-				KadC_log("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
+				kc_logPrint("File %s, line %d: Uh-oh, iter != NULL with %d elements in the rbt?!?",
 						__FILE__, __LINE__, i);
 #endif
 				break;
 			}
-			ppn = rbt_value(iter);
-			rbt_erase(fb.find_results_rbt, iter);
+			ppn = rbtValue(rbt, iter);
+			rbtErase(fb.find_results_rbt, iter);
 
 			free(ppn);
 		}
-		rbt_status = rbt_destroy(fb.find_results_rbt);
+		rbt_status = rbtDelete(fb.find_results_rbt);
 		assert(rbt_status == RBT_STATUS_OK); /* should be empty now... */
 	}
 
@@ -2062,18 +2059,18 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 
 	if(dosearch) {
 #ifdef DEBUG
-		KadC_log("- Returning kstore with %d k-objects as result\n", rbt_size(fb.ks->rbt));
+		kc_logPrint("- Returning kstore with %d k-objects as result\n", rbtSize(fb.ks->rbt));
 #endif
 
 		return (void *)fb.ks;	/* kstore of k-objects */
 	} else if(int128eq(targethash, pKE->localnode.hash)) {
 #ifdef VERBOSE_DEBUG
-		KadC_log("- Returning NULL\n");
+		kc_logPrint("- Returning NULL\n");
 #endif
 		return NULL;	/* self lookup, no need to return anything */
 	} else {
 #ifdef DEBUG
-		KadC_log("Returning %d peers as result\n", rbt_size(fb.find_results_rbt));
+		kc_logPrint("Returning %d peers as result\n", rbtSize(fb.find_results_rbt));
 #endif
 		return fb.find_results_rbt; /* rbt of peers, with hashes XOR'd with targethash */
 	}
@@ -2094,7 +2091,7 @@ void *Overnet_find(KadEngine *pKE, int128 targethash, int dosearch, unsigned cha
 static void *Overnet_find_th(void *p) {
 	findblk *pfb = p;
 	peernode *ppn;
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	int morehitsneeded = 1;
 	/* while(not time_over and not shutdown)  */
 	while(time(NULL) < *(pfb->pstoptime) - 2  && /* reserve 2 s for OVERNET_SEARCH_RESULT */
@@ -2115,9 +2112,9 @@ static void *Overnet_find_th(void *p) {
 
 		pthread_mutex_lock(&pfb->fimutex);			/* \\\\\\ LOCK FI \\\\\\ */
 #ifdef VERBOSE_DEBUG
-		KadC_log("pfb->nworking_on_fi: %d backlog: %d\n", pfb->nworking_on_fi, rbt_size(pfb->find_input_rbt));
+		kc_logPrint("pfb->nworking_on_fi: %d backlog: %d\n", pfb->nworking_on_fi, rbtSize(pfb->find_input_rbt));
 #endif
-		iter = rbt_begin(pfb->find_input_rbt);
+		iter = rbtBegin(pfb->find_input_rbt);
 		if(iter == NULL) {		/* no more input nodes... */
 #ifdef OVERNET_FIND_TH_TERMINATES_WHEN_INPUT_RBT_EMPTY
 			pthread_mutex_unlock(&pfb->fimutex);	/* ///// UNLOCK FI ///// */
@@ -2135,15 +2132,15 @@ static void *Overnet_find_th(void *p) {
 			continue;			/* see if there is work now */
 #endif
 		}
-		ppn = rbt_value(iter);
-		rbt_status = rbt_erase(pfb->find_input_rbt, iter);	/* remove node from input rbt */
+		ppn = rbtValue(rbt, iter);
+		rbt_status = rbtErase(pfb->find_input_rbt, iter);	/* remove node from input rbt */
 		assert(rbt_status == RBT_STATUS_OK);	/* it was there, wasn't it? */
 		pthread_mutex_unlock(&pfb->fimutex);		/* ///// UNLOCK FI ///// */
 
 		if((ppn->ip == pfb->pKE->extip && ppn->port == pfb->pKE->localnode.port) ||
 			isnonroutable(ppn->ip)) {
 #ifdef VERBOSE_DEBUG
-			KadC_log("ignoring peer %s:%u - our own or nonroutable address\n",
+			kc_logPrint("ignoring peer %s:%u - our own or nonroutable address\n",
 						htoa(ppn->ip), ppn->port);
 #endif
 			free(ppn);	/* ignore peers with IP/port equal to us or nonroutable */
@@ -2155,11 +2152,11 @@ static void *Overnet_find_th(void *p) {
 
 		/* see if ppn is in results rbt; if yes, exit, if not, put it provisionally there */
 		pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-		rbt_status = rbt_insert(pfb->find_results_rbt, ppn->hash, ppn, 0);
+		rbt_status = rbtInsert(pfb->find_results_rbt, ppn->hash, ppn, 0);
 		pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 		if(rbt_status != RBT_STATUS_OK) {
 #ifdef VERBOSE_DEBUG
-			KadC_log("rbt_insert() returned %d: ignoring peer %s:%u already queried successfully\n",
+			kc_logPrint("rbtInsert() returned %d: ignoring peer %s:%u already queried successfully\n",
 						rbt_status, htoa(ppn->ip), ppn->port);
 #endif
 			free(ppn);	/* ignore peers already queried successfully */
@@ -2178,10 +2175,10 @@ static void *Overnet_find_th(void *p) {
 
 		if(psession == NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 #ifdef VERBOSE_DEBUG
-			KadC_log("Can't create session for OVERNET_SEARCH to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+			kc_logPrint("Can't create session for OVERNET_SEARCH to peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -2196,15 +2193,15 @@ static void *Overnet_find_th(void *p) {
 		if(pkt == NULL) { 	/* if it did not answer */
 #ifdef VERBOSE_DEBUG
 			pthread_mutex_lock(&pfb->fimutex);		/* \\\\\ LOCK FI \\\\\ */
-			KadC_log("timeout on OVERNET_SEARCH_NEXT from ");
+			kc_logPrint("timeout on OVERNET_SEARCH_NEXT from ");
 			KadC_int128flog(stdout, pnunx.hash);
-			KadC_log(" %s:%u.%d\n",
+			kc_logPrint(" %s:%u.%d\n",
 				htoa(ppn->ip), ppn->port, ppn->type);
 			pthread_mutex_unlock(&pfb->fimutex);	/* ///// UNLOCK FI ///// */
 #endif
 			UpdateNodeStatus(&pnunx, pfb->pKE, 0);
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -2222,7 +2219,7 @@ static void *Overnet_find_th(void *p) {
 				is_not_overnet_search_next = 0;
 			} else if(memcmp(&buf[3], pfb->targethash, 15) == 0) {
 #ifdef VERBOSE_DEBUG
-				KadC_log("Trying to fix broken OVERNET_SEARCH_NEXT format sent by %s:%u.%d\n",
+				kc_logPrint("Trying to fix broken OVERNET_SEARCH_NEXT format sent by %s:%u.%d\n",
 					htoa(ppn->ip), ppn->port, ppn->type);
 #endif
 				memmove(&buf[2], pfb->targethash, 16);
@@ -2233,31 +2230,31 @@ static void *Overnet_find_th(void *p) {
 		if(is_not_overnet_search_next) {
 
 #ifdef DEBUG
-			KadC_log("not a OVERNET_SEARCH_NEXT in response to an OVERNET_SEARCH!\n");
-			KadC_log("nrecvd = %d, buf[1] = %02x hash: ", nrecvd, buf[1]);
+			kc_logPrint("not a OVERNET_SEARCH_NEXT in response to an OVERNET_SEARCH!\n");
+			kc_logPrint("nrecvd = %d, buf[1] = %02x hash: ", nrecvd, buf[1]);
 			KadC_int128flog(stdout, &buf[2]);
-			KadC_log("\nSent by: ");
+			kc_logPrint("\nSent by: ");
 			KadC_int128flog(stdout, pnunx.hash);
-			KadC_log(" %s:%u.%d\n",
+			kc_logPrint(" %s:%u.%d\n",
 				htoa(ppn->ip), ppn->port, ppn->type);
 			{
 				int i;
-				UDPIO *pul = pfb->pKE->pul;
-				pthread_mutex_lock(&pul->mutex);	/* \\\\\\ LOCK UDPIO \\\\\\ */
+				kc_udpIo *pul = pfb->pKE->pul;
+				pthread_mutex_lock(&pul->mutex);	/* \\\\\\ LOCK kc_udpIo \\\\\\ */
 				for(i=0; i < nrecvd && i < 48 ; i++) {
 					if((i % 16) == 0)
-						KadC_log("\n");
-					KadC_log("%02x ", buf[i]);
+						kc_logPrint("\n");
+					kc_logPrint("%02x ", buf[i]);
 				}
-				KadC_log("\n================================\n");
-				pthread_mutex_unlock(&pul->mutex);	/* ///// UNLOCK UDPIO ///// */
+				kc_logPrint("\n================================\n");
+				pthread_mutex_unlock(&pul->mutex);	/* ///// UNLOCK kc_udpIo ///// */
 			}
 
 #endif
 			destroypkt(pkt);
 
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -2269,12 +2266,12 @@ static void *Overnet_find_th(void *p) {
 		npeers = *pb++;
 		if(nrecvd != (2+16+1) + npeers * 23) { /* packet must contain npeers 23-byte peers */
 #ifdef DEBUG
-			KadC_log("malformed packet!\n");
+			kc_logPrint("malformed packet!\n");
 #endif
 			destroypkt(pkt);
 
 			pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-			rbt_status = rbt_eraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
+			rbt_status = rbtEraseKey(pfb->find_results_rbt, ppn->hash); /* remove ppn from results */
 			assert(rbt_status == RBT_STATUS_OK);
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 
@@ -2298,8 +2295,8 @@ static void *Overnet_find_th(void *p) {
 			getpeernode(ppnr, &pb);
 #ifdef VERBOSE_DEBUG
 			/* out of curiosity, see if this new candidate has lower distance from target than pnunx */
-			KadC_log("ppnr %s ", htoa(ppnr->ip));
-			KadC_log("proposed by %s has logdistance %d (ppn has %d)\n",
+			kc_logPrint("ppnr %s ", htoa(ppnr->ip));
+			kc_logPrint("proposed by %s has logdistance %d (ppn has %d)\n",
 						htoa(pnunx.ip),
 						int128xorlog(ppnr->hash, pfb->targethash),
 						int128xorlog(pnunx.hash, pfb->targethash)
@@ -2309,7 +2306,7 @@ static void *Overnet_find_th(void *p) {
 			if(pnunx.ip == ppnr->ip && pnunx.port == ppnr->port) {	/* if peer references itself... */
 				recommends_itself = 1;
 #ifdef VERBOSE_DEBUG
-				KadC_log("######### peer %s:%u recommends itself, with logdistance = %d\n",
+				kc_logPrint("######### peer %s:%u recommends itself, with logdistance = %d\n",
 							htoa(pnunx.ip), pnunx.port, int128xorlog(pnunx.hash, pfb->targethash) );
 #endif
 			}
@@ -2318,11 +2315,11 @@ static void *Overnet_find_th(void *p) {
 			/* put returned peer into find_input_rbt */
 			pthread_mutex_lock(&pfb->fimutex);			/* \\\\\\ LOCK FI \\\\\\ */
 #ifdef OPTIMIZE_BY_RECURSING_ONLY_ON_PEERS_BETTER_THAN_CURRENT_BEST
-			iter = rbt_begin(pfb->find_input_rbt);
+			iter = rbtBegin(pfb->find_input_rbt);
 			rbt_status = RBT_STATUS_DUPLICATE_KEY;	/* by default, so that insert skipped == insert failed */
-			if(iter == NULL || int128lt(ppnr->hash, ((peernode *)rbt_value(iter))->hash)) /* if rbt empty, or new better than rbt's best */
+			if(iter == NULL || int128lt(ppnr->hash, ((peernode *)rbtValue(rbt, iter))->hash)) /* if rbt empty, or new better than rbt's best */
 #endif
-				rbt_status = rbt_insert(pfb->find_input_rbt, ppnr->hash, ppnr, 0);
+				rbt_status = rbtInsert(pfb->find_input_rbt, ppnr->hash, ppnr, 0);
 			pthread_mutex_unlock(&pfb->fimutex);		/* ///// UNLOCK FI ///// */
 			if(rbt_status != RBT_STATUS_OK)
 				free(ppnr);	/* if already there, throw away */
@@ -2340,13 +2337,13 @@ static void *OvernetSearchInfoSession_th(void *p) {
 
 	while(!pfb->kstore_full) {
 		pthread_mutex_lock(&pfb->frmutex);			/* \\\\\\ LOCK FR \\\\\\ */
-		iter=rbt_begin(pfb->find_results_rbt);
+		iter=rbtBegin(pfb->find_results_rbt);
 		if(iter == NULL) {
 			pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 			break;
 		}
-		ppn = rbt_value(iter);
-		rbt_erase(pfb->find_results_rbt, iter);
+		ppn = rbtValue(rbt, iter);
+		rbtErase(pfb->find_results_rbt, iter);
 		pthread_mutex_unlock(&pfb->frmutex);		/* ///// UNLOCK FR ///// */
 		OvernetSearchInfoSession(pfb, ppn);
 
@@ -2378,18 +2375,18 @@ static void *overnet_republish_th(void *p) {
 		void *iter;
 		SessionObject *psession;
 		int successful = 0;
-		rbt_StatusEnum rbt_status;
+		RbtStatus rbt_status;
 		int logdist;
 
 		pthread_mutex_lock(&prp->mutex);		/* \\\\\\ LOCK \\\\\\ */
-		iter = rbt_begin(prp->rbt);
+		iter = rbtBegin(prp->rbt);
 		if(iter == NULL || prp->n_unpublished <= 0 || prp->pKE->shutdown) {
 			pthread_mutex_unlock(&prp->mutex);	/* ///// UNLOCK ///// */
 			break;		/* if rbt empty, terminate thread */
 		}
 		prp->n_unpublished--;					/* decrement unpubl. counter */
-		ppn = rbt_value(iter);
-		rbt_status = rbt_erase(prp->rbt, iter);	/* detach ppn from rbtres */
+		ppn = rbtValue(prp->rbt, iter);
+		rbt_status = rbtErase(prp->rbt, iter);	/* detach ppn from rbtres */
 		assert(rbt_status == RBT_STATUS_OK);
 		assert(ppn != NULL);
 		/* try to republish prp->pko to ppn */
@@ -2397,7 +2394,7 @@ static void *overnet_republish_th(void *p) {
 		logdist = int128xorlog(ppn->hash, khash);
 #ifdef DEBUG
 		KadC_int128flog(stdout, ppn->hash); fflush(stdout);
-		KadC_log(" Logd = %d %s %u\n", logdist, htoa(ppn->ip), ppn->port);
+		kc_logPrint(" Logd = %d %s %u\n", logdist, htoa(ppn->ip), ppn->port);
 #endif
 		pthread_mutex_unlock(&prp->mutex);		/* ///// UNLOCK ///// */
 
@@ -2405,28 +2402,28 @@ static void *overnet_republish_th(void *p) {
 		psession = sendOvernetPublish(prp->pKE, prp->pko, ppn->ip, ppn->port);
 		if(psession == NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 #ifdef VERBOSE_DEBUG
-			KadC_log("Can't create session for OVERNET_PUBLISH to peer %s:%u\n", htoa(ppn->ip), ppn->port);
+			kc_logPrint("Can't create session for OVERNET_PUBLISH to peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
 		} else {
 			packet *pkt = getpktt(psession, 3000);	/* 3 s timeout */
 			if(pkt == NULL) {
 #ifdef DEBUG
-				KadC_log("timeout while waiting for OVERNET_PUBLISH_ACK from %s:%u\n",
+				kc_logPrint("timeout while waiting for OVERNET_PUBLISH_ACK from %s:%u\n",
 							htoa(ppn->ip), ppn->port);
 #endif
 				UpdateNodeStatus(ppn, prp->pKE, 0);
 			} else {
 				if(pkt->len < 18 || pkt->buf[1] != OVERNET_PUBLISH_ACK) { /* the min is for OVERNET_SEARCH_END */
 #ifdef DEBUG
-					KadC_log("Malformed or wrong reply received from peer %s:%u\n", htoa(ppn->ip), ppn->port);
+					kc_logPrint("Malformed or wrong reply received from peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
-				} else if(int128eq(khash, &pkt->buf[2]) == 0){
+				} else if(int128cmp(khash, &pkt->buf[2]) != 0){
 #ifdef DEBUG
-					KadC_log("OVERNET_PUBLISH_ACK with mismatched hash received from peer %s:%u\n", htoa(ppn->ip), ppn->port);
+					kc_logPrint("OVERNET_PUBLISH_ACK with mismatched hash received from peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
 				} else {
 #ifdef VERBOSE_DEBUG
-					KadC_log("OVERNET_PUBLISH_ACK (%d-byte) from peer %s:%u\n", pkt->len, htoa(ppn->ip), ppn->port);
+					kc_logPrint("OVERNET_PUBLISH_ACK (%d-byte) from peer %s:%u\n", pkt->len, htoa(ppn->ip), ppn->port);
 #endif
 					/* ONLY if session is completed successfully */
 					successful = 1;
@@ -2467,7 +2464,7 @@ static unsigned mborg_isqrt3(unsigned long val) {
 }
 
 int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nthreads) {
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	void *resrbt;
 	void *iter;
 	int i;
@@ -2482,17 +2479,17 @@ int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nt
 		nthreads = arraysize(th);
 
 #ifdef DEBUG
-	KadC_log("Going to republish ");
+	kc_logPrint("Going to republish ");
 	kobject_dump(pko, ";");
-	KadC_log("\n");
+	kc_logPrint("\n");
 #endif
 
 	/* lookup the first hash in pko and get the results in the rbt */
 	resrbt = Overnet_find(pKE, khash, 0, NULL, 0, pstoptime, 200, nthreads);
 
 #ifdef DEBUG
-	KadC_log("Lookup for key hash returned %d hits in %d seconds\n",
-			rbt_size(resrbt), time(NULL)-starttime);
+	kc_logPrint("Lookup for key hash returned %d hits in %d seconds\n",
+			rbtSize(resrbt), time(NULL)-starttime);
 #endif
 
 	rp.rbt = resrbt;
@@ -2512,7 +2509,7 @@ int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nt
 	for(i=0; i<nthreads; i++) {
 		pthread_join(th[i], NULL);
 #ifdef VERBOSE_DEBUG
-		KadC_log("Joined overnet_republish_th() thread %lx\n", &th[i]);
+		kc_logPrint("Joined overnet_republish_th() thread %lx\n", &th[i]);
 #endif
 	}
 
@@ -2521,18 +2518,17 @@ int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nt
 	/* empty resrbt from leftovers */
 	for(;;) {
 		peernode *ppn;
-		iter=rbt_begin(resrbt);
+		iter=rbtBegin(resrbt);
 		if(iter == NULL)
 			break;
-		ppn = rbt_value(iter);
+		ppn = rbtValue(resrbt, iter);
 		assert(ppn != NULL);
-		rbt_status = rbt_erase(resrbt, iter);	/* detach ppn from rbtres */
+		rbt_status = rbtErase(resrbt, iter);	/* detach ppn from rbtres */
 		assert(rbt_status == RBT_STATUS_OK);
 		free(ppn);
 	}
 
-	rbt_status = rbt_destroy(resrbt);		/* should be empty by now */
-	assert(rbt_status == RBT_STATUS_OK);	/* better check, though */
+    rbtDelete(resrbt);		/* should be empty by now */
 
 #ifdef DEBUG
 	{
@@ -2540,7 +2536,7 @@ int overnet_republishnow(KadEngine *pKE, kobject *pko, time_t *pstoptime, int nt
 		int var_logdist = (rp.npub_ack < 2 ? 0 :
 				 (rp.sumsq_logdist - rp.sum_logdist*rp.sum_logdist/rp.npub_ack)*100/(rp.npub_ack - 1) );
 		int stddev_logdist = (int)mborg_isqrt3((unsigned long)var_logdist);
-		KadC_log("Hits: %d Logdists: min: %d avg: %d stddev: %d.%d\n",
+		kc_logPrint("Hits: %d Logdists: min: %d avg: %d stddev: %d.%d\n",
 					rp.npub_ack, rp.min_logdist, avg_logdist, stddev_logdist/10, stddev_logdist%10);
 	}
 #endif
@@ -2577,12 +2573,12 @@ int OvernetDumppkt(packet *pkt) {
 		for(i=0; i < npeers; i++) {
 			ppn = (peernode *)malloc(sizeof(peernode));
 			getpeernode(ppn, &pb);
-			KadC_log("Overnet OVERNET_CONNECT_REPLY: peer %d of %d\n", i, npeers);
-			KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-			KadC_log(" IP: %s", htoa(ppn->ip));
-			KadC_log(" port: %d", ppn->port);
-			KadC_log(" type: %d", ppn->type);
-			KadC_log("\n");
+			kc_logPrint("Overnet OVERNET_CONNECT_REPLY: peer %d of %d\n", i, npeers);
+			kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+			kc_logPrint(" IP: %s", htoa(ppn->ip));
+			kc_logPrint(" port: %d", ppn->port);
+			kc_logPrint(" type: %d", ppn->type);
+			kc_logPrint("\n");
 			free(ppn);
 		}
 		break;
@@ -2590,28 +2586,28 @@ int OvernetDumppkt(packet *pkt) {
 	case OVERNET_PUBLICIZE_ACK:
 		if(nrecvd != 2)
 			break;	/* fixed length response: null */
-		KadC_log("Overnet OVERNET_PUBLICIZE_ACK\n");
+		kc_logPrint("Overnet OVERNET_PUBLICIZE_ACK\n");
 		break;
 
 	case OVERNET_IP_QUERY_ANSWER:
 		if(nrecvd != 6)
 			break;	/* fixed length response: only one IP */
 		myexternalip = getipn(&pb);
-		KadC_log("Overnet OVERNET_IP_QUERY_ANSWER\n");
-		KadC_log(" My external IP: %s", htoa(myexternalip));
-		KadC_log("\n");
+		kc_logPrint("Overnet OVERNET_IP_QUERY_ANSWER\n");
+		kc_logPrint(" My external IP: %s", htoa(myexternalip));
+		kc_logPrint("\n");
 		break;
 
 	case OVERNET_IP_QUERY_END:
 		if(nrecvd != 2)
 			break;
-		KadC_log("Overnet OVERNET_IP_QUERY_END\n");
+		kc_logPrint("Overnet OVERNET_IP_QUERY_END\n");
 		break;	/* fixed length response: null */
 
 	case OVERNET_IDENTIFY:
 		if(nrecvd != 2)
 			break;
-		KadC_log("Overnet OVERNET_IDENTIFY\n");
+		kc_logPrint("Overnet OVERNET_IDENTIFY\n");
 		break;	/* fixed length response: null */
 
 	case OVERNET_IDENTIFY_REPLY:
@@ -2619,19 +2615,19 @@ int OvernetDumppkt(packet *pkt) {
 			break;
 		ppn = (peernode *)malloc(sizeof(peernode));
 		getcontactnode(ppn, &pb);
-		KadC_log("Overnet OVERNET_IDENTIFY_REPLY: peer %d of %d\n", i, npeers);
-		KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-		KadC_log(" IP: %s", htoa(ppn->ip));
-		KadC_log(" port: %d", ppn->port);
-		KadC_log("\n");
+		kc_logPrint("Overnet OVERNET_IDENTIFY_REPLY: peer %d of %d\n", i, npeers);
+		kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+		kc_logPrint(" IP: %s", htoa(ppn->ip));
+		kc_logPrint(" port: %d", ppn->port);
+		kc_logPrint("\n");
 		free(ppn);
-		KadC_log("Overnet OVERNET_IDENTIFY_ACK\n");
+		kc_logPrint("Overnet OVERNET_IDENTIFY_ACK\n");
 		break;	/* fixed length response: null */
 
 	case OVERNET_IDENTIFY_ACK:
 		if(nrecvd != 4)
 			break;
-		KadC_log("Overnet OVERNET_IDENTIFY_ACK\n");
+		kc_logPrint("Overnet OVERNET_IDENTIFY_ACK\n");
 		break;	/* fixed length response: null */
 
 	case OVERNET_FIREWALL_CONNECTION_ACK:
@@ -2639,9 +2635,9 @@ int OvernetDumppkt(packet *pkt) {
 		if(nrecvd != 18)
 			break;	/* fixed length response: only one hash */
 		getint128n(recvdhash, &pb);
-		KadC_log("Overnet OVERNET_FIREWALL_ACK\n");
-		KadC_log(" Hash: "); KadC_int128flog(stdout, recvdhash);
-		KadC_log("\n");
+		kc_logPrint("Overnet OVERNET_FIREWALL_ACK\n");
+		kc_logPrint(" Hash: "); KadC_int128flog(stdout, recvdhash);
+		kc_logPrint("\n");
 		break;
 
 	case OVERNET_FIREWALL_CONNECTION_NACK:
@@ -2649,9 +2645,9 @@ int OvernetDumppkt(packet *pkt) {
 		if(nrecvd != 18)
 			break;	/* fixed length response: only one hash */
 		getint128n(recvdhash, &pb);
-		KadC_log("Overnet OVERNET_FIREWALL_NACK\n");
-		KadC_log(" Hash: "); KadC_int128flog(stdout, recvdhash);
-		KadC_log("\n");
+		kc_logPrint("Overnet OVERNET_FIREWALL_NACK\n");
+		kc_logPrint(" Hash: "); KadC_int128flog(stdout, recvdhash);
+		kc_logPrint("\n");
 		break;
 
 	case OVERNET_CONNECT:
@@ -2660,22 +2656,22 @@ int OvernetDumppkt(packet *pkt) {
 		pb = &buf[2];
 		ppn = (peernode *)malloc(sizeof(peernode));
 		getpeernode(ppn, &pb);
-		KadC_log("Overnet OVERNET_CONNECT\n");
-		KadC_log("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
-		KadC_log(" IP: %s", htoa(ppn->ip));
-		KadC_log(" port: %d", ppn->port);
-		KadC_log(" type: %d", ppn->type);
-		KadC_log("\n");
+		kc_logPrint("Overnet OVERNET_CONNECT\n");
+		kc_logPrint("hash: "); KadC_int128flog(stdout, (int128)(ppn->hash));
+		kc_logPrint(" IP: %s", htoa(ppn->ip));
+		kc_logPrint(" port: %d", ppn->port);
+		kc_logPrint(" type: %d", ppn->type);
+		kc_logPrint("\n");
 		free(ppn);
 		break;
 	default:
-		KadC_log("OvernetDumppkt() can't recognize these %d bytes:\n", nrecvd);
+		kc_logPrint("OvernetDumppkt() can't recognize these %d bytes:\n", nrecvd);
 		for(i=0; i < nrecvd; i++) {
 			if((i % 16) == 0)
-				KadC_log("\n");
-			KadC_log("%02x ", buf[i]);
+				kc_logPrint("\n");
+			kc_logPrint("%02x ", buf[i]);
 		}
-		KadC_log("\n================================\n");
+		kc_logPrint("\n================================\n");
 		unknownOpcode = 1;
 	}
 	return unknownOpcode;
@@ -2730,7 +2726,7 @@ void OvernetServerThread(SessionObject *psession, packet *pkt) {
 	peernode *ppn;
 
 #ifdef VERBOSE_DEBUG
-	KadC_log("******* OvernetServerThread %lx started *******\n",
+	kc_logPrint("******* OvernetServerThread %lx started *******\n",
 		(unsigned long int)psession);
 	OvernetDumppkt(pkt);	/* see what's going on */
 #endif /* DEBUG */
@@ -2751,18 +2747,18 @@ void OvernetServerThread(SessionObject *psession, packet *pkt) {
 			int status;
 
 #ifdef VERBOSE_DEBUG
-			KadC_log("Going to reply a OVERNET_PUBLICIZE_ACK\n");
+			kc_logPrint("Going to reply a OVERNET_PUBLICIZE_ACK\n");
 #endif
 			*pb++ = OP_EDONKEYHEADER;
 			*pb++ = OVERNET_PUBLICIZE_ACK;
 			status = sendbuf(psession, outbuf, sizeof(outbuf));
 #ifdef VERBOSE_DEBUG
-			KadC_log("In server session %lx sent as reply a OVERNET_PUBLICIZE_ACK\n",
+			kc_logPrint("In server session %lx sent as reply a OVERNET_PUBLICIZE_ACK\n",
 					(unsigned long int)psession);
 #endif
 #ifdef DEBUG
 			if(status != 0)
-				KadC_log("sendbuf() returned %d while sending an OVERNET_PUBLICIZE_ACK\n", status);
+				kc_logPrint("sendbuf() returned %d while sending an OVERNET_PUBLICIZE_ACK\n", status);
 #endif
 
 		}
@@ -2796,10 +2792,10 @@ void OvernetServerThread(SessionObject *psession, packet *pkt) {
 
 			status = sendbuf(psession, outbuf, sizeof(outbuf));
 #ifdef VERBOSE_DEBUG
-			KadC_log("In server session %lx sent as reply a OVERNET_IDENTIFY_REPLY\n",
+			kc_logPrint("In server session %lx sent as reply a OVERNET_IDENTIFY_REPLY\n",
 					(unsigned long int)psession);
 			if(status != 0) {
-				KadC_log("sendbuf() returned %d while sending an OVERNET_CONNECT_RES\n", status);
+				kc_logPrint("sendbuf() returned %d while sending an OVERNET_CONNECT_RES\n", status);
 			}
 #endif
 			pkt = getpkt(psession);	/* wait for OVERNET_IDENTIFY_ACK */
@@ -2810,14 +2806,14 @@ void OvernetServerThread(SessionObject *psession, packet *pkt) {
 				destroypkt(pkt);
 			} else {
 #ifdef VERBOSE_DEBUG
-				KadC_log("In server session %lx timeout while waiting for OVERNET_IDENTIFY_ACK\n",
+				kc_logPrint("In server session %lx timeout while waiting for OVERNET_IDENTIFY_ACK\n",
 						(unsigned long int)psession);
 #endif
 			}
 		}
 	}
 #ifdef VERBOSE_DEBUG
-	KadC_log("+++++++ OvernetServerThread %lx terminating +++++++\n",
+	kc_logPrint("+++++++ OvernetServerThread %lx terminating +++++++\n",
 		(unsigned long int)psession);
 #endif /* DEBUG */
 }
@@ -2832,7 +2828,7 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 	/* Read local params from INI file */
 	if(findsection(inifile, "[local]") != 0) {
 #ifdef DEBUG
-		KadC_log("can't find [local] section in KadCmain.ini\n");
+		kc_logPrint("can't find [local] section in KadCmain.ini\n");
 #endif
 		return -1;
 	} else {
@@ -2841,7 +2837,7 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 			char *p = trimfgets(line, sizeof(line), inifile);
 			if(p == NULL) {	/* EOF? */
 #ifdef DEBUG
-				KadC_log("can't find data under [local] section of KadCmain.ini\n");
+				kc_logPrint("can't find data under [local] section of KadCmain.ini\n");
 #endif
 				return -2;		/* EOF */
 			}
@@ -2850,13 +2846,13 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 				continue;	/* skip comments and blank lines */
 			if(pb[0][0] == '[') {
 #ifdef DEBUG
-				KadC_log("can't find data under [local] section of KadCmain.ini\n");
+				kc_logPrint("can't find data under [local] section of KadCmain.ini\n");
 #endif
 				return -2;		/* start of new section */
 			}
 			if(npars != 5) {
 #ifdef DEBUG
-				KadC_log("bad format for local node data: skipping...\n");
+				kc_logPrint("bad format for local node data: skipping...\n");
 #endif
 				continue;
 			}
@@ -2864,9 +2860,9 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 		}
 		string2int128((int128)pmynode->hash, pb[0]);
 		/* if hash is zero, generate a random one (*not* saved to INI file) */
-		if(int128eq(pmynode->hash, int128zero))
+		if(int128cmp(pmynode->hash, int128zero) == 0)
 			int128setrandom(pmynode->hash);
-		pmynode->ip = domain2hip(pb[1]);
+		pmynode->ip = gethostbyname_s(pb[1]);
 		pmynode->port = (unsigned short int)atoi(pb[2]);
 		pmynode->tport = (unsigned short int)atoi(pb[3]);
 		pmynode->type = (unsigned char)atoi(pb[4]);
@@ -2874,7 +2870,7 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 	/* Read contacts from INI file */
 	if(findsection(inifile, "[overnet_peers]") != 0) {
 #ifdef DEBUG
-		KadC_log("can't find [overnet_peers] section in KadCmain.ini\n");
+		kc_logPrint("can't find [overnet_peers] section in KadCmain.ini\n");
 #endif
 		return -3;
 	} else {
@@ -2883,7 +2879,7 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 		for(i = 0; ; i++) {
 			int npars;
 			peernode *ppn;
-			rbt_StatusEnum rbt_status;
+			RbtStatus rbt_status;
 			char *p = trimfgets(line, sizeof(line), inifile);
 
 			if(p == NULL) {	/* EOF? */
@@ -2898,18 +2894,18 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 			}
 			if(npars != 4) {
 #ifdef DEBUG
-				KadC_log("bad format for contact %d lines after [contacts]: skipping...\n", i);
+				kc_logPrint("bad format for contact %d lines after [contacts]: skipping...\n", i);
 #endif
 				continue;
 			}
 			ppn = (peernode *)malloc(sizeof(peernode));
 			string2int128((int128)ppn->hash, pb[0]);
-			ppn->ip = domain2hip(pb[1]);
+			ppn->ip = gethostbyname_s(pb[1]);
 			ppn->port = (unsigned short int)atoi(pb[2]);
 			ppn->tport = 0; /* (unsigned short int)atoi(pb[3]); */
 			ppn->type = (unsigned char)atoi(pb[3]);
 			/* no locking necessary here: nobody else is accessing this rbt */
-			rbt_status = rbt_insert(contacts, ppn->hash, ppn, 0);
+			rbt_status = rbtInsert(contacts, ppn->hash, ppn);
 			if(rbt_status == RBT_STATUS_OK)
 				nnodes++;
 			else
@@ -2918,15 +2914,15 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 		}
 		if(nnodes == 0) {
 #ifdef DEBUG
-			KadC_log("can't find data under [overnet_peers] section of KadCmain.ini\n");
+			kc_logPrint("can't find data under [overnet_peers] section of KadCmain.ini\n");
 #endif
 			return -4;		/* EOF */
 		}
 #ifdef VERBOSE_DEBUG
-		KadC_log("Read %d nodes from the [overnet_peers] section of KadCmain.ini\n", nnodes);
-		assert(nnodes == rbt_size(contacts));
+		kc_logPrint("Read %d nodes from the [overnet_peers] section of KadCmain.ini\n", nnodes);
+		assert(nnodes == rbtSize(contacts));
 #endif
-		return rbt_size(contacts);
+		return rbtSize(contacts);
 	}
 
 }
@@ -2938,7 +2934,7 @@ int overnetinifileread(FILE *inifile, peernode *pmynode, void *contacts, int max
 int overnetinifileupdate(FILE *inifile, FILE *wfile, KadEngine *pKE) {
 	/* update ini file with the most recent knodes */
 	int writtenpeers = 0;
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	void *iter;
 	int status;
 
@@ -2946,7 +2942,7 @@ int overnetinifileupdate(FILE *inifile, FILE *wfile, KadEngine *pKE) {
 	status = startreplacesection(inifile, "[overnet_peers]", wfile);
 	if(status == 0) {	/* if section not found */
 #ifdef DEBUG
-		KadC_log("[overnet_peers] section not found in old inifile\n");
+		kc_logPrint("[overnet_peers] section not found in old inifile\n");
 		return -1;
 #endif
 	}
@@ -2954,25 +2950,25 @@ int overnetinifileupdate(FILE *inifile, FILE *wfile, KadEngine *pKE) {
 	/* Remove peers from contacts rbt and write them
 	   to ini file; free them and finally destroy the rbt */
 	pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-	KadC_flog(wfile, "# %d contacts follow\n", rbt_size(pKE->contacts));
+	KadC_flog(wfile, "# %d contacts follow\n", rbtSize(pKE->contacts));
 	for(;;) {
 		peernode *ppn;
 
-		iter = rbt_begin(pKE->contacts);
+		iter = rbtBegin(pKE->contacts);
 		if(iter == NULL)
 			break;
-		ppn = rbt_value(iter);
+		ppn = rbtValue(rbt, iter);
 		if(ppn->type < NONRESPONSE_THRESHOLD) {
 			KadC_int128flog(wfile, ppn->hash);
 			KadC_flog(wfile, " %s %u %u\n", htoa(ppn->ip), ppn->port, ppn->type);
 			writtenpeers++;
 		} else {
-			KadC_log("WARNING: contact with excessive non-responses (%d) skipped in INI file update\n", ppn->type);
+			kc_logPrint("WARNING: contact with excessive non-responses (%d) skipped in INI file update\n", ppn->type);
 		}
-		rbt_erase(pKE->contacts, iter);
+		rbtErase(pKE->contacts, iter);
 		free(ppn);
 	}
-	rbt_status = rbt_destroy(pKE->contacts);
+	rbt_status = rbtDelete(pKE->contacts);
 	assert(rbt_status == RBT_STATUS_OK); /* otherwise rbt wasn't empty... */
 	pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 	pthread_mutex_destroy(&pKE->cmutex);	/* prevent leaks on some platforms */
@@ -2994,24 +2990,24 @@ int overnetinifilesectionwrite(FILE *wfile, KadEngine *pKE) {
 	
 	/* Iterate through contacts rbt writinging them to ini file */
 	pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-	KadC_flog(wfile, "# %d contacts follow\n", rbt_size(pKE->contacts));
-	for(iter  = rbt_begin(pKE->contacts); 
+	KadC_flog(wfile, "# %d contacts follow\n", rbtSize(pKE->contacts));
+	for(iter  = rbtBegin(pKE->contacts); 
 	    iter != NULL; 
-	    iter  = rbt_next(pKE->contacts, iter)) 
+	    iter  = rbtNext(pKE->contacts, iter)) 
 	{	
 		peernode *ppn;
-		ppn = rbt_value(iter);
+		ppn = rbtValue(pKE->contacts, iter);
 		if(ppn->type < NONRESPONSE_THRESHOLD) {
 			KadC_int128flog(wfile, ppn->hash);
 			KadC_flog(wfile, " %s %u %u\n", htoa(ppn->ip), ppn->port, ppn->type);
 			writtenpeers++;
 		} else {
-			KadC_log("WARNING: contact with excessive non-responses (%d) skipped in INI file update\n", ppn->type);
+			kc_logPrint("WARNING: contact with excessive non-responses (%d) skipped in INI file update\n", ppn->type);
 		}
 	}
 	pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 
-	KadC_log("Wrote %d peers to inifile\n", writtenpeers);
+	kc_logPrint("Wrote %d peers to inifile\n", writtenpeers);
 
 	return writtenpeers;
 }
@@ -3049,35 +3045,35 @@ void *OvernetBGthread(void *p) {
 
 		int128setrandom(randhash);
 		pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-		rbt_find(pKE->contacts, randhash, &iter);
+		iter = rbtFind(pKE->contacts, randhash);
 		if(iter == NULL)	/* maybe randhash bigger than biggest hash in contacts? */
-			iter = rbt_begin(pKE->contacts); /* then try the first */
+			iter = rbtBegin(pKE->contacts); /* then try the first */
 		if(iter != NULL) {
 			int isalive;
-			ppn = rbt_value(iter);
+			ppn = rbtValue(pKE->contacts, iter);
 			pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 
 #ifdef VERBOSE_DEBUG
-			KadC_log("Pinging peer %s:%u\n", htoa(ppn->ip), ppn->port);
+			kc_logPrint("Pinging peer %s:%u\n", htoa(ppn->ip), ppn->port);
 #endif
 			
 			isalive = Overnet_ping(pKE, ppn->ip, ppn->port, 1000);
 #ifdef VERBOSE_DEBUG
-			KadC_log("Ping result %d\n", isalive);
+			kc_logPrint("Ping result %d\n", isalive);
 #endif
 			if (isalive == 1 || isalive == 0)
 				contact_status_update(pKE, ppn, isalive);
 		} else {
 			pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 #ifdef DEBUG
-			KadC_log("Uh oh... BG thread has found the contacts table empty!!!\n");
+			kc_logPrint("Uh oh... BG thread has found the contacts table empty!!!\n");
 #endif
 		}
 
 		/* See if it's the case of repopulating the contacts rbt */
 
 		pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK CONTACTS \\\\\\ */
-		ncontacts = rbt_size(pKE->contacts);
+		ncontacts = rbtSize(pKE->contacts);
 		pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK CONTACTS ///// */
 		
 #ifndef OLD_KBOOT
@@ -3112,7 +3108,7 @@ void *OvernetBGthread(void *p) {
 		nthreads = (pKE->maxcontacts - ncontacts) / 20; /* one thread per 20 missing contacts (anyway limited to 5 by called routine) */
 
 #ifdef VERBOSE_DEBUG
-			KadC_log("preparing kboot - maxcontacts:%d, ncontacts:%d, nthreads:%d\n", pKE->maxcontacts, ncontacts, nthreads);
+			kc_logPrint("preparing kboot - maxcontacts:%d, ncontacts:%d, nthreads:%d\n", pKE->maxcontacts, ncontacts, nthreads);
 #endif
 		
 		if(i == 0 && nthreads == 0)
@@ -3121,7 +3117,7 @@ void *OvernetBGthread(void *p) {
 
 		if(nthreads > 0) {
 #ifdef VERBOSE_DEBUG
-			KadC_logt("BG thread starting %d-threads kboot...\n", nthreads);
+			kc_logPrintt("BG thread starting %d-threads kboot...\n", nthreads);
 #endif
 		}
 
@@ -3132,8 +3128,8 @@ void *OvernetBGthread(void *p) {
 			addednodes = overnet_kboot(pKE, &stoptime, nthreads);
 #ifdef VERBOSE_DEBUG
 			pthread_mutex_lock(&pKE->mutex);	/* \\\\\\ LOCK KE \\\\\\ */
-			KadC_logt("BG thread boot added %d nodes to contacts list, new total: %d\n",
-					addednodes, rbt_size(pKE->contacts));
+			kc_logPrintt("BG thread boot added %d nodes to contacts list, new total: %d\n",
+					addednodes, rbtSize(pKE->contacts));
 			pthread_mutex_unlock(&pKE->mutex);	/* ///// UNLOCK KE ///// */
 #endif
 		}
@@ -3147,14 +3143,14 @@ void *OvernetBGthread(void *p) {
 		/* proceed only if kbuckets hold <= 10 nodes, or every 10 minutes */
 
 #ifdef VERBOSE_DEBUG
-			KadC_logt("BG thread starting a self-lookup\n");
+			kc_logPrintt("BG thread starting a self-lookup\n");
 #endif
 			stoptime = time(NULL)+60;	/* max 1 minute */
 			Overnet_find(pKE, pKE->localnode.hash, 0, NULL, 0, &stoptime, 200, 20);	/* max 20 threads */
 
 			nknodes = knodes_count(pKE);
 #ifdef VERBOSE_DEBUG
-			KadC_logt("BG self-lookup added %d nodes to contacts list, new total: %d\n",
+			kc_logPrintt("BG self-lookup added %d nodes to contacts list, new total: %d\n",
 						nknodes-nknodesold, nknodes);
 #endif
 		}
@@ -3180,17 +3176,17 @@ int OvernetCommandLoop(KadEngine *pKE) {
 		SessionObject *psession;
 		packet *pkt;
 		time_t stoptime = 0;
-		rbt_StatusEnum rbt_status;
+		RbtStatus rbt_status;
 		int ncontacts, nknodes;
 
 
 		nknodes = knodes_count(pKE);
 
 		pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK contacts \\\\\\ */
-		ncontacts = rbt_size(pKE->contacts);
+		ncontacts = rbtSize(pKE->contacts);
 		pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK contacts ///// */
 
-		KadC_log("%4d/%4d%s ", nknodes, ncontacts, (pKE->fwstatuschecked?(pKE->notfw?">":"]"):"?"));
+		kc_logPrint("%4d/%4d%s ", nknodes, ncontacts, (pKE->fwstatuschecked?(pKE->notfw?">":"]"):"?"));
 
 		p = KadC_getsn(line, sizeof(line) -1);
 		if(p == NULL) /* EOF? */
@@ -3219,37 +3215,37 @@ int OvernetCommandLoop(KadEngine *pKE) {
 
 		if(strcmp(par[0], "boot") == 0) {
 			/* temporary: */
-			psession = sendOvernetBootReq(pKE, domain2hip(par[1]), atoi(par[2]));
+			psession = sendOvernetBootReq(pKE, gethostbyname_s(par[1]), atoi(par[2]));
 			if(psession != NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 
 				pkt = getpkt(psession);
 				if(pkt == NULL) { 	/* Timeout */
-					KadC_log("*TIMEOUT*\n");
+					kc_logPrint("*TIMEOUT*\n");
 				} else {
 					if(OvernetDumppkt(pkt))
-						KadC_log("Response unknown\n");
+						kc_logPrint("Response unknown\n");
 					free(pkt->buf);
 					free(pkt);
 				}
 				destroySessionObject(psession);
 			} else {
-				KadC_log("Session allocation failed\n");
+				kc_logPrint("Session allocation failed\n");
 			}
 		} else if(strcmp(par[0], "hello") == 0) {
-			psession = sendOvernetHelloReq(pKE, domain2hip(par[1]), atoi(par[2]));
+			psession = sendOvernetHelloReq(pKE, gethostbyname_s(par[1]), atoi(par[2]));
 			if(psession != NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 				pkt = getpktt(psession, 3000);
 				if(pkt == NULL) { 	/* Timeout */
-					KadC_log("*TIMEOUT*\n");
+					kc_logPrint("*TIMEOUT*\n");
 				} else {
 					if(OvernetDumppkt(pkt))
-						KadC_log("Response unknown\n");
+						kc_logPrint("Response unknown\n");
 					free(pkt->buf);
 					free(pkt);
 				}
 				destroySessionObject(psession);
 			} else {
-				KadC_log("Session allocation failed\n");
+				kc_logPrint("Session allocation failed\n");
 			}
 		} else if(strcmp(par[0], "fwcheck") == 0) { /* IP request, in Overnet */
 			/* Should make sure that we are listening on TCP port...: */
@@ -3261,16 +3257,16 @@ int OvernetCommandLoop(KadEngine *pKE) {
 			int ourhellolen;
 			pthread_t tcpsrv;
 			tcpsrvpar tcpsrvparblock = {0};
-			unsigned long int peerIP = domain2hip(par[1]);
+			unsigned long int peerIP = gethostbyname_s(par[1]);
 			unsigned short int peerUDP = atoi(par[2]);
 
 			if(pKE->fwstatuschecked == 0) {
-				KadC_log("Background IP/NAT/Firewall check in progress - retry later\n");
+				kc_logPrint("Background IP/NAT/Firewall check in progress - retry later\n");
 				continue;
 			}
 
 			if(Overnet_ping(pKE, peerIP, peerUDP, 3000) == 0) {
-				KadC_log("Peer doesn't respond, try another one\n");
+				kc_logPrint("Peer doesn't respond, try another one\n");
 				continue;
 			}
 
@@ -3290,12 +3286,12 @@ int OvernetCommandLoop(KadEngine *pKE) {
 			if(psession != NULL) { /* Session allocation sometimes fails. FIXME: find out why */
 				pkt = getpktt(psession, 5000);				/* expect OVERNET_IP_QUERY_ANSWER */
 				if(pkt == NULL) { 	/* Timeout */
-					KadC_log("*TIMEOUT*\n");
+					kc_logPrint("*TIMEOUT*\n");
 					tcpsrvparblock.quit = 1;
 				} else {
 					unsigned char *p;
 					if(OvernetDumppkt(pkt))
-						KadC_log("Response unknown\n");
+						kc_logPrint("Response unknown\n");
 					p = pkt->buf+2;
 					if(pkt->len == 6)
 						pKE->extip = getipn(&p);
@@ -3306,10 +3302,10 @@ int OvernetCommandLoop(KadEngine *pKE) {
 					/* ignore OVERNET_IP_QUERY_END, which probably won't arrive */
 					pkt = getpktt(psession, 3000);			/* expect OVERNET_IP_QUERY_END */
 					if(pkt == NULL) { 	/* Timeout, probably because our TCP port is unreachable or our Hello reply is no good */
-						/* KadC_log("*TIMEOUT*\n"); */
+						/* kc_logPrint("*TIMEOUT*\n"); */
 					} else {
 						if(OvernetDumppkt(pkt))
-							KadC_log("Response unknown\n");
+							kc_logPrint("Response unknown\n");
 						free(pkt->buf);
 						free(pkt);
 					}
@@ -3317,12 +3313,12 @@ int OvernetCommandLoop(KadEngine *pKE) {
 				}
 				destroySessionObject(psession);
 			} else {
-				KadC_log("%s:%d Session allocation failed\n", __FILE__, __LINE__);
+				kc_logPrint("%s:%d Session allocation failed\n", __FILE__, __LINE__);
 			}
 			pthread_join(tcpsrv, NULL);
 			if(tcpsrvparblock.nbytes > 5) {
 				printHelloMsg(hellobuffer, hellobuffer+tcpsrvparblock.nbytes, tcpsrvparblock.peerIP);
-				KadC_log("Our reply:\n");
+				kc_logPrint("Our reply:\n");
 				printHelloMsg(ourhellobuffer, ourhellobuffer+ourhellolen, pKE->extip);
 			}
 		} else if(strcmp(par[0], "lookup") == 0) { /* node lookup for publishing or self hash */
@@ -3351,38 +3347,37 @@ int OvernetCommandLoop(KadEngine *pKE) {
 			else
 				MD4(hashbuf, (unsigned char *)par[1], strlen(par[1]));
 
-			KadC_log("Looking up %shash ",
-				int128eq(hashbuf, pKE->localnode.hash) ? "our own " : "");
+			kc_logPrint("Looking up %shash ",
+				int128cmp(hashbuf, pKE->localnode.hash) == 0 ? "our own " : "");
 			KadC_int128flog(stdout, hashbuf);
-			KadC_log("...\n");
+			kc_logPrint("...\n");
 
 			resrbt = Overnet_find(pKE, hashbuf, 0, NULL, 0, &stoptime, 200, nthreads);
 
-			if(int128eq(hashbuf, pKE->localnode.hash)) {
+			if(int128cmp(hashbuf, pKE->localnode.hash) == 0) {
 				assert(resrbt == NULL);
 #ifdef VERBOSE_DEBUG
-				KadC_log("Refresh by lookup of own hash completed in %ld seconds.\n",
+				kc_logPrint("Refresh by lookup of own hash completed in %ld seconds.\n",
 						(long int)time(NULL) - stoptime + duration);
 #endif
 			} else {
 				void *iter;
 				peernode *ppn;
-				nhits = rbt_size(resrbt);
+				nhits = rbtSize(resrbt);
 				for(;;) {
-					iter = rbt_end(resrbt);	/* list and demolish in reverse order */
+					iter = rbtEnd(resrbt);	/* list and demolish in reverse order */
 					if(iter == NULL)
 						break;
-					ppn = rbt_value(iter);
-					rbt_status = rbt_erase(resrbt, iter);
+					ppn = rbtValue(resrbt, iter);
+					rbt_status = rbtErase(resrbt, iter);
 					assert(rbt_status == RBT_STATUS_OK); /* remove from rbt */
 					int128xor(ppn->hash, ppn->hash, hashbuf);	/* unXOR */
 					KadC_int128flog(stdout, ppn->hash);
-					KadC_log(" Logd = %d %s %u\n", int128xorlog(ppn->hash, hashbuf), htoa(ppn->ip), ppn->port);
+					kc_logPrint(" Logd = %d %s %u\n", int128xorlog(ppn->hash, hashbuf), htoa(ppn->ip), ppn->port);
 					free(ppn);
 				}
-				rbt_status = rbt_destroy(resrbt);
-				assert(rbt_status == RBT_STATUS_OK);
-				KadC_log("Total results: %d Elapsed time: %d seconds\n",
+				rbtDelete(resrbt);
+				kc_logPrint("Total results: %d Elapsed time: %d seconds\n",
 						nhits, time(NULL) - stoptime + duration);
 			}
 		} else if(strcmp(par[0], "search") == 0 || strcmp(par[0], "s") == 0) {
@@ -3419,14 +3414,14 @@ int OvernetCommandLoop(KadEngine *pKE) {
 			else
 				MD4((unsigned char *)hashbuf, (unsigned char *)par[1], strlen(par[1]));
 
-			KadC_log("Searching for hash ");
+			kc_logPrint("Searching for hash ");
 			KadC_int128flog(stdout, hashbuf);
-			KadC_log("...\n");
+			kc_logPrint("...\n");
 
 			/* pnsf = make_nsfilter(stringex); */
 			pf = KadC_parsefilter(stringex);
 			if(pf.err) {
-				KadC_log("Parsing failure: %s%s\n", pf.errmsg1, pf.errmsg2);
+				kc_logPrint("Parsing failure: %s%s\n", pf.errmsg1, pf.errmsg2);
 				continue;
 			}
 			pnsf = pf.nsf;
@@ -3442,28 +3437,28 @@ int OvernetCommandLoop(KadEngine *pKE) {
 
 			psf = psfilter;
 			if(psf != NULL) {
-				KadC_log("Filtering with:\n");
+				kc_logPrint("Filtering with:\n");
 				if(s_filter_dump(&psf, psf+sfilterlen) < 0)
-					KadC_log("--Malformed filter!");
-				KadC_log("\n");
+					kc_logPrint("--Malformed filter!");
+				kc_logPrint("\n");
 			}
 
 			pks = Overnet_find(pKE, hashbuf, 1, psfilter, sfilterlen, &stoptime, 100, nthreads);
 
-			nhits = rbt_size(pks->rbt);
+			nhits = rbtSize(pks->rbt);
 
 			if(pnsf != NULL)
 				free(pnsf);
 
 			/* list each k-object */
-			for(iter = rbt_begin(pks->rbt); iter != NULL; iter = rbt_next(pks->rbt, iter)) {
-				pko = rbt_value(iter);
+			for(iter = rbtBegin(pks->rbt); iter != NULL; iter = rbtNext(pks->rbt, iter)) {
+				pko = rbtValue(pks->rbt, iter);
 
-				KadC_log("Found: \n");
+				kc_logPrint("Found: \n");
 				kobject_dump(pko, "; ");
-				KadC_log("\n");
+				kc_logPrint("\n");
 			}
-			KadC_log("Search completed in %d seconds - %d hit%s returned\n",
+			kc_logPrint("Search completed in %d seconds - %d hit%s returned\n",
 				time(NULL)-stoptime+duration, nhits, (nhits == 1 ? "" : "s"));
 			kstore_destroy(pks, 1);	/* also destroy contained k-objects */
 
@@ -3504,13 +3499,13 @@ int OvernetCommandLoop(KadEngine *pKE) {
 
 			pko = make_kobject(khashbuf, vhashbuf, stringmeta);
 			if(pko == NULL) {
-				KadC_log("Syntax error. Try: p key #hash [tagname=tagvalue[;...]]\n");
+				kc_logPrint("Syntax error. Try: p key #hash [tagname=tagvalue[;...]]\n");
 				continue;
 			}
 /*
-			KadC_log("Publishing k-object ");
+			kc_logPrint("Publishing k-object ");
 			kobject_dump(pko, ";");
-			KadC_log("\n");
+			kc_logPrint("\n");
 */
 			/* this is an "instant publishing": pko is not stored for
 			   periodic auto-republishing by BGthread (that is to be implemented) */
@@ -3530,14 +3525,14 @@ int OvernetCommandLoop(KadEngine *pKE) {
 				int i;
 				qnode *cur;
 
-				KadC_log("------- Session Service Table -------\n");
+				kc_logPrint("------- Session Service Table -------\n");
 				SessionsTable_dump(pKE);
-				KadC_log("------- Dead Sessions Table -------\n");
+				kc_logPrint("------- Dead Sessions Table -------\n");
 				for(i=0, cur=pKE->DeadServerSessionsFifo->head; cur != NULL; i++, cur = cur->next) {
 					int j;
 					qnode *cur1;
 					SessionObject *psession = (SessionObject *)cur->data;
-					KadC_log("%d>%s:%d %s: entry %lx fifo holds %d: (",
+					kc_logPrint("%d>%s:%d %s: entry %lx fifo holds %d: (",
 							psession->ID.KF,
 							htoa(psession->ID.IP),
 							psession->ID.port,
@@ -3547,10 +3542,10 @@ int OvernetCommandLoop(KadEngine *pKE) {
 					pthread_mutex_lock(&psession->mutex);	/* \\\\\\ LOCK session \\\\\\ */
 					for(j=0, cur1=psession->fifo->head; cur1 != NULL; j++, cur1 = cur1->next) {
 						packet *pkt = (packet *)cur1->data;
-						KadC_log("[%d]: %lx[%d]; ", j, (unsigned long int)pkt->buf, pkt->len);
+						kc_logPrint("[%d]: %lx[%d]; ", j, (unsigned long int)pkt->buf, pkt->len);
 					}
 					pthread_mutex_unlock(&psession->mutex);	/* ///// UNLOCK session ///// */
-					KadC_log(")\n");
+					kc_logPrint(")\n");
 				}
 			}
 			/* dump k-buckets table */
@@ -3559,17 +3554,17 @@ int OvernetCommandLoop(KadEngine *pKE) {
 			/* dump kspace table (contacts table by hash) */
 			dump_kspace(pKE);
 #else
-			KadC_log("K-buckets hold %d peernodes\n", knodes_count(pKE));
+			kc_logPrint("K-buckets hold %d peernodes\n", knodes_count(pKE));
 #endif
 			pthread_mutex_lock(&pKE->cmutex);	/* \\\\\\ LOCK contacts \\\\\\ */
-			KadC_log("Contacts table holds %d peernodes\n", rbt_size(pKE->contacts));
+			kc_logPrint("Contacts table holds %d peernodes\n", rbtSize(pKE->contacts));
 			pthread_mutex_unlock(&pKE->cmutex);	/* ///// UNLOCK contacts ///// */
 			/* dump local node characteristics */
-			KadC_log("Our node: ");
+			kc_logPrint("Our node: ");
 			KadC_int128flog(stdout, pKE->localnode.hash);
-			KadC_log(" %s:%u routable: %s\n",
+			kc_logPrint(" %s:%u routable: %s\n",
 				htoa(pKE->localnode.ip), pKE->localnode.port, isnonroutable(pKE->localnode.ip)? "NO" : "YES");
-			KadC_log(" extip: %s tport: %u TCP-firewalled: %s leafmode: %s\n",
+			kc_logPrint(" extip: %s tport: %u TCP-firewalled: %s leafmode: %s\n",
 				htoa(pKE->extip), pKE->localnode.tport,
 				pKE->notfw ? "NO" : "YES",
 				pKE->leafmode? "YES" : "NO");
@@ -3581,16 +3576,16 @@ int OvernetCommandLoop(KadEngine *pKE) {
 			/* clear k-bucket table */
 			erase_knodes(pKE);
 		} else {
-			KadC_log("Commands:\n");
-			KadC_log(" dump\n");
-			KadC_log(" hello   peerIP peerUDPport\n");
-			KadC_log(" fwcheck peerIP peerUDPport\n");
-			KadC_log(" s[earch]  {#[hash]|keyw} {nam1=val1[;nam2=val2...]|-} [nthreads [nsecs]]\n");
-			KadC_log(" p[ublish] {#[khash]|key} {#[vhash]|value} [meta;[meta...] [nthreads [nsecs]]]\n");
-			KadC_log(" q[uit]\n");
+			kc_logPrint("Commands:\n");
+			kc_logPrint(" dump\n");
+			kc_logPrint(" hello   peerIP peerUDPport\n");
+			kc_logPrint(" fwcheck peerIP peerUDPport\n");
+			kc_logPrint(" s[earch]  {#[hash]|keyw} {nam1=val1[;nam2=val2...]|-} [nthreads [nsecs]]\n");
+			kc_logPrint(" p[ublish] {#[khash]|key} {#[vhash]|value} [meta;[meta...] [nthreads [nsecs]]]\n");
+			kc_logPrint(" q[uit]\n");
 		}
 	}
-	KadC_log("Shutting down, please wait...\n");
+	kc_logPrint("Shutting down, please wait...\n");
 	return 0;
 }
 

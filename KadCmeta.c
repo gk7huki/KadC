@@ -54,7 +54,7 @@ counters, big for IP addresses and hashes). Usage by other networks
 like eMule KAD may require conversion shims.
 
 */
-#define DEBUG 1
+
 
 #include <pthread.h>
 #include <string.h>
@@ -280,7 +280,7 @@ static int print_nstring(unsigned char **pb, unsigned char *bufend, int translat
 	nslen = getushortle(pb);
 	if(nslen == 0) {
 		if(translations == 2)
-			KadC_log(".TRUE.");
+			kc_logPrint(".TRUE.");
 		return 0;
 	}
 	if(*pb + nslen > bufend)
@@ -289,23 +289,23 @@ static int print_nstring(unsigned char **pb, unsigned char *bufend, int translat
 		int i;
 		for(i = 0; sxt[i].name != NULL; i++) {
 			if(sxt[i].code[0] == **pb) {
-				KadC_log(sxt[i].name);
+				kc_logPrint(sxt[i].name);
 				(*pb)++;
 				return 0;
 			}
 		}
 		if(**pb < ' ')
 			/* one-byte, < ' ', but not in table: generate on the fly... */
-			KadC_log("0x%02x", **pb);
+			kc_logPrint("0x%02x", **pb);
 		else
-			KadC_log("%c", **pb);
+			kc_logPrint("%c", **pb);
 
 		(*pb)++;
 		return 0;
 	}
 	s1 = local_strndup((char *)*pb, nslen);
 	*pb += nslen;
-	KadC_log(s1);
+	kc_logPrint(s1);
 	free(s1);
 
 	return nslen;
@@ -322,7 +322,7 @@ int print_mtag(unsigned char **ppb, unsigned char *bufend, char *sep) {
 	/* print name */
 	if(print_nstring(ppb, bufend, 1) < 0)	/* may be a special */
 			return 2;
-	KadC_log("=");
+	kc_logPrint("=");
 	switch(mtagtype) {
 	case EDONKEY_MTAG_STRING:
 		if(print_nstring(ppb, bufend, 0) < 0)	/* can't be a special */
@@ -332,7 +332,7 @@ int print_mtag(unsigned char **ppb, unsigned char *bufend, char *sep) {
 		if(*ppb + sizeof(unsigned long int) > bufend)
 			return 4;
 		dword = getulongle(ppb);
-		KadC_log("%lu", dword);
+		kc_logPrint("%lu", dword);
 		break;
 	case EDONKEY_MTAG_HASH:
 		if(*ppb + 16 > bufend)
@@ -341,13 +341,13 @@ int print_mtag(unsigned char **ppb, unsigned char *bufend, char *sep) {
 			char asciizhash[33];
 			int128sprintf(asciizhash, *ppb);
 			ppb += 16;
-			KadC_log(asciizhash);
+			kc_logPrint(asciizhash);
 		}
 		break;
 	default:
 		return 2;	/* don't know how to handle other types... */
 	}
-	KadC_log(sep);
+	kc_logPrint(sep);
 	return 0;
 }
 
@@ -359,20 +359,20 @@ void kobject_dump(kobject *pk, char *tagseparatorstring) {
 	int i;
 
 	if(len < (16+16+4)) {
-		KadC_log("** k-object too short: %d bytes (minimum is %d)\n",
+		kc_logPrint("** k-object too short: %d bytes (minimum is %d)\n",
 				len, 16+16+4);
 		return;
 	}
 	int128print(stdout, buf);
-	KadC_log(tagseparatorstring);
+	kc_logPrint(tagseparatorstring);
 	buf += 16;
 	int128print(stdout, buf);
-	KadC_log(tagseparatorstring);
+	kc_logPrint(tagseparatorstring);
 	buf += 16;
 	nmetas = getulongle(&buf);
 	for(i=0; i < nmetas; i++) {
 		if(print_mtag(&buf, pk->buf + len, tagseparatorstring) != 0) {
-			KadC_log("** Malformed k-object!\n");
+			kc_logPrint("** Malformed k-object!\n");
 			break;
 		}
 	}
@@ -384,7 +384,7 @@ void *kstore_new(int maxkobjs) {
 	kstore *pks = malloc(sizeof(kstore));
 	if(pks != NULL) {
 		/* we exploit the fact that the first 16 bytes in the buf of a k-object are the indexing hash */
-		pks->rbt = rbt_new((rbtcomp *)&int128lt, (rbtcomp *)&int128eq);
+		pks->rbt = rbtNew(int128cmp);
 		pks->mutex = __mutex;
 		pks->avail = maxkobjs;
 	} else {
@@ -396,20 +396,18 @@ void *kstore_new(int maxkobjs) {
 /* extracts all k-objects, erases their nodes, if destroy_kobjects != 0 destroys them, and finally frees the rbt */
 void kstore_destroy(kstore *pks, int destroy_kobjects) {
 	void *iter;
-	rbt_StatusEnum rbt_status;
 
 	pthread_mutex_lock(&pks->mutex);	/* \\\\\\ LOCK \\\\\\ */
 	for(;;) {
 		kobject *pk;
-		if((iter=rbt_begin(pks->rbt)) == NULL)
+		if((iter=rbtBegin(pks->rbt)) == NULL)
 			break;
-		pk = rbt_value(iter);
-		rbt_erase(pks->rbt, iter);
+		pk = rbtValue(pks->rbt, iter);
+		rbtErase(pks->rbt, iter);
 		if(destroy_kobjects)
 			kobject_destroy(pk);
 	}
-	rbt_status = rbt_destroy(pks->rbt);
-	assert(rbt_status == RBT_STATUS_OK);
+	rbtDelete(pks->rbt);
 	pthread_mutex_unlock(&pks->mutex);	/* ///// UNLOCK ///// */
 	pthread_mutex_destroy(&pks->mutex);
 	free(pks);
@@ -427,15 +425,15 @@ void kstore_destroy(kstore *pks, int destroy_kobjects) {
    16 bytes of the k-object. Duplicate keys are allowed.
  */
 int kstore_insert(kstore *pks, kobject *pkobject, int which_index, int duplkey_allowed) {
-	rbt_StatusEnum rbt_status;
+	RbtStatus rbt_status;
 	int status;
 
 	pthread_mutex_lock(&pks->mutex);	/* \\\\\\ LOCK \\\\\\ */
 	if(pks->avail > 0) {
 		if(which_index == 0)
-			rbt_status = rbt_insert(pks->rbt, pkobject->buf, pkobject, duplkey_allowed);
+			rbt_status = rbtInsert(pks->rbt, pkobject->buf, pkobject);
 		else
-			rbt_status = rbt_insert(pks->rbt, pkobject->buf+16, pkobject, duplkey_allowed);
+			rbt_status = rbtInsert(pks->rbt, pkobject->buf+16, pkobject);
 		if(rbt_status == RBT_STATUS_OK) {
 			pks->avail--;
 			status = 0;	/* kobject inserted in kstore */
@@ -804,33 +802,33 @@ int s_filter_dump(unsigned char **ps, unsigned char *filterend) {
 			return -1;	/* if out of bounds, => malformed filter => return false */
 		switch(*(*ps)++) {
 		case EDONKEY_SEARCH_AND:
-			KadC_log("(");
+			kc_logPrint("(");
 			if(s_filter_dump(ps, filterend) < 0)
 				return -1;
-			KadC_log(" AND ");
+			kc_logPrint(" AND ");
 			if(s_filter_dump(ps, filterend) < 0)
 				return -1;
-			KadC_log(")");
+			kc_logPrint(")");
 			break;
 		case EDONKEY_SEARCH_OR:
-			KadC_log("(");
+			kc_logPrint("(");
 			if(s_filter_dump(ps, filterend) < 0)
 				return -1;
-			KadC_log(" OR ");
+			kc_logPrint(" OR ");
 			if(s_filter_dump(ps, filterend) < 0)
 				return -1;
-			KadC_log(")");
+			kc_logPrint(")");
 			break;
 		case EDONKEY_SEARCH_ANDNOT:
-			KadC_log("(");
+			kc_logPrint("(");
 			n = s_filter_dump(ps, filterend);
 			if(n < 0)
 				return -1;
 			else
-				KadC_log(" AND_NOT ");
+				kc_logPrint(" AND_NOT ");
 			if(s_filter_dump(ps, filterend) < 0)
 				return -1;
-			KadC_log(")");
+			kc_logPrint(")");
 			break;
 		}
 		break;
@@ -861,7 +859,7 @@ int s_filter_dump(unsigned char **ps, unsigned char *filterend) {
 			*ps += metanamelength;
 			if(print_nstring(&metaname, filterend, 1) < 0)
 				return -1;
-			KadC_log("=");
+			kc_logPrint("=");
 			if(print_nstring(&metavalue, filterend, 0) < 0)
 				return -1;
 
@@ -891,10 +889,10 @@ int s_filter_dump(unsigned char **ps, unsigned char *filterend) {
 			if(print_nstring(&metaname, filterend, 1) < 0)
 				return -1;
 			if(minmax == EDONKEY_SEARCH_MIN)
-				KadC_log(">");
+				kc_logPrint(">");
 			else
-				KadC_log("<");
-			KadC_log("%lu", limit);
+				kc_logPrint("<");
+			kc_logPrint("%lu", limit);
 		}
 		break;
 	}
@@ -940,23 +938,22 @@ int ns_filter_dump(unsigned char *ps) {
    As the local keystore is indexed on FIRST HASH, also the results
    keystore is filled in with first-hash indexing. */
 kstore *kstore_find(kstore *pks, int128 hash, unsigned char *filter, unsigned char *filterend, int maxresults) {
-	rbt_StatusEnum rbt_status;
 	void *iter;
 	kstore *results = kstore_new(maxresults);
 	int status;
 
 	if(results != NULL) {
 		pthread_mutex_lock(&pks->mutex);	/* \\\\\\ LOCK \\\\\\ */
-		rbt_status = rbt_find(pks->rbt, hash, &iter);
-		for(;iter != NULL; iter = rbt_next(pks->rbt, iter)) {
+		iter = rbtFind(pks->rbt, hash);
+		for(;iter != NULL; iter = rbtNext(pks->rbt, iter)) {
 			kobject *pkobject;
-			if(int128eq(rbt_key(iter), hash) == 0)	/* no more records with this key? */
+			if(int128cmp(rbtKey(pks->rbt, iter), hash) != 0)	/* no more records with this key? */
 				break;	/* then stop */
-			pkobject = rbt_value(iter);
+			pkobject = rbtValue(pks->rbt, iter);
 			status = s_filter(pkobject, &filter, filterend);
 #ifdef DEBUG
 			if(status < 0)
-				KadC_log("Uh oh, s_filter(pkobject, &filter, filterend) returned %d...\n",
+				kc_logPrint("Uh oh, s_filter(pkobject, &filter, filterend) returned %d...\n",
 							status);
 #endif
 			if(status == 1){ /* if filtering successful... */
@@ -1290,7 +1287,7 @@ kobject *make_kobject(int128 hash1, int128 hash2, const char *smetalist) {
 			return NULL;	/* error: malformed string */
 		}
 		*pv++ = 0; /* now pv points to value string, terms[i] to name string */
-		/* KadC_log("tagname: %s tagvalue: %s\n", terms[i], pv); */
+		/* kc_logPrint("tagname: %s tagvalue: %s\n", terms[i], pv); */
 		putmeta(&pb, terms[i], pv);
 	}
 
@@ -1321,24 +1318,24 @@ void printHelloMsg(char *buf, char *bufend, unsigned long peerIP) {
 	if(*p++ != 0x01 || *p++ != 0x10)
 		goto err;
 
-	KadC_log("TCP Client hello from %s: \n", htoa(peerIP));
+	kc_logPrint("TCP Client hello from %s: \n", htoa(peerIP));
 	peerDeclaredhash = p;
 	p += 16;
 	peerDeclaredIP = getipn(&p);
 	peerDeclaredport = getushortle(&p);
 	nmetas = getulongle(&p);
 	int128print(stdout, peerDeclaredhash);
-	KadC_log(", %s:%u, ", htoa(peerDeclaredIP), peerDeclaredport);
+	kc_logPrint(", %s:%u, ", htoa(peerDeclaredIP), peerDeclaredport);
 
 	for(i=0; i < nmetas; i++) {
 		if(print_mtag(&p, (unsigned char *)buf+5+packetlen, "; ") != 0) {
-			KadC_log("** Malformed k-object!\n");
+			kc_logPrint("** Malformed k-object!\n");
 			break;
 		}
 	}
-	KadC_log("\n");
+	kc_logPrint("\n");
 	return;
 err:
-	KadC_log("Malformed Client-hello message from %s\n", htoa(peerIP));
+	kc_logPrint("Malformed Client-hello message from %s\n", htoa(peerIP));
 }
 

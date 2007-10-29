@@ -28,8 +28,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-/* #define DEBUG 1 */
-/* #define VERBOSE_DEBUG 1 */
 #include <pthread.h>
 #include <string.h>
 #include <unistd.h>
@@ -97,7 +95,7 @@ void *tcpsrv_th(void *p) {
 				FD_SET(ssocket, &rset);
 				selectval = select(ssocket+1, &rset, NULL, NULL, &timeout);
 #ifdef DEBUG
-				KadC_log("select() returned %d\n", selectval);
+				kc_logPrint("select() returned %d\n", selectval);
 #endif
 				if(selectval > 0) {
 					csocket = accept(ssocket, (struct sockaddr *) &csa, &cliLen);
@@ -107,14 +105,14 @@ void *tcpsrv_th(void *p) {
 						int nbytes;
 						ptcpsrvpar->peerIP = ntohl(csa.sin_addr.s_addr);
 #ifdef DEBUG
-						KadC_log("in tcpsrv, connection accepted from %s \n", htoa(ptcpsrvpar->peerIP));
+						kc_logPrint("in tcpsrv, connection accepted from %s \n", htoa(ptcpsrvpar->peerIP));
 #endif
 						if(buf != NULL) {
 							do {
 								nbytes = recv(csocket, buf, bufsize, 0);
 							} while(nbytes < 0 && errno == EINTR);	/* wait outside recvfrom */
 #ifdef DEBUG
-							KadC_log("in tcpsrv, recv() from %s returned %d\n", htoa(ptcpsrvpar->peerIP), nbytes);
+							kc_logPrint("in tcpsrv, recv() from %s returned %d\n", htoa(ptcpsrvpar->peerIP), nbytes);
 #endif
 							ptcpsrvpar->nbytes = nbytes;
 							if(ptcpsrvpar->outbuf != NULL) {
@@ -146,22 +144,22 @@ void *tcpsrv_th(void *p) {
 			if(gottcpconnection) {
 				ptcpsrvpar->notfw = 1;
 #ifdef VERBOSE_DEBUG
-				KadC_log("We are NOT TCP-firewalled!\n");
+				kc_logPrint("We are NOT TCP-firewalled!\n");
 #endif
 			} else {
 				ptcpsrvpar->notfw = 0;
 #ifdef VERBOSE_DEBUG
-				KadC_log("Looks like we are TCP-firewalled...\n");
+				kc_logPrint("Looks like we are TCP-firewalled...\n");
 #endif
 			}
 		} else {
 #if 1 /*def DEBUG */
-			KadC_log("bind() to TCP port %u failed: in use?\n", pKE->localnode.tport);
+			kc_logPrint("bind() to TCP port %u failed: in use?\n", pKE->localnode.tport);
 #endif
 		}
 	} else {
 #ifdef DEBUG
-		KadC_log("TCP socket() or setsockopt() call failed!\n");
+		kc_logPrint("TCP socket() or setsockopt() call failed!\n");
 #endif
 	}
 	return NULL;

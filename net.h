@@ -27,93 +27,111 @@ of the following e-mail addresses (replace "(at)" with "@"):
  em(at)i-t-vision.com
 
 \****************************************************************/
+#ifndef _KADC_NET_H
+#define _KADC_NET_H
+
+#include <stdio.h>
+
+typedef struct _kc_udpIo kc_udpIo;
+
+typedef struct _kc_udpMsg {
+	in_addr_t       remoteIp;	/* in host byte order */
+	in_port_t       remotePort;	/* in host byte order */
+	char          * payload;
+	int             payloadSize;
+} kc_udpMsg;
+
+typedef void (*kc_ioCallback)( void * ref, kc_udpIo * io, kc_udpMsg *msg );
+
+/**
+ * Creates and initialize a kc_udpIo for UDP input/output handling
+ * This function creates a kc_udpIo listener calling its callback on a
+ * separate thread every time a UDP packet is received.
+ * FIXME: Is this still right ?
+ * The callback is guaranteed not to interrupt itself: it must
+ * return before its thread issue another recvfrom() and calls
+ * it again. To allow multiple listeners to work concurrently,
+ * all the context is kept in the kc_udpIo structure.
+ *
+ * @param addr Our local IP, in network byte-order
+ * @param port Our local port to bind to, in network byte-order
+ * @param bufferSize The size of the incoming buffer
+ * @param callback The callback that will be called when a packet is recieved
+ * @return An initialized kc_udpIo
+ */
+kc_udpIo *
+kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback callback, void * ref );
+
+/**
+ * Cleanup and free a kc_udpIo
+ * This function stops the processing threads, then closes the corresponding socket.
+ *
+ * @param io A kc_udpIo to free
+ */
+void
+kc_udpIoFree( kc_udpIo * io );
+
+/**
+ * Send a message to another node
+ * This function uses a kc_udpIo to send a kc_udpMsg to another node.
+ * 
+ * @param io The kc_udpIo to use to send the message
+ * @param msg The kc_udpMsg to send
+ * @return The number of bytes sent, or < 0 if an error occured
+ */
+int
+kc_udpIoSendMsg( kc_udpIo * io, kc_udpMsg * msg );
+
+/**
+ * A multithreading-safe gethostbyname
+ * @see gethostbyname
+ */
+in_addr_t gethostbyname_s(const char *domain);
+
+/**
+ * Check if an address is in one of the reserved (a.k.a private) networks
+ * This function returns true if the ip address is non-routable
+ *
+ * @param ip The IP address to check, in host byte order
+ * @return 0 if the address is not a routable address, 1 otherwise
+ */
+int inet_isnotroutable(in_addr_t ip);
+
+/** 
+ * Check if an address is local to this machine
+ * This function returns true if the passed-in IP address is
+ * currently assigned to a local interface
+ *
+ * @param ip The IP address to check, in host byte order
+ * @return 0 if the address is local, 1 otherwise 
+ */
+int inet_islocal(in_addr_t ip);
+
+int node_is_blacklisted(kc_udpIo * io, in_addr_t ip, in_port_t port);
+
+int node_blacklist(kc_udpIo * io, in_addr_t ip, in_port_t port, int howmanysecs);
+
+int node_unblacklist(kc_udpIo * io, in_addr_t ip, unsigned short int port);
+
+/* write in ASCII to wfile the list of all entries in pul->blaclklisted */
+int node_blacklist_dump(kc_udpIo * io, FILE *wfile);
+
+/* read from inifile the list of all entries to be loaded in pul->blaclklisted */
+int node_blacklist_load(kc_udpIo * io, FILE *inifile);
+
+/* remove expired entried from pul->blacklisted rbt, or ALL entries if
+   unconditional == 1. Return number of removed entries */
+int node_blacklist_purge(kc_udpIo * io, int unconditional);
 
 
-typedef struct _UDPIO {
-	unsigned char *buf;		/* caller must set this */
-	int bufsize;				/* caller must set this */
-	unsigned long int localip;	/* caller must set this, in host byte order */
-	int localport;	/* caller must set this, in host byte order */
-	void (*callback[256])(struct _UDPIO *pul); /* caller must set this */
-	void *arg[256];					/* caller must set this */
-	unsigned long int totalbc;	/* bytecount */
-	unsigned long int totalbw;
-	unsigned long int totalmaxbw;
-	int fd;	/* callback will find this set (by startUDPIO() ) */
-	unsigned long int remoteip;	/* callback will find this set, in host byte order */
-	int remoteport;	/* callback will find this set, in host byte order */
-	int nrecv;		/* callback will find this set */
-	/* private fields below */
-	pthread_t _udp_recv;		/* UDP listener thread */
-	pthread_t _udp_proc;		/* UDP processing thread */
-	queue *udp_recv_fifo;	/* _udp_recv enqueues, _udp_proc dequeues */
-	pthread_mutex_t mutex;	/* to prevent concurrent access from different threads */
-	void *blacklist;	/* rbt of blacklisted nodes (contains <IP.UDPport> pairs) */
-} UDPIO;
-
-typedef struct _udpmsg {
-	unsigned char *buf;
-	int nrecv;
-	unsigned long int remoteip;	/* callback will find this set, in host byte order */
-	int remoteport;	/* callback will find this set, in host byte order */
-} udpmsg;
-
-/* creates a UDP listener calling callback(self) through a
-   separate thread every time a UDP packet is received.
-   The callback is guaranteed not to interrupt itself: it must
-   return before its thread issue another recvfrom() and calls
-   it again. To allow multiple listeners to work concurrently,
-   all the context is kept in the UDPIO structure. */
-int startUDPIO(UDPIO *pul);
-
-/* closes the socket, abrting any pending or subsequent recvfrom()
-   with an error code () which, when detected, will terminate the
-   listening thread. After calling stopUDPIO, the program may
-   safely free() the buffer pointed by buf (if malloc'ed) and then
-   deallocate the memory of the UDPIO itself. */
-int stopUDPIO(UDPIO *pul);
-
-/* the fd may be (and usually is) the one opened by startUDPIO()
-   in which case destip and destport may be copied from remoteip
-   and remoteport, in order to answer incoming packets (e.g.,
-   when UDPsend() is called by the listener's callback)
-   returns: number of sent bytes, or <0 if error */
-int UDPsend(UDPIO *pul, unsigned char *buf, int buflen, unsigned long int destip, int destport);
+#ifdef __WIN32__
 
 /* nErrorID is the code returned in WIN32 by WSAGetLastError() */
 char *WSAGetLastErrorMessage(int nErrorID);
 char *WSAGetLastErrorMessageOccurred(void);
 
-unsigned long int domain2hip(const char *domain);
-/* return the dot-quad ASCIIZ string corresponding to the
-   IP address in HOST byte order */
-char *htoa(unsigned long int ip);
-
-/* returns true if the ip address (in host byte order) is non-routable */
-int isnonroutable(unsigned long int ip);
-
-/* returns true if the ip address (in host byte order) is assigned to a local interface */
-int is_a_local_address(unsigned long int ip);
-
-int node_is_blacklisted(UDPIO *pul, unsigned long int ip, unsigned short int port);
-
-int node_blacklist(UDPIO *pul, unsigned long int ip, unsigned short int port, int howmanysecs);
-
-int node_unblacklist(UDPIO *pul, unsigned long int ip, unsigned short int port);
-
-/* write in ASCII to wfile the list of all entries in pul->blaclklisted */
-int node_blacklist_dump(UDPIO *pul, FILE *wfile);
-
-/* read from inifile the list of all entries to be loaded in pul->blaclklisted */
-int node_blacklist_load(UDPIO *pul, FILE *inifile);
-
-/* remove expired entried from pul->blacklisted rbt, or ALL entries if
-   unconditional == 1. Return number of removed entries */
-int node_blacklist_purge(UDPIO *pul, int unconditional);
-
-
-
-#ifdef __WIN32__
 int wsockstart(void);
 void wsockcleanup(void);
 #endif
+
+#endif /* _KADC_NET_H */
