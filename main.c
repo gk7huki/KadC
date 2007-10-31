@@ -90,7 +90,7 @@ writeOvernetPing( const kc_dht * dht, int * size )
 
     putint128n( &bp, kc_dhtGetOurHash( dht ) );
     /* FIXME : External IP needed here */
-    putipn( &bp, ntohl( inet_addr("86.209.203.111") )/*kc_dhtGetOurIp( dht )*/ );
+    putipn( &bp, kc_dhtGetOurIp( dht ) );
     putushortle( &bp, kc_dhtGetOurPort( dht ) );
     putushortle( &bp, 0 );
     

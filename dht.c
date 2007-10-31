@@ -239,14 +239,6 @@ kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallbac
         return NULL;
     }
     
-/*    dht->nodes = rbtNew( dhtNodeCmp );
-    if ( dht->nodes == NULL )
-    {
-		kc_logPrint( KADC_LOG_DEBUG, "kc_dhtInit: nodes malloc failed!\n");
-        free( dht );
-        return NULL;
-    }*/
-    
     int128 hash = int128random();
     dht->us = dhtNodeInit( addr, port, hash );
     free( hash );
@@ -255,8 +247,6 @@ kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallbac
     dht->writeCallback = writeCallback;
     
     dht->bucketSize = bucketMaxSize;
-    
-//    rbtInsert( dht->buckets, dht->us->nodeID, dht->us );
     
     if ( ( pthread_mutex_init( &dht->lock, NULL ) != 0 ) )
     {
@@ -279,7 +269,7 @@ kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallbac
     for( i = 0; i < 128; i++ )
         dht->buckets[i] = dhtBucketInit( dht->bucketSize );
     
-//    pthread_create( &dht->thread, NULL, dhtPulse, dht );
+    pthread_create( &dht->thread, NULL, dhtPulse, dht );
     
     return dht;
 }
