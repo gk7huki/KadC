@@ -178,8 +178,9 @@ readCallback( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer )
                 addr = getipn( &bp );
                 port = getushortle( &bp );
                 type = *bp++;
-                kc_dhtAddNode( dht, addr, port, hash );
-                kc_dhtCreateNode( dht, addr, port );
+                type = kc_dhtAddNode( dht, addr, port, hash );
+                if( type == 0 )
+                    kc_dhtCreateNode( dht, addr, port );
             }
             
             break;

@@ -216,10 +216,16 @@ void ioCallback( void * ref, kc_udpIo * io, kc_udpMsg *msg )
     
     if ( status == 0 )
     {
-        
+        status = kc_udpIoSendMsg( dht->io, msg );
+        if ( status < 0 )
+        {
+            kc_logPrint( KADC_LOG_ALERT, "Couldn't send message, err %d", errno );
+        }
     }
     
-    
+/*    if( answer->payload )
+        free( answer->payload );*/
+    free( answer );
 }
 
 kc_dht*
@@ -325,7 +331,7 @@ performPing( const kc_dht * dht, in_addr_t addr, in_port_t port )
     free( msg );
 }
 
-void
+int
 kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
 {
     assert( dht != NULL );
@@ -334,7 +340,7 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     if( logDist < 0 )
     {
         kc_logPrint( KADC_LOG_DEBUG, "Trying to add our own node. Ignoring..." );
-        return;
+        return -1;
     }
     
     /* Get this node's bucket */
@@ -353,7 +359,7 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
         node->lastSeen = time(NULL);
         /* FIXME: handle node type */
 //        node->type = 0;
-        return;
+        return 1;
     }
     
     /* We don't have it, allocate one */
@@ -362,7 +368,7 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     if( node == NULL )
     {
         kc_logPrint( KADC_LOG_ALERT, "kc_dhtAddNode: dhtNodeInit failed !");
-        return;
+        return -1;
     }
     
     kc_dhtNode    * oldNode;
@@ -393,6 +399,8 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     /* We add it to this bucket */
     rbtInsert( bucket->nodes, hash, node );
     bucket->availableSlots--;
+    
+    return 0;
 }
 
 void

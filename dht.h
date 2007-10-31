@@ -93,10 +93,15 @@ kc_dhtCreateNode( const kc_dht * dht, in_addr_t addr, in_port_t port);
 
 /**
  * Adds a node to the DHT
- * This method is here for protocol-implementors to use
- TODO Finish
+ * This method is here for protocol-implementors to use when a node is to be added to the DHT.
+ * 
+ * @param dht The DHT in which to add this node
+ * @param addr The node's IP address, in host byte-order
+ * @param port The node's port number, in host byte-order
+ * @param hash The node's hash
+ * @return This function returns 0 on success, -1 on failure, and 1 if the node was already known
  */
-void
+int
 kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash );
 
 /**
