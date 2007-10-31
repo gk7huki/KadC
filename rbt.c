@@ -369,22 +369,3 @@ void *rbtFind(RbtHandle h, void *key) {
     }
     return NULL;
 }
-
-
-void* rbtKey(RbtHandle h, RbtIterator i)
-{
-    void    * v = malloc( sizeof( void* ) );
-    
-    rbtKeyValue( h, i, &v, NULL );
-    
-    return v;
-}
-
-void* rbtValue(RbtHandle h, RbtIterator i)
-{
-    void    * v = malloc( sizeof( void* ) );
-    
-    rbtKeyValue( h, i, NULL, &v );
-    
-    return v;
-}

@@ -135,7 +135,7 @@ int node_is_blacklisted(kc_udpIo * pul, in_addr_t ip, in_port_t port) {
 	kc_udpIoLock( pul );	/* \\\\\\ LOCK \\\\\\ */
 	iter = rbtFind(pul->blacklist, &ippt);
 	if(iter != NULL) {
-		val = rbtValue(pul->blacklist, iter);
+		rbtKeyValue(pul->blacklist, iter, NULL, (void**)&val);
 		missingsecs = val->expiry - time(NULL);
 		if(missingsecs <= 0) {	/* expired? */
 			is_bl = 0;	/* then it ain't blacklisted */
@@ -162,7 +162,7 @@ int node_blacklist(kc_udpIo *pul, in_addr_t ip, in_port_t port, int howmanysecs)
 	kc_udpIoLock( pul );	/* \\\\\\ LOCK \\\\\\ */
 	iter = rbtFind(pul->blacklist, pippt);
 	if(iter != NULL) {
-		val = rbtValue(pul->blacklist, iter);
+		rbtKeyValue(pul->blacklist, iter, NULL, (void**)&val );
 		missingsecs = val->expiry - time(NULL);
 		if(missingsecs <= 0) 	/* expired? */
 			was_bl = 0;	/* then it wasn't really blacklisted anymore... */
@@ -187,7 +187,7 @@ int node_unblacklist(kc_udpIo *pul, in_addr_t ip, in_port_t port) {
 	kc_udpIoLock( pul );	/* \\\\\\ LOCK \\\\\\ */
 	iter = rbtFind(pul->blacklist, &ippt);
 	if(iter != NULL) {
-		val = rbtValue(pul->blacklist, iter);
+		rbtKeyValue(pul->blacklist, iter, NULL, (void**)&val );
 		missingsecs = val->expiry - time(NULL);
 		if(missingsecs <= 0) 	/* expired? */
 			was_bl = 0;	/* then it wasn't really blacklisted anymore... */
@@ -240,7 +240,8 @@ int node_blacklist_dump(kc_udpIo *pul, FILE *wfile) {
 	void *iter;
 	kc_udpIoLock( pul );	/* \\\\\\ LOCK \\\\\\ */
 	for(iter = rbtBegin(pul->blacklist);iter != NULL; iter=rbtNext(pul->blacklist, iter)) {
-		ip_port *val = rbtValue(pul->blacklist, iter);
+		ip_port *val;
+        rbtKeyValue(pul->blacklist, iter, NULL, (void**)&val );
 		assert(val != NULL);
         struct in_addr ad;
         ad.s_addr = val->ip;
@@ -262,7 +263,7 @@ node_blacklist_purge( kc_udpIo *pul, int unconditional )
 		void *iter = rbtBegin(pul->blacklist);
 		if(iter == NULL)
 			break;
-		val = rbtValue(pul->blacklist, iter);
+		rbtKeyValue(pul->blacklist, iter, NULL, (void**)&val );
 		if(unconditional || (val->expiry - time(NULL) <= 0)) {
 			rbtErase(pul->blacklist, iter);
 			free(val);
@@ -641,7 +642,7 @@ kc_udpIoSendMsg( kc_udpIo * io, kc_udpMsg * msg )
     struct in_addr ad;
     ad.s_addr = htonl( msg->remoteIp );
     
-    kc_logPrint( KADC_LOG_VERBOSE, "Sent UDP message to %s:%d", inet_ntoa( ad ), msg->remotePort );
+//    kc_logPrint( KADC_LOG_VERBOSE, "Sent UDP message to %s:%d", inet_ntoa( ad ), msg->remotePort );
     
 	return status;
 }

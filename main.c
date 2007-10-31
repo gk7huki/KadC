@@ -19,8 +19,8 @@
 #include "opcodes.h"
 #include "bufio.h"
 
-void
-readCallback( const kc_dht * dht, const kc_udpMsg * msg );
+int
+readCallback( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer );
 
 int
 writeCallback( const kc_dht * dht, dht_msg_type type, kc_udpMsg * msg );
@@ -90,15 +90,47 @@ writeOvernetPing( const kc_dht * dht, int * size )
 
     putint128n( &bp, kc_dhtGetOurHash( dht ) );
     /* FIXME : External IP needed here */
-    putipn( &bp, kc_dhtGetOurIp( dht ) );
+    putipn( &bp, ntohl( inet_addr("86.209.203.111") )/*kc_dhtGetOurIp( dht )*/ );
     putushortle( &bp, kc_dhtGetOurPort( dht ) );
     putushortle( &bp, 0 );
     
     return buf;
 }
 
-void
-readCallback( const kc_dht * dht, const kc_udpMsg * msg )
+char *
+writeOvernetPingReply( const kc_dht * dht, int * size )
+{
+    /* We try to get nodes out of our DHT */
+    int nodeCount;
+    const kc_dhtNode ** nodes;
+    
+    nodes = kc_dhtGetNode( dht, &nodeCount );
+    
+    /* Proto type (1) + opcode (1) + nodeCount (2) + nodes */
+    *size = 4 + nodeCount * 23;
+    
+    char * buf = calloc( *size, sizeof(char*) );
+    char * bp = buf;
+    
+	*bp++ = OP_EDONKEYHEADER;
+	*bp++ = OVERNET_CONNECT_REPLY;
+    putushortle( &bp, nodeCount );
+    
+    int i;
+    for( i = 0; i < nodeCount; i++ )
+    {
+        const kc_dhtNode * node = nodes[i];
+        putint128n( &bp, kc_dhtNodeGetHash( node ) );
+        putipn( &bp,kc_dhtNodeGetIp( node ) );
+        putushortle( &bp, kc_dhtNodeGetPort( node ) );
+        putushortle( &bp, 0 );
+    }
+    
+    return buf;
+}
+
+int
+readCallback( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer )
 {
     struct in_addr ad;
     ad.s_addr = msg->remoteIp;
@@ -109,24 +141,30 @@ readCallback( const kc_dht * dht, const kc_udpMsg * msg )
     if( *bp++ != (char)OP_EDONKEYHEADER )
     {
         kc_logPrint( KADC_LOG_NORMAL, "readCallback: unknown protocol type %X", msg->payload[0] );
-        return;
+        return 1;
     }
     
     switch( *bp++ )
     {
         case (char)OVERNET_CONNECT:
+            kc_logPrint( KADC_LOG_DEBUG, "readCallback: got a OVERNET_CONNECT" );
+            
+            answer->payload = writeOvernetPingReply( dht, &answer->payloadSize );
+            
+            return 0;
             break;
             
         case (char)OVERNET_CONNECT_REPLY:
-            ;
+            
             kc_logPrint( KADC_LOG_DEBUG, "readCallback: got a OVERNET_CONNECT_REPLY" );
+            
             int nodeCount;
             nodeCount = getushortle( &bp );
             
             if( msg->payloadSize != 4 + nodeCount * 23 )
             {
                 kc_logPrint( KADC_LOG_ALERT, "readCallback: OVERNET_CONNECT_REPLY with bad size" );
-                return;
+                return 1;
             }
                 
             int i;
@@ -141,14 +179,31 @@ readCallback( const kc_dht * dht, const kc_udpMsg * msg )
                 port = getushortle( &bp );
                 type = *bp++;
                 kc_dhtAddNode( dht, addr, port, hash );
+                kc_dhtCreateNode( dht, addr, port );
             }
             
+            break;
+        case (char)OVERNET_PUBLICIZE:
+            kc_logPrint( KADC_LOG_DEBUG, "readCallback: got a OVERNET_PUBLICIZE" );
+            break;
+            
+        case (char)OVERNET_PUBLICIZE_ACK:
+            kc_logPrint( KADC_LOG_DEBUG, "readCallback: got a OVERNET_PUBLICIZE_ACK" );
+            break;
+            
+        case (char)OVERNET_SEARCH:
+            kc_logPrint( KADC_LOG_DEBUG, "readCallback: got a OVERNET_SEARCH" );
+            break;
+            
+        case (char)OVERNET_PUBLISH:
+            kc_logPrint( KADC_LOG_DEBUG, "readCallback: got a OVERNET_PUBLISH" );
             break;
             
         default:
             kc_logPrint( KADC_LOG_NORMAL, "readCallback: unknown message type %d", msg->payload[1] );
             break;
     }
+    return 1;
 }
 
 int

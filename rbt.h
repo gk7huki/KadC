@@ -76,12 +76,6 @@ RbtIterator rbtEnd(RbtHandle h);
 void rbtKeyValue(RbtHandle h, RbtIterator i, void **key, void **value);
 // returns key/value pair associated with iterator
 
-void* rbtKey(RbtHandle h, RbtIterator i);
-// returns key/value pair associated with iterator
-
-void* rbtValue(RbtHandle h, RbtIterator i);
-// returns key/value pair associated with iterator
-
 RbtIterator rbtFind(RbtHandle h, void *key);
 // returns iterator associated with key
 

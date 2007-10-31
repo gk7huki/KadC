@@ -37,6 +37,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <int128.h>
 
 typedef struct _kc_dht kc_dht;
+typedef struct _kc_dhtNode kc_dhtNode;
 
 typedef enum {
     DHT_RPC_PING = 0
@@ -58,7 +59,7 @@ typedef enum {
  */
 typedef int (*kc_dhtWriteCallback)( const kc_dht * dht, dht_msg_type type, kc_udpMsg * msg );
 
-typedef void (*kc_dhtReadCallback)( const kc_dht * dht, const kc_udpMsg * msg );
+typedef int (*kc_dhtReadCallback)( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer );
 
 
 /**
@@ -113,7 +114,7 @@ kc_dhtPrintTree( const kc_dht * dht );
  * @return The number of currently known good nodes
  */
 int
-kc_dhtNodeCount( kc_dht *dht );
+kc_dhtNodeCount( const kc_dht *dht );
 
 /**
  * Remove all nodes from a kc_dht
@@ -124,6 +125,9 @@ kc_dhtNodeCount( kc_dht *dht );
 int
 kc_dhtRemoveNodes( kc_dht *dht );
 
+const kc_dhtNode**
+kc_dhtGetNode( const kc_dht * dht, int * nodeCount );
+
 in_addr_t
 kc_dhtGetOurIp( const kc_dht * dht );
 
@@ -132,6 +136,16 @@ kc_dhtGetOurPort( const kc_dht * dht );
 
 int128
 kc_dhtGetOurHash( const kc_dht * dht );
+
+
+in_addr_t
+kc_dhtNodeGetIp( const kc_dhtNode * node );
+
+in_port_t
+kc_dhtNodeGetPort( const kc_dhtNode * node );
+
+int128
+kc_dhtNodeGetHash( const kc_dhtNode * node );
 
 /*void setup_kba(KadEngine *pKE, int kbsize);
 void destroy_kba(KadEngine *pKE);

@@ -62,14 +62,14 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #define KADC_REPLICATION_DELAY  3600    /* in s, interval between Kademlia replication events */
 #define KADC_REPUBLISH_DELAY    86400   /* in s, the delay after which a key/value must be republished */
 
-typedef struct _dhtNode {
+struct _kc_dhtNode {
     in_addr_t       addr;       /* IP address of this node, in network-byte order */
     in_port_t       port;       /* UDP port of this node, in network-byte order */
     int128          nodeID;
     
 	time_t          lastSeen;	/* Last time we heard of it */
 //    time_t          rtt;        /* Round-trip-time to it */
-} dhtNode;
+};
 
 typedef struct dhtBucket {
 	RbtHandle         * nodes;              /* Red-Black tree of nodes */
@@ -80,7 +80,7 @@ typedef struct dhtBucket {
 struct _kc_dht {
     dhtBucket         * buckets[128];   /* array of buckets */
     
-    dhtNode           * us;             /* pointer to ourself */
+    kc_dhtNode           * us;             /* pointer to ourself */
     
     kc_dhtReadCallback  readCallback;   /* callback used when we need reading something */
     kc_dhtWriteCallback writeCallback;  /* callback used when we need to send something... */
@@ -97,8 +97,8 @@ struct _kc_dht {
 static int
 dhtNodeCmp( const void *a, const void *b )
 {
-	const dhtNode *pa = a;
-	const dhtNode *pb = b;
+	const kc_dhtNode *pa = a;
+	const kc_dhtNode *pb = b;
     
 	if( pa->lastSeen != pb->lastSeen)
         return ( pa->lastSeen < pb->lastSeen ? -1 : 1 );
@@ -106,10 +106,10 @@ dhtNodeCmp( const void *a, const void *b )
     return 0;
 }
 
-static dhtNode *
+static kc_dhtNode *
 dhtNodeInit( in_addr_t addr, in_port_t port, const int128 hash )
 {
-	dhtNode *pkn = malloc( sizeof(dhtNode) );
+	kc_dhtNode *pkn = malloc( sizeof(kc_dhtNode) );
     
     if ( pkn == NULL )
     {
@@ -126,7 +126,7 @@ dhtNodeInit( in_addr_t addr, in_port_t port, const int128 hash )
 }
 
 static void
-dhtNodeFree( dhtNode *pkn )
+dhtNodeFree( kc_dhtNode *pkn )
 {
     free( pkn->nodeID );
 	free( pkn );
@@ -162,9 +162,9 @@ dhtBucketFree( dhtBucket *pkb )
 	/* empty pkb->rbt */
 	while ( ( iter = rbtBegin( pkb->nodes ) ) != NULL)
     {
-		dhtNode *pkn;
+		kc_dhtNode *pkn;
 
-		pkn = rbtValue( pkb->nodes, iter );
+		rbtKeyValue( pkb->nodes, iter, NULL, (void**)&pkn );
         
 		rbtErase( pkb->nodes, iter ); /* ?? */
         
@@ -187,7 +187,7 @@ dhtPrintBucket( const dhtBucket * bucket )
         do
         {
             int128  key;
-            dhtNode * value;
+            kc_dhtNode * value;
             char    buf[33];
             
             rbtKeyValue( bucket->nodes, iter, (void*)&key, (void*)&value );
@@ -208,9 +208,18 @@ dhtPulse( void * arg );
 
 void ioCallback( void * ref, kc_udpIo * io, kc_udpMsg *msg )
 {
-    kc_dht  * dht = ref;
+    kc_dht    * dht = ref;
+    kc_udpMsg * answer = malloc( sizeof(kc_udpMsg) );
+    int status;
     
-    dht->readCallback( dht, msg );
+    status = dht->readCallback( dht, msg, answer );
+    
+    if ( status == 0 )
+    {
+        
+    }
+    
+    
 }
 
 kc_dht*
@@ -329,8 +338,8 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     }
     
     /* Get this node's bucket */
-    dhtBucket * bucket = dht->buckets[logDist];
-    dhtNode   * node;
+    dhtBucket     * bucket = dht->buckets[logDist];
+    kc_dhtNode    * node;
     
     RbtIterator nodeIter = rbtFind( bucket->nodes, hash );
     if( nodeIter != NULL )
@@ -356,7 +365,7 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
         return;
     }
     
-    dhtNode   * oldNode;
+    kc_dhtNode    * oldNode;
     
     if( bucket->availableSlots == 0 )
     {
@@ -403,7 +412,7 @@ kc_dhtPrintTree( const kc_dht * dht )
 }
 
 int
-kc_dhtNodeCount( kc_dht *dht )
+kc_dhtNodeCount( const kc_dht *dht )
 {
     int total = 0;
     int i;
@@ -413,20 +422,76 @@ kc_dhtNodeCount( kc_dht *dht )
     return abs( total );
 }
 
+const kc_dhtNode**
+kc_dhtGetNode( const kc_dht * dht, int * nodeCount )
+{
+    assert( dht != NULL );
+    assert( nodeCount != NULL );
+    
+    /* FIXME: I'm not really sure how to get a correct list of node here,
+     * I'll get them in order, but they'll be sorted, so maybe it's bad */
+    
+    int count = kc_dhtNodeCount( dht );
+    
+    /* We return a bucket-worth of nodes, or our max number of nodes if we don't have enough */
+    *nodeCount = ( count < *nodeCount ? count : dht->bucketSize );
+    
+    const kc_dhtNode ** nodes = calloc( *nodeCount, sizeof(kc_dhtNode) );
+
+    int i = 0;
+    int j;
+    for( j = 0; j < 128; i++ )
+    {
+        dhtBucket * bucket = dht->buckets[i];
+        
+        RbtIterator iter;
+        for( iter = rbtBegin( bucket->nodes );
+             i < *nodeCount && iter != NULL;
+             iter = rbtNext( bucket->nodes, iter ) )
+        {
+            rbtKeyValue( bucket->nodes, iter, NULL, (void**)&nodes[i++] );
+        }
+        
+        if( i >= *nodeCount )
+            break;
+    }
+    
+    return nodes;
+}
+
 in_addr_t
 kc_dhtGetOurIp( const kc_dht * dht )
 {
-    return ntohl( dht->us->addr );
+    return kc_dhtNodeGetIp( dht->us );
 }
 
 in_port_t
 kc_dhtGetOurPort( const kc_dht * dht )
 {
-    return ntohs( dht->us->port );
+    return kc_dhtNodeGetPort( dht->us );
 }
 
 int128
 kc_dhtGetOurHash( const kc_dht * dht )
 {
-    return dht->us->nodeID;
+    return kc_dhtNodeGetHash( dht->us );
 }
+
+in_addr_t
+kc_dhtNodeGetIp( const kc_dhtNode * node )
+{
+    return ntohl( node->addr );
+}
+
+in_port_t
+kc_dhtNodeGetPort( const kc_dhtNode * node )
+{
+    return ntohs( node->port );
+}
+
+int128
+kc_dhtNodeGetHash( const kc_dhtNode * node )
+{
+    return node->nodeID;
+}
+
