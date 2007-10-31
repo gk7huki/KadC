@@ -33,7 +33,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <int128.h>
 
 typedef enum {
-    KADC_LOG_VERBOSEDEBUG,
+    KADC_LOG_VERBOSE,
     KADC_LOG_DEBUG,
     KADC_LOG_NORMAL,
     KADC_LOG_ALERT

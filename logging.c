@@ -87,7 +87,7 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
     
     switch ( lvl )
     {
-        case KADC_LOG_VERBOSEDEBUG:
+        case KADC_LOG_VERBOSE:
 #ifdef VERBOSEDEBUG
             dbgLvl = "(VERBOSEDEBUG): ";
 #endif

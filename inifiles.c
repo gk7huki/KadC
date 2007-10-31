@@ -236,7 +236,7 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
         }
         if( npars == 5 )
         {
-            kc_logPrint( KADC_LOG_VERBOSEDEBUG, "This looks like an old-style local list..." );
+            kc_logPrint( KADC_LOG_VERBOSE, "This looks like an old-style local list..." );
             oldStyle = 1;
         }
         else if( npars != 2 )
@@ -311,7 +311,7 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
         
         if( npars == 4 && oldStyle == 0 )
         {
-            kc_logPrint( KADC_LOG_VERBOSEDEBUG, "This looks like an old-style node list..." );
+            kc_logPrint( KADC_LOG_VERBOSE, "This looks like an old-style node list..." );
             oldStyle = 1;
         }
         else if( npars != 2 && oldStyle == 0 )
@@ -366,7 +366,7 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
         return -4;  /* EOF */
     }
     
-    kc_logPrint( KADC_LOG_VERBOSEDEBUG, "Read %d nodes from the %s section of KadCmain.ini", *nodeCount, secName );
+    kc_logPrint( KADC_LOG_VERBOSE, "Read %d nodes from the %s section of KadCmain.ini", *nodeCount, secName );
     
     *nodeAddr = addrs;
     *nodePort = ports;

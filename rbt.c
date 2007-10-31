@@ -350,8 +350,10 @@ RbtIterator rbtEnd(RbtHandle h) {
 void rbtKeyValue(RbtHandle h, RbtIterator it, void **key, void **val) {
     NodeType *i = it;
 
-    *key = i->key;
-    *val = i->val;
+    if( key != NULL )
+        *key = i->key;
+    if( val != NULL )
+        *val = i->val;
 }
 
 

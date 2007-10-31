@@ -107,13 +107,13 @@ void
 kc_dhtPrintTree( const kc_dht * dht );
 
 /**
- * Returns the number of nodes
+ * Returns the number of nodes currently known in a DHT
  * 
- * @param dht The kc_dht to "count"
- * @return The number of nodes in there
+ * @param dht The kc_dht whose nodes to count
+ * @return The number of currently known good nodes
  */
 int
-kc_dhtNodesCount( kc_dht *dht );
+kc_dhtNodeCount( kc_dht *dht );
 
 /**
  * Remove all nodes from a kc_dht

@@ -281,7 +281,7 @@ udp_recv_thread( void *arg )
 	kc_udpIo          * pul = arg;
     unsigned char     * buf;
 
-	kc_logPrint( KADC_LOG_VERBOSEDEBUG, "udp_recv_thread: pul->fd = %d, pul->bufsize = %d\n", pul->fd, pul->bufsize );
+	kc_logPrint( KADC_LOG_VERBOSE, "udp_recv_thread: pul->fd = %d, pul->bufsize = %d\n", pul->fd, pul->bufsize );
 
 
 	while( 1 )
@@ -315,9 +315,9 @@ udp_recv_thread( void *arg )
         {
             if ( status != 0 ) {
 # ifdef __WIN32__
-				kc_logPrint( KADC_LOG_VERBOSEDEBUG, "%d %s\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred());
+				kc_logPrint( KADC_LOG_VERBOSE, "%d %s\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred());
 # else
-				kc_logPrint( KADC_LOG_VERBOSEDEBUG, "%d %s\n", errno, strerror(errno));
+				kc_logPrint( KADC_LOG_VERBOSE, "%d %s\n", errno, strerror(errno));
 # endif
             }
             // There was an error, or we timeout, try reading again...
@@ -466,7 +466,7 @@ kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback call
     if ( pul == NULL )
     {
 #ifdef VERBOSE_DEBUG
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit: failed malloc !\n" );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed malloc !\n" );
 #endif
         return NULL;
     }
@@ -491,9 +491,9 @@ kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback call
 	if( ( fd = socket( AF_INET, SOCK_DGRAM, 0 ) ) < 0)
     {
 #ifdef __WIN32__
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit: failed opening socket (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed opening socket (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
 #else
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit: failed opening socket (%d:%s) !\n", errno, strerror(errno) );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed opening socket (%d:%s) !\n", errno, strerror(errno) );
 #endif
         kc_udpIoFree( pul );
         return NULL;
@@ -502,9 +502,9 @@ kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback call
 	if( setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on) ) < 0)
     {
 #ifdef __WIN32__
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit: failed setting socket options (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed setting socket options (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
 #else
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit: failed setting socket options (%d:%s) !\n", errno, strerror(errno) );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed setting socket options (%d:%s) !\n", errno, strerror(errno) );
 #endif
         kc_udpIoFree( pul );
         return NULL;
@@ -518,9 +518,9 @@ kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback call
 	if( bind( fd, (struct sockaddr*) &local, sizeof(struct sockaddr) ) < 0)
     {
 #ifdef __WIN32__
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit failed binding to port (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit failed binding to port (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
 #else
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoInit failed binding to port (%d:%s) !\n", errno, strerror(errno) );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit failed binding to port (%d:%s) !\n", errno, strerror(errno) );
 #endif
         kc_udpIoFree( pul );
         return NULL;
@@ -561,7 +561,7 @@ kc_udpIoFree(kc_udpIo *pul)
 #endif
     if ( status != 0 )
     {
-        kc_logPrint( KADC_LOG_VERBOSEDEBUG, "kc_udpIoFree: error %d closing fd\n", status );
+        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoFree: error %d closing fd\n", status );
     }
     
 //	if( pul->buf != NULL )
@@ -638,8 +638,10 @@ kc_udpIoSendMsg( kc_udpIo * io, kc_udpMsg * msg )
                      (struct sockaddr *)&destsockaddr, sizeof(destsockaddr) );
 
 	kc_udpIoUnlock( io );
+    struct in_addr ad;
+    ad.s_addr = htonl( msg->remoteIp );
     
-    kc_logPrint( KADC_LOG_VERBOSEDEBUG, "Sent UDP message" );
+    kc_logPrint( KADC_LOG_VERBOSE, "Sent UDP message to %s:%d", inet_ntoa( ad ), msg->remotePort );
     
 	return status;
 }
