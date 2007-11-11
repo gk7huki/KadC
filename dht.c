@@ -73,21 +73,26 @@ struct _kc_dhtNode {
 
 typedef struct dhtBucket {
 	RbtHandle         * nodes;              /* Red-Black tree of nodes */
-//	pthread_mutex_t     mutex;              /* protect access */
-	unsigned char       availableSlots;     /* available slots in bucket */
+    
+    unsigned char       availableSlots;     /* available slots in bucket */
+    
+    time_t              lastChanged;        /* Last time this bucket changed */
+    pthread_mutex_t     mutex;
+	
 } dhtBucket;
 
 struct _kc_dht {
     dhtBucket         * buckets[128];   /* array of buckets */
     
-    kc_dhtNode           * us;             /* pointer to ourself */
+    kc_dhtNode        * us;             /* pointer to ourself */
     
     kc_dhtReadCallback  readCallback;   /* callback used when we need reading something */
     kc_dhtWriteCallback writeCallback;  /* callback used when we need to send something... */
     
     kc_udpIo          * io;             /* Our UDP network layer */
     
-    unsigned char       bucketSize;
+    unsigned char       bucketSize;     /* This DHT buckets size
+                                         * Also used to stop the bg thread, by setting to 0 */
     
     pthread_t           thread;
     pthread_mutex_t     lock;
@@ -145,7 +150,7 @@ dhtBucketInit( int size )
     /* if static initialization of recursive mutexes is available, use it;
      * otherwise, hope that dynamic initialization is available... */
 
-//   pthreadutils_mutex_init_recursive( &pkb->mutex );
+    pthreadutils_mutex_init_recursive( &pkb->mutex );
 
     pkb->nodes = rbtNew( dhtNodeCmp );
 	pkb->availableSlots = size;
@@ -154,10 +159,22 @@ dhtBucketInit( int size )
 }
 
 static void
+dhtBucketLock( dhtBucket *pkb )
+{
+    pthread_mutex_lock( &pkb->mutex );
+}
+
+static void
+dhtBucketUnlock( dhtBucket *pkb )
+{
+    pthread_mutex_unlock( &pkb->mutex );
+}
+
+static void
 dhtBucketFree( dhtBucket *pkb )
 {
 	void *iter;
-//	pthread_mutex_lock( &pkb->mutex );
+	dhtBucketLock( pkb );
 
 	/* empty pkb->rbt */
 	while ( ( iter = rbtBegin( pkb->nodes ) ) != NULL)
@@ -173,8 +190,8 @@ dhtBucketFree( dhtBucket *pkb )
     
 	rbtDelete( pkb->nodes );
 
-//	pthread_mutex_unlock( &pkb->mutex );
-//	pthread_mutex_destroy( &pkb->mutex );
+	dhtBucketUnlock( pkb );
+	pthread_mutex_destroy( &pkb->mutex );
 	free( pkb );
 }
 
@@ -277,6 +294,10 @@ kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallbac
 void
 kc_dhtFree( kc_dht * dht )
 {
+    /* We stop the background thread */
+    dht->bucketSize = 0;
+    pthread_join( dht->thread, NULL );
+    
     kc_udpIoFree( dht->io );
   
     int i;
@@ -289,10 +310,44 @@ kc_dhtFree( kc_dht * dht )
     free( dht );
 }
 
+void
+kc_dhtLock( kc_dht * dht )
+{
+    pthread_mutex_lock( &dht->lock );
+}
+
+void
+kc_dhtUnlock( kc_dht * dht )
+{
+    pthread_mutex_unlock( &dht->lock );
+}
+
 void *
 dhtPulse( void * arg )
 {
     kc_dht * dht = arg;
+    
+    while( dht->bucketSize != 0 )
+    {
+        int i;
+        for( i = 0; i < 128; i++ )
+        {
+            dhtBucket   * bucket = dht->buckets[i];
+            if( time( NULL) - bucket->lastChanged > KADC_REFRESH_DELAY )
+            {
+                dhtBucketLock( bucket );
+                
+                /* FIXME: Need to refresh a bucket here */
+                
+                dhtBucketUnlock( bucket );
+            }
+        }
+        
+//        kc_dhtLock( dht );
+        
+//        kc_dhtUnlock( dht );
+        sleep( 5 );
+    }
     
     return dht;
 }
@@ -321,6 +376,47 @@ performPing( const kc_dht * dht, in_addr_t addr, in_port_t port )
     free( msg );
 }
 
+int dhtRemoveNode( const kc_dht * dht, int128 hash )
+{
+    assert( dht != NULL );
+    
+    int logDist = int128xorlog( dht->us->nodeID, hash );
+    if( logDist < 0 )
+    {
+//        kc_logPrint( KADC_LOG_DEBUG, "Trying to add our own node. Ignoring..." );
+        return -1;
+    }
+    
+    /* Get this node's bucket */
+    dhtBucket     * bucket = dht->buckets[logDist];
+    kc_dhtNode    * node;
+    
+    // Get the node corresponding to hash
+            
+    dhtBucketLock( bucket );
+    
+    RbtIterator first = rbtFind( bucket->nodes, hash );
+    if( first == NULL )
+    {
+        dhtBucketUnlock( bucket );
+        return -1;
+    }
+    rbtKeyValue( bucket->nodes, first, NULL, (void**)&node );
+    if( node == NULL )
+    {
+        dhtBucketUnlock( bucket );
+        return -1;
+    }
+    /* We remove it */
+    rbtErase( bucket->nodes, first );
+    dhtNodeFree( node );
+    bucket->availableSlots++;
+    
+    dhtBucketUnlock( bucket );
+    
+    return 0;
+}
+
 int
 kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
 {
@@ -340,6 +436,7 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     RbtIterator nodeIter = rbtFind( bucket->nodes, hash );
     if( nodeIter != NULL )
     {
+        dhtBucketLock( bucket );
         char msg[33];
         // This node is already in our bucket list, let's update it's info */
         kc_logPrint( KADC_LOG_DEBUG, "Node %s already in our bucket, updating...", int128sprintf( msg, hash ) );
@@ -348,7 +445,8 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
         node->port = port;
         node->lastSeen = time(NULL);
         /* FIXME: handle node type */
-//        node->type = 0;
+        //        node->type = 0;
+        dhtBucketUnlock( bucket );
         return 1;
     }
     
@@ -372,6 +470,8 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
          * - If they all replied, we store it in our "backup nodes" list 
          */
         /* FIXME: Right now, we just consider the first one didn't replied */
+        
+        dhtBucketLock( bucket );
         RbtIterator first = rbtBegin( bucket->nodes );
         assert( first != NULL );
         rbtKeyValue( bucket->nodes, first, NULL, (void**)&oldNode );
@@ -387,9 +487,12 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     /* FIXME: Handle node type here */
     
     /* We add it to this bucket */
+    bucket->lastChanged = time( NULL );
     rbtInsert( bucket->nodes, hash, node );
     bucket->availableSlots--;
     
+    
+    dhtBucketUnlock( bucket );
     return 0;
 }
 
@@ -406,7 +509,11 @@ kc_dhtPrintTree( const kc_dht * dht )
 {
     int i;
     for( i = 0; i < 128; i++ )
+    {
+        kc_logPrint( KADC_LOG_NORMAL, "Bucket %d contains %d nodes :", i, dht->bucketSize - dht->buckets[i]->availableSlots );
         dhtPrintBucket( dht->buckets[i] );
+        kc_logPrint( KADC_LOG_NORMAL, "" );
+    }
 }
 
 int
@@ -427,7 +534,8 @@ kc_dhtGetNode( const kc_dht * dht, int * nodeCount )
     assert( nodeCount != NULL );
     
     /* FIXME: I'm not really sure how to get a correct list of node here,
-     * I'll get them in order, but they'll be sorted, so maybe it's bad */
+     * I'll get them in order, but they'll be sorted, so maybe it's bad
+     */
     
     int count = kc_dhtNodeCount( dht );
     

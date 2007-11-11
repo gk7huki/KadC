@@ -23,7 +23,7 @@ int
 readCallback( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer );
 
 int
-writeCallback( const kc_dht * dht, dht_msg_type type, kc_udpMsg * msg );
+writeCallback( const kc_dht * dht, kc_dhtMsgType type, kc_udpMsg * msg );
 
 int
 main( int argc, const char* argv[] )
@@ -208,7 +208,7 @@ readCallback( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer )
 }
 
 int
-writeCallback( const kc_dht * dht, dht_msg_type type, kc_udpMsg * msg )
+writeCallback( const kc_dht * dht, kc_dhtMsgType type, kc_udpMsg * msg )
 {
     switch ( type )
     {

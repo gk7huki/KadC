@@ -40,10 +40,11 @@ typedef struct _kc_dht kc_dht;
 typedef struct _kc_dhtNode kc_dhtNode;
 
 typedef enum {
-    DHT_RPC_PING = 0
-//    DHT_RPC_
-//    DHT_RPC_,
-} dht_msg_type;
+    DHT_RPC_PING = 0,
+    DHT_RPC_STORE,
+    DHT_RPC_FIND_NODE,
+    DHT_RPC_FIND_VALUE
+} kc_dhtMsgType;
 
 /**
  * Callback called when the dht needs to write a packet
@@ -57,7 +58,7 @@ typedef enum {
  * and set msg->payloadSize accordingly... The pointer will be freed after use.
  * @return 
  */
-typedef int (*kc_dhtWriteCallback)( const kc_dht * dht, dht_msg_type type, kc_udpMsg * msg );
+typedef int (*kc_dhtWriteCallback)( const kc_dht * dht, kc_dhtMsgType type, kc_udpMsg * msg );
 
 typedef int (*kc_dhtReadCallback)( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer );
 
@@ -104,10 +105,23 @@ kc_dhtCreateNode( const kc_dht * dht, in_addr_t addr, in_port_t port);
 int
 kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash );
 
+
 /**
- * Outputs the kc_dht structure to stdout
+ * Store a key/value pair in the DHT
+ * This function takes a key/value pair, store it in the DHT
+ *
+ * @param dht The DHT in which to store this key/value.
+ * @param key The key to store in the DHT.
+ * @param value The value associated with the above key.
+ * @return This function returns 0 on success, -1 otherwise.
+ */
+int
+kc_dhtStoreKeyValue( const kc_dht * dht, void * key, void * value );
+
+/**
+ * Outputs the DHT structure to stdout
  * This is for debugging purposes. Each entry in the DHT is output...
- * @param dht The kc_dht to print
+ * @param dht The DHT to print
  */
 void
 kc_dhtPrintTree( const kc_dht * dht );
