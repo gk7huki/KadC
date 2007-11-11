@@ -34,9 +34,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <assert.h>
 #include <stdio.h>
 
-#include "Debug_pthreads.h"
-#include "pthreadutils.h"
-#include "KadCalloc.h"
 #include "queue.h"
 
 /* returns 0 if successful, -1 if no memory, 1 if queue full.
