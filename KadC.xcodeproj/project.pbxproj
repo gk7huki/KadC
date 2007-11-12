@@ -19,7 +19,6 @@
 		4D678B130CCE768E001E27C2 /* int128.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE30CCE768E001E27C2 /* int128.c */; };
 		4D678B1F0CCE768E001E27C2 /* dht.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AEF0CCE768E001E27C2 /* dht.c */; };
 		4DA82ADE0CD114A0000056AE /* inifiles.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE10CCE768E001E27C2 /* inifiles.c */; };
-		4DA82DAC0CD12FFA000056AE /* kadc.ini in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4DA82DA10CD12FD9000056AE /* kadc.ini */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -39,7 +38,6 @@
 			dstPath = "";
 			dstSubfolderSpec = 16;
 			files = (
-				4DA82DAC0CD12FFA000056AE /* kadc.ini in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -68,6 +66,7 @@
 		4D678B010CCE768E001E27C2 /* rbt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = rbt.c; sourceTree = "<group>"; };
 		4D678B020CCE768E001E27C2 /* rbt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rbt.h; sourceTree = "<group>"; };
 		4DA82DA10CD12FD9000056AE /* kadc.ini */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kadc.ini; sourceTree = "<group>"; };
+		4DF01A5A0CE88C2B00E5F1B8 /* Doxyfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Doxyfile; sourceTree = "<group>"; };
 		D2AAC0630554660B00DB518D /* libKadC.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libKadC.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -93,9 +92,9 @@
 		08FB7794FE84155DC02AAC07 /* KadC */ = {
 			isa = PBXGroup;
 			children = (
-				4D423BEA0CE74A290025D375 /* Clients */,
-				4DA82DA10CD12FD9000056AE /* kadc.ini */,
 				08FB7795FE84155DC02AAC07 /* Library */,
+				4D423BEA0CE74A290025D375 /* Clients */,
+				4DF01A590CE88C1400E5F1B8 /* Resources */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 			);
 			name = KadC;
@@ -143,6 +142,15 @@
 				4D2E570A0CCF42CD0095A3C3 /* overnet_client.c */,
 			);
 			name = Clients;
+			sourceTree = "<group>";
+		};
+		4DF01A590CE88C1400E5F1B8 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4DF01A5A0CE88C2B00E5F1B8 /* Doxyfile */,
+				4DA82DA10CD12FD9000056AE /* kadc.ini */,
+			);
+			name = Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
