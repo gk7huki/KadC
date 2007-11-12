@@ -30,8 +30,17 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef KADC_KADCLOG_H
 #define KADC_KADCLOG_H
 
+/** @file logging.h
+ * This files provide a logging facility to KadC.
+ *
+ * This file implements a mutex-protected output facility,
+ * with an ability to switch the output log file.
+ */
 #include <int128.h>
 
+/** 
+ * A message's log level.
+ */
 typedef enum {
     KADC_LOG_VERBOSE,
     KADC_LOG_DEBUG,
@@ -39,28 +48,61 @@ typedef enum {
     KADC_LOG_ALERT
 } kc_logLevel;
 
-/* opens filename in append mode and uses it as logfile
-   (internally calls KadClog_setfile() */
+/** 
+ * Opens a file from name for logging purposes.
+ *
+ * This function opens filename in append mode and uses it as logfile
+ * (internally calls kc_logSetFile()).
+ *
+ * @param filename The name of the file to use as logfile.
+ * @return A pointer to a FILE.
+ */
 FILE *
-kc_logOpen(char *filename);
+kc_logOpen( char *filename );
 
-/* use as logfile the open stream pointed by the parameter
-   if not set here or by KadClog_open(), logfile defaults to stdout */
+/** 
+ * Sets the logging facility output to a specific file.
+ *
+ * This function sets the FILE* used by the logging functions below to
+ * the f parameter. If not set here or by kc_logOpen(), logging output defaults to stdout.
+ *
+ * @param f A pointer to an open()ed FILE.
+ */
 void
 kc_logSetFile( FILE *f );
 
-/* like fprintf(f, fmt, ...) but mutex-locking with log output */
+/** 
+ * Print a message to a specific FILE.
+ *
+ * This function is equivalent to kc_logPrint, except it allows to specify another FILE as output.
+ *
+ * @see kc_logPrint().
+ */
 void
-kc_logFile( kc_logLevel lvl, FILE *f, const char *fmt, ... );
+kc_logFile( FILE *f, kc_logLevel lvl, const char *fmt, ... );
 
-/* like fprintf(logfile, fmt, ...) but mutex-locking with log output */
+/** 
+ * Print a message to the logging output.
+ *
+ * This function print the printf()-compatible fmt with the provided varargs to the log file.
+ *
+ * @see kc_logTime().
+ * @param lvl The level of the message.
+ * @param fmt The format string of the message.
+ * @param ... The varargs specified in fmt.
+ */
 void
 kc_logPrint( kc_logLevel lvl, const char *fmt, ... );
 
-/* as above, but line is prefixed by ctime(NULL) */
+/** Print a message to the logging output, with a timestamp.
+ *
+ * This function does the same thing that kc_logPrint, except it prepends it with a timestamp.
+ * @see kc_logPrint().
+ */
 void
 kc_logTime( kc_logLevel lvl, const char *fmt, ... );
 
+#if UNUSED
 /* like fgets(s, size, stdin) but mutex-locking with log output */
 char *
 KadC_getsn(char *s, int size);
@@ -69,6 +111,7 @@ KadC_getsn(char *s, int size);
 #if 0
 void KadC_int128flog(FILE *f, int128 i128);
 void KadC_int128log(int128 i128);
-#endif
+#endif /* 0 */
+#endif /* UNUSED */
 
 #endif /* KADC_KADCLOG_H */

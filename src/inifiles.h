@@ -31,33 +31,40 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #define KADC_INIFILES_H
 
 #include <stdio.h>
-
-typedef char parblock[5][80];
-char *trimfgets(char *line, int linesize, FILE *file);
-
-/* Scans file from the beginning for a [section] (the parameter MUST include
- * the delimiting brackets). Returns -1 if no such section, or 0 if found
- * in which case the file pointer is left at the beginning of the next line
+/** @file inifiles.h
+ * This file provide an abstraction at reading config files.
+ *
  */
-int findsection(FILE *file, const char *section);
 
-/* Returns number of parameters in line, and the params themselves in pb[0]..pb[4]
- * - If if finds EOF, returns -1
- * - If it finds another INI section ("[...]") returns 0,
- * the section name (within "[]") in par 0, and the file pointer just before it.
- * In any case, file is left open.
+/**
+ * Get IP address and port number from a configuration file.
+ *
+ * This function is used for reading up a local DHT settings from a configuration file.
+ * @param iniFile A opened file descriptor to the settings file.
+ * @param addr A pointer to an in_addr_t that will contain the parsed IP address. Can be NULL.
+ * @param port A pointer to an in_port_t that will contain the parsed port number. Can be NULL.
+ * @return Returns 0 on success,
+                  -1 if it fails to find a "[local]" section in the file,
+                  -2 if it get a unexpected EOF.
+ 
  */
-int parseline(const char *line, parblock pb);
-
-int startreplacesection(FILE *rfile, const char *section, FILE *wfile);
-int endreplacesection(FILE *rfile, FILE *wfile);
-int tonextsection(FILE *file, char *section, int section_size);
-int copyuntilnextsection(FILE *rfile, FILE *wfile);
-
-
 int
-kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port );
+kc_iniParseLocalSection( FILE * iniFile, in_addr_t * addr, in_port_t * port );
 
+/**
+ * Get a list of nodes from a configuration file.
+ *
+ * This function is used for reading up a list of nodes from a configuration file.
+ * @param iniFile A opened file descriptor to the settings file.
+ * @param secName The name of the section to parse, including the square brackets.
+ * @param nodeAddr A pointer to an array of in_addr_t. Can't be NULL.
+ * @param nodePort A pointer to an array of in_port_t. Can't be NULL.
+ * @param nodeCount The number of nodes found in the file. Can't be NULL.
+ * @return Returns the number of node parsed on success, 
+            -1 if it fails to find a secname section in the file,
+            -2 if it get a unexpected EOF,
+            -3 if there was an error realloc()ating the arrays.
+ */
 int
 kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeAddr, in_port_t ** nodePort, int * nodeCount );
 

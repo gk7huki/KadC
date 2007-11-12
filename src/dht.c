@@ -28,6 +28,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -39,23 +40,12 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <arpa/inet.h>
 #include <sys/time.h>
 
-//#include "Debug_pthreads.h"
-//#include "pthreadutils.h"
-//#include "KadCalloc.h"
-//#include "int128.h"
-//#include "queue.h"
+#include "utils.h"
 #include "rbt.h"
 
-//#include "inifiles.h"
-//#include "KadCthread.h"
-//#include "opcodes.h"
 #include "logging.h"
 
 #include "dht.h"
-
-/* This is based on the Kademlia design specification available at
- * http://xlattice.sourceforge.net/components/protocol/kademlia/specs.html
- */
 
 #define KADC_EXPIRATION_DELAY   86410   /* in s, the ttl of a node */
 #define KADC_REFRESH_DELAY      3600    /* in s, the delay after which a bucket must be refreshed */

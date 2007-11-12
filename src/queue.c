@@ -35,6 +35,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <stdio.h>
 
 #include "queue.h"
+#include "utils.h"
 
 /* returns 0 if successful, -1 if no memory, 1 if queue full.
    enq'ing NULL simulates a timeout on the deqw() (and deqw()),

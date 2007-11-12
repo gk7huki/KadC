@@ -34,6 +34,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+#include <assert.h>
 
 #include "int128.h"
 #include "logging.h"
@@ -53,13 +54,16 @@ kc_logOpen( char *filename )
 void
 kc_logSetFile( FILE *f )
 {
+	pthread_mutex_lock( &console_io_mutex );
 	logf = f;
+    pthread_mutex_unlock( &console_io_mutex );
 }
 
-#if 0
 void
-KadC_flog( kc_logLevel lvl, FILE *f, const char *fmt, ... )
+kc_logFile( FILE *f, kc_logLevel lvl, const char *fmt, ... )
 {
+    assert( f == NULL );
+    
 	va_list ap;
     
 	va_start(ap, fmt);
@@ -68,14 +72,13 @@ KadC_flog( kc_logLevel lvl, FILE *f, const char *fmt, ... )
 	
     vfprintf( f, fmt, ap );
     
-	if( logf == NULL || *logf == stdout )
-		fflush( stdout );
+	if( f != stdout )
+		fflush( f );
     
 	pthread_mutex_unlock( &console_io_mutex );
     
 	va_end( ap );
 }
-#endif
 
 void
 kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
@@ -113,7 +116,7 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
     if ( stamp == 1 )
     {
         time_t now = time( NULL );
-        fprintf( logf, "%s%s: %s\n", dbgLvl, ctime(&now), dbgMsg );
+        fprintf( logf, "%s%s: %s\n", dbgLvl, ctime( &now ), dbgMsg );
     }
     else
         fprintf( logf, "%s%s\n", dbgLvl, dbgMsg );

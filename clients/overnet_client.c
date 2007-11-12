@@ -12,12 +12,13 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#include "inifiles.h"
-#include "logging.h"
-#include "dht.h"
-#include "int128.h"
-#include "opcodes.h"
-#include "bufio.h"
+#include <inifiles.h>
+#include <logging.h>
+#include <dht.h>
+#include <int128.h>
+#include <bufio.h>
+
+#include "overnet_opcodes.h"
 
 int
 readCallback( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer );

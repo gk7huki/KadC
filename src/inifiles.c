@@ -41,6 +41,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 #include "inifiles.h"
 
+typedef char parblock[5][80];
+
 char *
 trimfgets( char *line, int linesize, FILE *file )
 {
@@ -56,6 +58,10 @@ trimfgets( char *line, int linesize, FILE *file )
 	return line;
 }
 
+/* Scans file from the beginning for a [section] (the parameter MUST include
+ * the delimiting brackets). Returns -1 if no such section, or 0 if found
+ * in which case the file pointer is left at the beginning of the next line
+ */
 int
 findsection( FILE *file, const char *section )
 {
@@ -83,6 +89,12 @@ parseline( const char *line, parblock pb )
 	return ntok;
 }
 
+/* Returns number of parameters in line, and the params themselves in pb[0]..pb[4]
+ * - If if finds EOF, returns -1
+ * - If it finds another INI section ("[...]") returns 0,
+ * the section name (within "[]") in par 0, and the file pointer just before it.
+ * In any case, file is left open.
+ */
 int
 startreplacesection( FILE *rfile, const char *section, FILE *wfile )
 {
@@ -208,7 +220,7 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
 	/* Read local params from INI file */
 	if( findsection( inifile, "[local]" ) != 0 )
     {
-		kc_logPrint( KADC_LOG_DEBUG, "can't find [local] section in KadCmain.ini" );
+		kc_logPrint( KADC_LOG_DEBUG, "can't find [local] section in inifile" );
         
 		return -1;
 	}
@@ -220,7 +232,7 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
         char *p = trimfgets( line, sizeof(line), inifile );
         if( p == NULL )
         {
-            kc_logPrint( KADC_LOG_DEBUG, "can't find data under [local] section of KadCmain.ini" );
+            kc_logPrint( KADC_LOG_DEBUG, "Can't find data under [local] section of inifile" );
             
             return -2;  /* EOF */
         }
@@ -230,7 +242,7 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
             continue;	/* skip comments and blank lines */
         if(pb[0][0] == '[')
         {
-            kc_logPrint( KADC_LOG_DEBUG, "can't find data under [local] section of KadCmain.ini" );
+            kc_logPrint( KADC_LOG_DEBUG, "Can't find data under [local] section of inifile" );
             
             return -2;		/* start of new section */
         }
@@ -241,7 +253,7 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
         }
         else if( npars != 2 )
         {
-            kc_logPrint( KADC_LOG_DEBUG, "bad format for local node data: skipping..." );
+            kc_logPrint( KADC_LOG_DEBUG, "bBad format for local node data: skipping..." );
             continue;
         }
         
@@ -287,9 +299,9 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
 	/* Read contacts from INI file */
 	if( findsection( iniFile, secName ) != 0 )
     {
-		kc_logPrint(KADC_LOG_DEBUG, "can't find %s section in KadCmain.ini", secName );
+		kc_logPrint(KADC_LOG_DEBUG, "Can't find %s section in KadCmain.ini", secName );
         
-		return -3;
+		return -1;
 	}
     
     while( 1 )
@@ -316,7 +328,7 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
         }
         else if( npars != 2 && oldStyle == 0 )
         {
-            kc_logPrint( KADC_LOG_DEBUG, "bad format for contact %d lines after %s: skipping...", *nodeCount, secName );
+            kc_logPrint( KADC_LOG_DEBUG, "Bad format for contact %d lines after %s: skipping...", *nodeCount, secName );
             
             continue;
         }
@@ -333,7 +345,7 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
         {
             free( addrs );
             kc_logPrint( KADC_LOG_ALERT, "Failed realloc()ating node array !" );
-            return 0;
+            return -3;
         }
         addrs = tmp;
         
@@ -341,7 +353,7 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
         {
             free( ports );
             kc_logPrint( KADC_LOG_ALERT, "Failed realloc()ating node array !" );
-            return 0;
+            return -3;
         }
         ports = tmp;
         if( oldStyle )
@@ -363,7 +375,7 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
     {
         kc_logPrint( KADC_LOG_DEBUG, "Can't find data under %s section of KadCmain.ini", secName );
         
-        return -4;  /* EOF */
+        return -2;  /* EOF */
     }
     
     kc_logPrint( KADC_LOG_VERBOSE, "Read %d nodes from the %s section of KadCmain.ini", *nodeCount, secName );

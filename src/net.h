@@ -30,21 +30,40 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef _KADC_NET_H
 #define _KADC_NET_H
 
+/** @file net.h
+ * This file provide UDP communication capabilities.
+ */
+
 #include <stdio.h>
 
+/**
+ * A typedef for referring to a kc_udpIo object.
+ */
 typedef struct _kc_udpIo kc_udpIo;
 
+/** 
+ * A structure holding a message.
+ */
 typedef struct _kc_udpMsg {
-	in_addr_t       remoteIp;	/* in host byte order */
-	in_port_t       remotePort;	/* in host byte order */
-	char          * payload;
-	int             payloadSize;
+	in_addr_t       remoteIp;	/**< The remote IP address, in host byte order */
+	in_port_t       remotePort;	/**< The remote port number, in host byte order */
+	char          * payload;    /**< A buffer containing the payload of the message */
+	int             payloadSize;/**< The size of the buffer */
 } kc_udpMsg;
 
+/** 
+ * The callback prototype used when a UDP message arrives.
+ *
+ * @see kc_udpIoInit.
+ * @param ref Pointer to the ref passed at the kc_udpIO creation
+ * @param io Pointer to the kc_udpIo object that called-back.
+ * @param msg Pointer to the recieved message.
+ */
 typedef void (*kc_ioCallback)( void * ref, kc_udpIo * io, kc_udpMsg *msg );
 
-/**
- * Creates and initialize a kc_udpIo for UDP input/output handling
+/** 
+ * Creates and initialize a kc_udpIo for UDP input/output handling.
+ *
  * This function creates a kc_udpIo listener calling its callback on a
  * separate thread every time a UDP packet is received.
  * FIXME: Is this still right ?
@@ -53,17 +72,20 @@ typedef void (*kc_ioCallback)( void * ref, kc_udpIo * io, kc_udpMsg *msg );
  * it again. To allow multiple listeners to work concurrently,
  * all the context is kept in the kc_udpIo structure.
  *
+ * @see kc_ioCallback.
  * @param addr Our local IP, in network byte-order
  * @param port Our local port to bind to, in network byte-order
  * @param bufferSize The size of the incoming buffer
  * @param callback The callback that will be called when a packet is recieved
+ * @param ref A pointer that will be passed as the first argument of the callback.
  * @return An initialized kc_udpIo
  */
 kc_udpIo *
 kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback callback, void * ref );
 
-/**
- * Cleanup and free a kc_udpIo
+/** 
+ * Cleanup and free a kc_udpIo.
+ *
  * This function stops the processing threads, then closes the corresponding socket.
  *
  * @param io A kc_udpIo to free
@@ -71,8 +93,9 @@ kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback call
 void
 kc_udpIoFree( kc_udpIo * io );
 
-/**
- * Send a message to another node
+/** 
+ * Send a message to another node.
+ *
  * This function uses a kc_udpIo to send a kc_udpMsg to another node.
  * 
  * @param io The kc_udpIo to use to send the message
@@ -82,14 +105,16 @@ kc_udpIoFree( kc_udpIo * io );
 int
 kc_udpIoSendMsg( kc_udpIo * io, kc_udpMsg * msg );
 
-/**
+/** 
  * A multithreading-safe gethostbyname
+ *
  * @see gethostbyname
  */
 in_addr_t gethostbyname_s(const char *domain);
 
-/**
- * Check if an address is in one of the reserved (a.k.a private) networks
+/** 
+ * Check if an address is in one of the reserved (a.k.a private) networks.
+ *
  * This function returns true if the ip address is non-routable
  *
  * @param ip The IP address to check, in host byte order
@@ -98,7 +123,8 @@ in_addr_t gethostbyname_s(const char *domain);
 int inet_isnotroutable(in_addr_t ip);
 
 /** 
- * Check if an address is local to this machine
+ * Check if an address is local to this machine.
+ *
  * This function returns true if the passed-in IP address is
  * currently assigned to a local interface
  *

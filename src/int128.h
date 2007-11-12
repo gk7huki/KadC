@@ -30,24 +30,27 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef KADC_INT128_H
 #define KADC_INT128_H
 
-/* Primitives to manipulate 128-bit integers like, er, MD4 hashes...
-   They are mapped over 16-byte arrays. The first byte (buf[0]) is
-   the most significant, and its bit 0 (the one with weight 2**7)
-   is the most significant bit. */
+/** @file int128.h
+ * This file contains primitives to manipulate 128-bit integers like, er, MD4 hashes...
+ *
+ * Internally they are mapped over 16-byte arrays. The first byte (buf[0]) is the most significant,
+ * and its bit 0 (the one with weight 2**7) is the most significant bit.
+ */
 #include <stdio.h>
 
 typedef unsigned char *int128;
 #define int128_bitnum(n, bit) (((n)[(bit)/8] >> (7-((bit)%8))) & 1)
 
-/**
- * Moves an int128 from src to dest 
+/** 
+ * Moves an int128 from src to dest.
  * @return Returns dest
  */
 int128
 int128move( int128 dest, const int128 src);
 
-/**
- * A strdup lookalike for int128
+/** 
+ * A strdup() for int128.
+ *
  * This function allocates memory to hold a copy of int, copies int to it, and returns the pointer
  * You must free() the pointer after you're finished with it.
  * 
@@ -57,8 +60,9 @@ int128move( int128 dest, const int128 src);
 int128
 int128dup( const int128 org );
 
-/**
- * Compare int128, and returns a qsort()-compatible int
+/** 
+ * Compare two int128, and returns a qsort()-compatible int.
+ *
  * This function compare two int128, and return the result of the comparison
  *
  * @param i1, i2 The two int128 to compare
@@ -67,8 +71,9 @@ int128dup( const int128 org );
 int
 int128cmp( const void* i1, const void* i2 );
 
-/**
- * Return an int128 that is the exculsive-OR of the arguments
+/** 
+ * Return an int128 that is the exculsive-OR of the arguments.
+ *
  * This function takes three parameters, the destination of the XOR, 
  * two operands for it, and will return dest.
  
@@ -80,8 +85,9 @@ int128cmp( const void* i1, const void* i2 );
 int128
 int128xor( int128 dest, int128 opn1, int128 opn2 );
 
-/**
- * Returns the log value of an int128
+/** 
+ * Returns the log value of an int128.
+ *
  * This function returns the position of the most significant bit of op
  * (from 0 to 127) to be set to 1: in other words, the integer
  * part of its log in base 2. If op is zero it returns -1
@@ -93,8 +99,9 @@ int128xor( int128 dest, int128 opn1, int128 opn2 );
 int
 int128log( int128 op );
 
-/**
- * Return the log value of the XOR between two int128
+/** 
+ * Return the log value of the XOR between two int128.
+ *
  * This function combines int128xor & int128log.
  *
  * @param opn1 An int128, will be passed to int129xor
@@ -104,8 +111,9 @@ int128log( int128 op );
 int
 int128xorlog( int128 opn1, int128 opn2 );
 
-/**
+/** 
  * Returns a random()-ized int128.
+ *
  * This functions allocates an int128, then calls random() on it, and return the result.
  * The returned pointer must be free()d.
  *
@@ -114,8 +122,9 @@ int128xorlog( int128 opn1, int128 opn2 );
 int128
 int128random( void );
 
-/**
-* Returns a srandom()-ized int128.
+/** 
+ * Returns a srandom()-ized int128.
+ *
  * This functions allocates an int128, calls srandom( seed ), then
  * calls random() on it, and return the result.
  * The returned pointer must be free()d.
