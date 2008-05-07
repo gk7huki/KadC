@@ -28,16 +28,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-#include <pthread.h>
-
-#ifdef __WIN32__
-#include <windows.h>
-#else
-#include <sys/time.h>
-#include <errno.h>
-#endif
-#include "utils.h"
-
 void
 ts_set( struct timespec *ts )
 {

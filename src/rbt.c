@@ -1,8 +1,5 @@
 // reentrant red-black tree
 
-#include <stdlib.h>
-#include "rbt.h"
-
 typedef enum { BLACK, RED } NodeColor;
 
 typedef struct NodeTag {
@@ -310,6 +307,14 @@ RbtStatus rbtErase(RbtHandle h, RbtIterator i) {
     free (y);
 
     return RBT_STATUS_OK;
+}
+
+RbtStatus rbtEraseKey(RbtHandle h, void* key)
+{
+    RbtIterator keyIter = rbtFind(h, key);
+    if (keyIter == NULL)
+        return RBT_STATUS_KEY_NOT_FOUND;
+    return rbtErase(h, keyIter);
 }
 
 RbtIterator rbtNext(RbtHandle h, RbtIterator it) {

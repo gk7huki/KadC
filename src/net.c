@@ -28,51 +28,159 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-
-#include <pthread.h>
-#include <string.h>
-#include <unistd.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <time.h>
-
 #ifdef __WIN32__
-#include <winsock.h>
-#define socklen_t int
-#else /* __WIN32__ */
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-#define min(a,b) (((a)<(b))?(a):(b))
-#include <errno.h>
-#endif /* __WIN32__ */
+#define NET_LOG_ERROR( str ) kc_logAlert( str ": %d (%s)", WSAGetLastError(), WSAGetLastErrorMessageOccurred() )
+#else
+#define NET_LOG_ERROR( str ) kc_logAlert( str ": %d (%s)", errno, strerror(errno) )
+#endif
 
-#include "queue.h"
-#include "int128.h"
-#include "logging.h"
-#include "rbt.h"
+struct sockaddr *
+contactToSockAddr( kc_contact * contact )
+{
+    int type = kc_contactGetType( contact );
+    struct sockaddr * sockaddr = NULL;
+    
+    in_port_t port = kc_contactGetPort( contact );
+    
+    const void * addr = kc_contactGetAddr( contact );
+    
+    switch( type )
+    {
+        case AF_INET: {
+            size_t size = sizeof(struct sockaddr_in);
+            void *t = malloc( size );
+            sockaddr = (struct sockaddr*)t;
+            struct sockaddr_in * addr_in = (struct sockaddr_in*)sockaddr;
+            
+            memset( addr_in, 0, sizeof(struct sockaddr_in) );
+            
+            addr_in->sin_len = sizeof(struct sockaddr_in);
+            addr_in->sin_family = AF_INET;
+            addr_in->sin_port = htons( port );
+            
+            memcpy( &addr_in->sin_addr, addr, sizeof(struct in_addr) );
+        }
+            return sockaddr;
+            
+        case AF_INET6: {
+            sockaddr = malloc( sizeof(struct sockaddr_in6) );
+            struct sockaddr_in6 * addr_in6 = (struct sockaddr_in6*)sockaddr;
+            
+            memset( addr_in6, 0, sizeof(struct sockaddr_in6) );
+            
+            addr_in6->sin6_len = sizeof(struct sockaddr_in6);
+            addr_in6->sin6_family = AF_INET6;
+            addr_in6->sin6_port = htons( port );
+            
+            memcpy( &addr_in6->sin6_addr, addr, sizeof(struct in6_addr) );
+        }
+            return sockaddr;
+            
+        default:
+            break;
+    };
+    kc_logAlert( "Unsupported address size: %d", sizeof(addr) );
+    return NULL;
+}
 
-#include "net.h"
+int
+kc_netOpen( int type, int domain )
+{
+    int on = 1;
+    int fd;
+    kc_logVerbose( "Opening socket..." );
+    
+    if( ( fd = socket( type, domain, 0 ) ) < 0)
+    {
+        NET_LOG_ERROR( "Failed opening socket" );
+        return -1;
+    }
+    
+    kc_logVerbose( "Setting socket options..." );
+    
+    if( setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on) ) < 0)
+    {
+        NET_LOG_ERROR( "Failed setting reuse addr socket option" );
+        return -1;
+    }
+    
+    if( setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&on, sizeof(on) ) < 0)
+    {
+        NET_LOG_ERROR( "Failed setting reuse port socket option" );
+        return -1;
+    }
+    
+    return fd;
+}
+
+int
+kc_netBind( int fd, kc_contact * contact )
+{
+    kc_logVerbose( "Binding socket to %s", kc_contactPrint( contact ) );
+    
+    struct sockaddr * local = contactToSockAddr( contact );
+    
+    if( bind( fd, local, sizeof(*local) ) < 0)
+    {
+        NET_LOG_ERROR( "Failed binding socket" );
+        free( local );
+        return -1;
+    }
+    free( local );
+    return fd;
+}
+
+
+int
+kc_netConnect( int fd, kc_contact * contact )
+{
+    kc_logVerbose( "Connecting socket to %s", kc_contactPrint( contact ) );
+    
+    struct sockaddr * local = contactToSockAddr( contact );
+    
+    if( connect( fd, local, sizeof(*local) ) < 0)
+    {
+        NET_LOG_ERROR( "Failed connecting socket" );
+        free( local );
+        return -1;
+    }
+    free( local );
+    return fd;
+}
+
+void
+kc_netClose( int socket )
+{
+    int status;
+#ifdef __WIN32__
+	/* under Winsock 1.1 should I call WSACancelBlockingCall() here? prob. no */
+	status = closesocket( socket );
+#else
+	status = close( socket );
+#endif
+    if ( status != 0 )
+    {
+        kc_logVerbose( "Error closing socket: %d", status );
+    }
+}
+
+#if 0
 
 struct _kc_udpIo {
-	in_addr_t           localip;	/* our local IP */
+	struct in_addr      localaddr;	/* our local IP */
 	in_port_t           localport;	/* our local UDP port number */
 	kc_ioCallback       callback;   /* function that will be called when data is available */
     void              * ref;        /* A user-defined value that will be passed back to the callback */
 	
-//    unsigned char     * buf;		/* will hold recieved udp data */
 	int                 bufsize;	/* size of the above buffer */
     
 	int                 fd;         /* the file descriptor used for communications */
+    int                 fd6;
     
 	/* private fields below */
 	pthread_t           _udp_recv;		/* UDP listener thread */
 	pthread_t           _udp_proc;		/* UDP processing thread */
-	queue             * udp_recv_fifo;	/* _udp_recv enqueues, _udp_proc dequeues */
+	kc_queue          * udp_recv_fifo;	/* _udp_recv enqueues, _udp_proc dequeues */
 	pthread_mutex_t     mutex;          /* to prevent concurrent access from different threads */
 	RbtHandle         * blacklist;      /* rbt of blacklisted nodes (contains <IP.UDPport> pairs) */
 
@@ -132,7 +240,7 @@ int node_is_blacklisted(kc_udpIo * pul, in_addr_t ip, in_port_t port) {
 	ippt.ip = ip;
 	ippt.port = port;
 	kc_udpIoLock( pul );	/* \\\\\\ LOCK \\\\\\ */
-	iter = rbtFind(pul->blacklist, &ippt);
+	iter = rbtFind( pul->blacklist, &ippt );
 	if(iter != NULL) {
 		rbtKeyValue(pul->blacklist, iter, NULL, (void**)&val);
 		missingsecs = val->expiry - time(NULL);
@@ -214,18 +322,18 @@ int node_blacklist_load(kc_udpIo *pul, FILE *inifile) {
 			break;
 		ntok = sscanf(line, "%63s%u%d", dqip, &port, &expiry);
 		if(ntok != 3) {
-			kc_logPrint( KADC_LOG_DEBUG, "Ignoring malformed line: %s\n", line );
+			kc_logDebug( "Ignoring malformed line: %s", line );
 			continue;
 		}
 		if(dqip[0] == '#')
 			continue;	/* ignore comments */
 		ttl = expiry - time(NULL);
 		if(ttl <= 0) {	/* if already expired... */
-			kc_logPrint( KADC_LOG_DEBUG, "Ignoring expired blacklisting for %s:%u\n", dqip, port );
+			kc_logDebug( "Ignoring expired blacklisting for %s:%u\n", dqip, port );
 			continue;				/* ...then ignore this entry */
 		}
 
-		kc_logPrint( KADC_LOG_DEBUG, "Blacklisted %s:%u will be snubbed for %d s\n", dqip, port, ttl );
+		kc_logDebug( "Blacklisted %s:%u will be snubbed for %d s\n", dqip, port, ttl );
 
 		/* also domain names are OK here, besides dotted quads */
 		node_blacklist(pul, gethostbyname_s(dqip), port, ttl);
@@ -279,9 +387,8 @@ static void *
 udp_recv_thread( void *arg )
 {
 	kc_udpIo          * pul = arg;
-    unsigned char     * buf;
 
-	kc_logPrint( KADC_LOG_VERBOSE, "udp_recv_thread: pul->fd = %d, pul->bufsize = %d\n", pul->fd, pul->bufsize );
+	kc_logVerbose( "udp_recv_thread: pul->fd = %d, pul->bufsize = %d\n", pul->fd, pul->bufsize );
 
 
 	while( 1 )
@@ -315,9 +422,9 @@ udp_recv_thread( void *arg )
         {
             if ( status != 0 ) {
 # ifdef __WIN32__
-				kc_logPrint( KADC_LOG_VERBOSE, "%d %s\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred());
+				kc_logVerbose( "%d %s\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred());
 # else
-				kc_logPrint( KADC_LOG_VERBOSE, "%d %s\n", errno, strerror(errno));
+				kc_logVerbose( "%d %s\n", errno, strerror(errno));
 # endif
             }
             // There was an error, or we timeout, try reading again...
@@ -329,19 +436,16 @@ udp_recv_thread( void *arg )
         if( errno == EINTR )
             continue;
 #endif
-        
-		buf = calloc( pul->bufsize, sizeof( char*) );
+        char * buf;
+		buf = calloc( pul->bufsize, sizeof(char*) );
 		if( buf == NULL )
         {
-			kc_logPrint(KADC_LOG_NORMAL, "%s:%d: failed to allocate memory for buffer\n", __FILE__, __LINE__);
+			kc_logAlert( "Failed to allocate memory for buffer" );
 			return NULL;
 		}
         else
         {
-            int             bl_seconds;
-            kc_udpMsg     * pum;
-            in_addr_t       remoteip;
-            in_port_t       remoteport;
+//            int             bl_seconds;
             struct sockaddr_in  remote;
             int             nrecv;
             socklen_t       sa_len = sizeof(struct sockaddr_in);
@@ -349,7 +453,6 @@ udp_recv_thread( void *arg )
             kc_udpIoLock( pul );      /* \\\\\\ LOCK kc_udpIo \\\\\\ */
             
             nrecv = recvfrom( pul->fd, buf, pul->bufsize - 1, 0, (struct sockaddr *)&remote, &sa_len);
-            
             
             kc_udpIoUnlock( pul );	/* ///// UNLOCK kc_udpIo ///// */
             
@@ -363,58 +466,39 @@ udp_recv_thread( void *arg )
                 continue;
             }
             
-            remoteip = remote.sin_addr.s_addr;
+            struct in_addr  remoteaddr;
+            in_port_t       remoteport;
+            remoteaddr = remote.sin_addr;
             remoteport = remote.sin_port;
 #if 0
-            if ( ( bl_seconds = node_is_blacklisted( pul, remoteip, remoteport )) != 0) {
-#ifdef DEBUG
-                struct in_addr ad;
-                ad.s_addr = remoteip;
-                kc_logPrint("udp_recv_thread: Discarded datagram from blacklisted node %s:%u (%d seconds left)\n",
-                         inet_ntoa( ad ), remoteport, bl_seconds);
-#endif
+            if ( ( bl_seconds = node_is_blacklisted( pul, remoteip, remoteport ) ) != 0 ) {
+                kc_logDebug( "udp_recv_thread: Discarded datagram from blacklisted node %s:%u (%d seconds left)\n",
+                         addr_ntoa( ad ), remoteport, bl_seconds );
                 free( buf );
                 continue;
             }
 #endif
-            pum = calloc( 1, sizeof(kc_udpMsg) );
-            if ( pum == NULL )
+            kc_contact * contact = kc_contactInit( &remoteaddr, remoteport );
+            kc_message * msg = kc_messageInit( contact, DHT_RPC_UNKNOWN, nrecv, buf );
+            if ( msg == NULL )
             {
                 free( buf );
                 continue;
             }
-            
-            pum->payload = malloc(nrecv);
-            if ( pum->payload == NULL )
-            {
-                free( pum );
-                free( buf );
-                continue;
-            }
-            
-            pum->payloadSize = nrecv;
-            pum->remoteIp = remoteip;
-            pum->remotePort = remoteport;
-            memcpy( pum->payload, buf, nrecv );
             
             /* enqueue the message for udp_proc_thread */
-            status = pul->udp_recv_fifo->enq( pul->udp_recv_fifo, pum );
+            status = kc_queueEnqueue( pul->udp_recv_fifo, msg );
             
             if( status != 0 )
             {
-#ifdef DEBUG
-                kc_logPrint(KADC_LOG_DEBUG, "%s:%d ** UDP message enq failed: %d input datagram lost!\n", __FILE__, __LINE__, status);
-#endif
-                free( pum->payload );
-                free( pum );	/* if enq failed, destroy message */
-                free( buf );
+                kc_logVerbose( "UDP message enq failed: %d input datagram lost!", status);
+                kc_messageFree( msg );
                 continue;
             }
         }
         // We've finished recieving another packet, free the buffer we've used...
 		free( buf );
 	}
-    free( buf );
     
 	return NULL;
 }
@@ -425,19 +509,18 @@ udp_recv_thread( void *arg )
 static void *
 udp_proc_thread( void *arg )
 {
-	kc_udpIo  * pul = arg;
-	kc_udpMsg * pum;
+	kc_udpIo   * udp = arg;
+	kc_message * msg;
 
-	while( pul->fd != -1 )
+	while( udp->fd != -1 )
     {
-		pum = pul->udp_recv_fifo->deqtw(pul->udp_recv_fifo, 500);
-		if( pum == NULL )
+		msg = kc_queueDequeueTimeout( udp->udp_recv_fifo, 500 );
+		if( msg == NULL )
 			continue;
 
-		if( pul->callback != NULL )
-			(*pul->callback)( pul->ref, pul, pum );
-		free( pum->payload );
-        free( pum );
+		if( udp->callback != NULL )
+			(*udp->callback)( udp->ref, udp, msg );
+		kc_messageFree( msg );
 	}
 
 	return NULL;
@@ -454,28 +537,25 @@ kc_udpIoUnlock( kc_udpIo * io )
 {
     return pthread_mutex_unlock( &io->mutex );
 }
-
+#if 0
 kc_udpIo *
-kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback callback, void * ref )
+kc_udpIoInit( struct in_addr addr, struct in6_addr addr6, in_port_t port, int bufferSize, kc_ioCallback callback, void * ref )
 {
-	int fd, on = 1;
-	struct sockaddr_in local;
 	static pthread_mutex_t mutex_initializer = PTHREAD_MUTEX_INITIALIZER;
 
     kc_udpIo * pul = (kc_udpIo*)malloc( sizeof(kc_udpIo) );
     if ( pul == NULL )
     {
 #ifdef VERBOSE_DEBUG
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed malloc !\n" );
+        kc_logVerbose( "kc_udpIoInit: failed malloc !" );
 #endif
         return NULL;
     }
     
-    pul->localip = addr;
+    pul->localaddr = addr;
     pul->localport = port;
     
     pul->bufsize = bufferSize;
-//    pul->buf = calloc( pul->bufsize, sizeof(char) );
     
     pul->callback = callback;
     pul->ref = ref;
@@ -483,63 +563,29 @@ kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback call
 	pul->blacklist = rbtNew( ip_port_cmp );
     
 	pul->mutex = mutex_initializer;
-	pul->udp_recv_fifo = new_queue(10);	/* max outstanding UDP packets */
+	pul->udp_recv_fifo = kc_queueInit( 10 );	/* max outstanding UDP packets */
     
     pul->_udp_recv = NULL;
     pul->_udp_proc = NULL;
 
-	if( ( fd = socket( AF_INET, SOCK_DGRAM, 0 ) ) < 0)
-    {
-#ifdef __WIN32__
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed opening socket (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
-#else
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed opening socket (%d:%s) !\n", errno, strerror(errno) );
-#endif
-        kc_udpIoFree( pul );
-        return NULL;
-    }
-
-	if( setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on) ) < 0)
-    {
-#ifdef __WIN32__
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed setting socket options (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
-#else
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit: failed setting socket options (%d:%s) !\n", errno, strerror(errno) );
-#endif
-        kc_udpIoFree( pul );
-        return NULL;
-    }
+    kc_logVerbose( "kc_udpIoInit: opening UDP sockets" );
     
-	memset(&(local), 0, sizeof(struct sockaddr_in));
-	local.sin_family = AF_INET;
-	local.sin_addr.s_addr = htonl( pul->localip );
-    local.sin_port = htons( pul->localport );
+    pul->fd = openAndBindSocket( &addr, sizeof(struct in_addr), port );
+    pul->fd6 = openAndBindSocket( (struct in_addr*)&addr6, sizeof(struct in6_addr), port );
 
-	if( bind( fd, (struct sockaddr*) &local, sizeof(struct sockaddr) ) < 0)
-    {
-#ifdef __WIN32__
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit failed binding to port (%d:%s) !\n", WSAGetLastError(), WSAGetLastErrorMessageOccurred() );
-#else
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoInit failed binding to port (%d:%s) !\n", errno, strerror(errno) );
-#endif
-        kc_udpIoFree( pul );
-        return NULL;
-    }
-
-	pul->fd = fd;
 
 	pthread_create( &pul->_udp_recv, NULL, udp_recv_thread, pul );
 	pthread_create( &pul->_udp_proc, NULL, udp_proc_thread, pul );
 
 	return pul;
 }
-
+#endif 0
 void
 kc_udpIoFree(kc_udpIo *pul)
 {
-	int         tempFd;
-    int         status;
-	kc_udpMsg * pum;
+	int          tempFd;
+    int          status;
+	kc_message * msg;
 
     assert( pul != NULL );
     
@@ -549,33 +595,32 @@ kc_udpIoFree(kc_udpIo *pul)
     
     /* ... then we wait for them at the corner */
     if ( pul->_udp_proc != NULL )
-        pthread_join( pul->_udp_proc, NULL);
+        pthread_join( pul->_udp_proc, NULL );
     if ( pul->_udp_recv != NULL )
-        pthread_join( pul->_udp_recv, NULL);
+        pthread_join( pul->_udp_recv, NULL );
     
 #ifdef __WIN32__
 	/* under Winsock 1.1 should I call WSACancelBlockingCall() here? prob. no */
-	status = closesocket(tempFd);
+	status = closesocket( tempFd );
 #else
-	status = close(tempFd);
+	status = close( tempFd );
 #endif
     if ( status != 0 )
     {
-        kc_logPrint( KADC_LOG_VERBOSE, "kc_udpIoFree: error %d closing fd\n", status );
+        kc_logVerbose( "kc_udpIoFree: error %d closing fd\n", status );
     }
     
 //	if( pul->buf != NULL )
 //		free( pul->buf );
     
 	/* cleanup any leftover in the udp message queue */
-	while((pum = pul->udp_recv_fifo->deqtw(pul->udp_recv_fifo, 500)) != NULL) {
-		free(pum->payload);
-		free(pum);
+	while( ( msg = kc_queueDequeueTimeout( pul->udp_recv_fifo, 500 ) ) != NULL ) {
+		kc_messageFree( msg );
 	}
     
-	pul->udp_recv_fifo->destroy(pul->udp_recv_fifo);
+	kc_queueFree( pul->udp_recv_fifo );
 	node_blacklist_purge(pul, 1);	/* unconditionally empty blacklist */
-	rbtDelete(pul->blacklist);	/* destroy rbt */
+	rbtDelete( pul->blacklist );	/* destroy rbt */
     
     free( pul );
 }
@@ -590,17 +635,16 @@ gethostbyname_s(const char *domain)
 {
 	static pthread_mutex_t __mutex = PTHREAD_MUTEX_INITIALIZER;
 	struct hostent *hp;
-	in_addr_t hip;	/* ip in host network order */
+	in_addr_t hip;	/* ip in host byte order */
 
 	if(domain[0] >= '0' && domain[0] <= '9') {
-		hip = ntohl( inet_addr(domain) );
+		hip = ntohl( inet_addr( domain ) );
 	} else {
 
-		pthread_mutex_lock(&__mutex);	/* begin critical area */
+		pthread_mutex_lock( &__mutex );	/* begin critical area */
 		hp = gethostbyname( domain );
-		if(hp == NULL) {
-
-			kc_logPrint( KADC_LOG_DEBUG, "Can't resolve hostname %s\n", domain );
+		if( hp == NULL ) {
+			kc_logDebug( "Can't resolve hostname %s\n", domain );
 
 			hip = 0xffffffff;
 		} else {
@@ -613,37 +657,50 @@ gethostbyname_s(const char *domain)
 	}
 
 	return hip;
+}
 
+char *
+addr_ntoa( in_addr_t addr_t)
+{
+    struct in_addr addr;
+    addr.s_addr = addr_t;
+    
+    return inet_ntoa( addr );
 }
 
 /* blocking send() */
 int
-kc_udpIoSendMsg( kc_udpIo * io, kc_udpMsg * msg )
+kc_udpIoSendMsg( kc_udpIo * io, kc_message * msg )
 {
 	int status;
 	struct sockaddr_in destsockaddr;
 	int fd = io->fd;
 
+    const kc_contact * contact = kc_messageGetContact( msg );
+    
 	memset( &destsockaddr, 0, sizeof(struct sockaddr_in) );
 	destsockaddr.sin_family = AF_INET;
-	destsockaddr.sin_port   = htons( msg->remotePort );
-	destsockaddr.sin_addr.s_addr = htonl( msg->remoteIp );
+	destsockaddr.sin_port   = kc_contactGetPort( contact );
+	destsockaddr.sin_addr = *kc_contactGetAddr( contact );
     
 	/* this lock protects the fd from concurrent access
 	   by separate threads either via sendto() recvfrom() */
 
 	kc_udpIoLock( io );
 
-	status = sendto( fd, msg->payload, msg->payloadSize, 0,
+	status = sendto( fd, kc_messageGetPayload( msg ), kc_messageGetSize( msg), 0,
                      (struct sockaddr *)&destsockaddr, sizeof(destsockaddr) );
 
 	kc_udpIoUnlock( io );
-    struct in_addr ad;
-    ad.s_addr = htonl( msg->remoteIp );
+    if( status != kc_messageGetSize( msg ) )
+    {
+        kc_logAlert( "Failed sending UDP message, err %s", strerror( errno ) );
+        return errno;
+    }
     
-//    kc_logPrint( KADC_LOG_VERBOSE, "Sent UDP message to %s:%d", inet_ntoa( ad ), msg->remotePort );
+    kc_logVerbose( "Sent UDP message to %s", kc_contactPrint( contact ) );
     
-	return status;
+	return ( status == kc_messageGetSize( msg ) );
 }
 /* end blocking send() */
 
@@ -775,5 +832,6 @@ int wsockstart(void) {
 	atexit(&wsockcleanup);	/* and call WSACleanup() at exit */
 	return 0;
 }
-#endif
+#endif /* 0 */
+#endif /* __KADC_NET_H__ */
 

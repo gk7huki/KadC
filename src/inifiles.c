@@ -30,17 +30,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 /* primitives to read / save various parameters in INI file */
 
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <assert.h>
-
-#include "net.h"
-#include "logging.h"
-#include "rbt.h"
-
-#include "inifiles.h"
-
 typedef char parblock[5][80];
 
 char *
@@ -69,7 +58,7 @@ findsection( FILE *file, const char *section )
     
     assert( file != NULL );
     
-	rewind(file);
+	rewind( file );
 	for ( ; ; )
     {
 		char *p = trimfgets( line, sizeof(line), file );
@@ -179,6 +168,59 @@ tonextsection( FILE *file, char *section, int section_size )
 	return -1;
 }
 
+kc_contact *
+parseContact( parblock pb, int oldStyle )
+{
+    kc_contact * contact;
+    
+    struct in_addr addr;
+    struct in6_addr addr6;
+    int status = 0;
+    
+    char * address;
+    char * port;
+    
+    if( oldStyle )
+    {
+        address = pb[1];
+        port = pb[2];
+    }
+    else
+    {
+        address = pb[0];
+        port = pb[1];
+    }
+    
+    /* Try parsing IPv4 address */
+    status = inet_pton( AF_INET, pb[1], &addr );
+    if( status == 1 )
+    {
+        /* This is a valid IPv4 address, create a contact from it */
+        contact = kc_contactInit( &addr, sizeof(struct in_addr), atoi( pb[2] ) );
+        return contact;
+    }
+    if( status == 0 )
+    {
+        /* Failed with invalid address for proto type, retry parsing in IPv6 */
+        status = inet_pton( AF_INET6, pb[1], &addr6 );
+        if( status == 1 )
+        {
+            /* This is a valid IPv6 address, create a contact from it */
+            contact = kc_contactInit( &addr6, sizeof(struct in6_addr), atoi( pb[2] ) );
+            return contact;
+        }
+    }
+    
+    /* We failed, report */
+    if( status == -1 )
+    {
+        kc_logError( "System error while parsing contact address: %s", strerror( errno ) );
+        return NULL;
+    }
+    
+    return contact;
+}
+
 int
 copyuntilnextsection( FILE *rfile, FILE *wfile )
 {
@@ -210,17 +252,17 @@ copyuntilnextsection( FILE *rfile, FILE *wfile )
 }
 
 int
-kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
+kc_iniParseLocalSection( FILE * inifile, kc_contact ** contact, kc_hash ** hash )
 {
     char line[132];
 	parblock pb;
     int oldStyle = 0;
-    
+    assert( contact != NULL );
     
 	/* Read local params from INI file */
 	if( findsection( inifile, "[local]" ) != 0 )
     {
-		kc_logPrint( KADC_LOG_DEBUG, "can't find [local] section in inifile" );
+		kc_logDebug( "can't find [local] section in inifile" );
         
 		return -1;
 	}
@@ -232,7 +274,7 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
         char *p = trimfgets( line, sizeof(line), inifile );
         if( p == NULL )
         {
-            kc_logPrint( KADC_LOG_DEBUG, "Can't find data under [local] section of inifile" );
+            kc_logDebug( "Can't find data under [local] section of inifile" );
             
             return -2;  /* EOF */
         }
@@ -242,67 +284,56 @@ kc_iniParseLocalSection( FILE * inifile, in_addr_t * addr, in_port_t * port )
             continue;	/* skip comments and blank lines */
         if(pb[0][0] == '[')
         {
-            kc_logPrint( KADC_LOG_DEBUG, "Can't find data under [local] section of inifile" );
+            kc_logAlert( "Can't find data under [local] section of inifile" );
             
             return -2;		/* start of new section */
         }
         if( npars == 5 )
         {
-            kc_logPrint( KADC_LOG_VERBOSE, "This looks like an old-style local list..." );
+            kc_logVerbose( "This looks like an old-style local list..." );
             oldStyle = 1;
         }
-        else if( npars != 2 )
+        else if( npars != 3 )
         {
-            kc_logPrint( KADC_LOG_DEBUG, "bBad format for local node data: skipping..." );
+            kc_logAlert( "Bad format for local node data: skipping..." );
             continue;
         }
         
         break;
     }
     
-    // Parse what we found...
-    if( oldStyle )
+    /* Parse what we found... */
+    if( hash != NULL )
+        *hash = atohash( pb[0] );
+    
+    if( contact != NULL )
     {
-        if( addr != NULL )
-            *addr = gethostbyname_s(pb[1]);
-        
-        if( port != NULL )
-            *port = atoi(pb[2]);
-    }
-    else
-    {
-        if( addr != NULL )
-            *addr = gethostbyname_s(pb[0]);
-        
-        if( port != NULL )
-            *port = atoi(pb[1]);
+        *contact = parseContact( pb, 1 );
     }
     
-    return 0;
+    return ( *contact != NULL );
 }
 
-int
-kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeAddr, in_port_t ** nodePort, int * nodeCount )
+kc_contact **
+kc_iniParseNodeSection( FILE * iniFile, const char * secName, int * nodeCount )
 {
     char line[132];
 	parblock pb;
-    in_addr_t   * addrs = NULL;
-    in_port_t   * ports = NULL;
     int oldStyle = 0;
     
     assert( nodeCount != NULL );
-    assert( nodeAddr  != NULL );
-    assert( nodePort  != NULL );
     
     *nodeCount = 0;
     
 	/* Read contacts from INI file */
 	if( findsection( iniFile, secName ) != 0 )
     {
-		kc_logPrint(KADC_LOG_DEBUG, "Can't find %s section in KadCmain.ini", secName );
-        
-		return -1;
+		kc_logError( "Can't find %s section in .ini file", secName );
+		return NULL;
 	}
+    
+    kc_contact **nodes = malloc( sizeof(kc_contact*) );
+    *nodes = NULL;
     
     while( 1 )
     {
@@ -323,65 +354,45 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, in_addr_t ** nodeA
         
         if( npars == 4 && oldStyle == 0 )
         {
-            kc_logPrint( KADC_LOG_VERBOSE, "This looks like an old-style node list..." );
+            kc_logVerbose( "This looks like an old-style node list..." );
             oldStyle = 1;
         }
         else if( npars != 2 && oldStyle == 0 )
         {
-            kc_logPrint( KADC_LOG_DEBUG, "Bad format for contact %d lines after %s: skipping...", *nodeCount, secName );
-            
+            kc_logAlert( "Bad format for contact %d lines after %s: skipping...", *nodeCount, secName );
             continue;
         }
         
-        if( addrs == NULL )
-            addrs = malloc( sizeof(in_addr_t) );
-        
-        if( ports == NULL )
-            ports = malloc( sizeof(in_port_t) );
+        kc_contact * contact = parseContact( pb, oldStyle );
+        if( contact == NULL )
+            continue;
         
         void *tmp;
         
-        if( ( tmp = realloc( addrs, sizeof(in_addr_t) * ( (*nodeCount) + 1 ) ) ) == NULL )
+        tmp = realloc( nodes, sizeof(kc_contact*) * ( (*nodeCount) + 1 ) );
+        if( tmp == NULL )
         {
-            free( addrs );
-            kc_logPrint( KADC_LOG_ALERT, "Failed realloc()ating node array !" );
-            return -3;
+            kc_logError( "Failed realloc()ating nodes array !" );
+            free( *nodes );
+            free( nodes );
+            return NULL;
         }
-        addrs = tmp;
+        nodes = tmp;
         
-        if( ( tmp = realloc( ports, sizeof(in_port_t) * ( (*nodeCount) + 1 ) ) ) == NULL )
-        {
-            free( ports );
-            kc_logPrint( KADC_LOG_ALERT, "Failed realloc()ating node array !" );
-            return -3;
-        }
-        ports = tmp;
-        if( oldStyle )
-        {
-            addrs[*nodeCount] = gethostbyname_s( pb[1] );
-            ports[*nodeCount] = atoi( pb[2] );
-
-        }
-        else
-        {
-            addrs[*nodeCount] = gethostbyname_s( pb[0] );
-            ports[*nodeCount] = atoi( pb[1] );            
-        }
+        nodes[*nodeCount] = contact;
         
         (*nodeCount)++;
     }
-
+    
     if( *nodeCount == 0 )
     {
-        kc_logPrint( KADC_LOG_DEBUG, "Can't find data under %s section of KadCmain.ini", secName );
-        
-        return -2;  /* EOF */
+        kc_logError( "Can't find data under %s section of KadCmain.ini", secName );
+        free( *nodes );
+        free( nodes );
+        return NULL;  /* EOF */
     }
     
-    kc_logPrint( KADC_LOG_VERBOSE, "Read %d nodes from the %s section of KadCmain.ini", *nodeCount, secName );
+    kc_logVerbose( "Read %d nodes from the %s section of KadCmain.ini", *nodeCount, secName );
     
-    *nodeAddr = addrs;
-    *nodePort = ports;
-    
-    return *nodeCount;
+    return nodes;
 }

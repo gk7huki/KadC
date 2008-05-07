@@ -7,18 +7,36 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4D05EB0A0D646A1500E7E241 /* message.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D05EB080D646A1500E7E241 /* message.h */; };
+		4D05EB0B0D646A1500E7E241 /* message.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D05EB090D646A1500E7E241 /* message.c */; };
+		4D05EB0E0D646ACB00E7E241 /* contact.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D05EB0C0D646ACB00E7E241 /* contact.h */; };
+		4D05EB0F0D646ACB00E7E241 /* contact.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D05EB0D0D646ACB00E7E241 /* contact.c */; };
 		4D2E57010CCF42A60095A3C3 /* rbt.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678B010CCE768E001E27C2 /* rbt.c */; };
 		4D2E57040CCF42B70095A3C3 /* logging.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE90CCE768E001E27C2 /* logging.c */; };
 		4D2E577D0CCF45A80095A3C3 /* overnet_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D2E570A0CCF42CD0095A3C3 /* overnet_client.c */; };
 		4D2E57800CCF45B10095A3C3 /* libKadC.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = D2AAC0630554660B00DB518D /* libKadC.dylib */; };
-		4D2E5D240CCF8C9D0095A3C3 /* net.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AF70CCE768E001E27C2 /* net.c */; };
-		4D2E5D260CCF8CAA0095A3C3 /* queue.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AFF0CCE768E001E27C2 /* queue.c */; };
 		4D423C290CE76EA80025D375 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D423C270CE76EA80025D375 /* utils.c */; };
-		4D423C2A0CE76EA80025D375 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D423C280CE76EA80025D375 /* utils.h */; };
+		4D423C2A0CE76EA80025D375 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D423C280CE76EA80025D375 /* utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4D4286DD0CD214150082574E /* bufio.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AD70CCE768E001E27C2 /* bufio.c */; };
-		4D678B130CCE768E001E27C2 /* int128.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE30CCE768E001E27C2 /* int128.c */; };
+		4D57863C0D3E3AC400FCE31F /* queue.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AFF0CCE768E001E27C2 /* queue.c */; };
+		4D5786CD0D3E4FD800FCE31F /* overnet.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D5786CB0D3E4FD800FCE31F /* overnet.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786CE0D3E4FD800FCE31F /* overnet.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D5786CC0D3E4FD800FCE31F /* overnet.c */; };
+		4D5786DE0D3E501D00FCE31F /* rbt.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678B020CCE768E001E27C2 /* rbt.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786DF0D3E501E00FCE31F /* queue.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678B000CCE768E001E27C2 /* queue.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786E00D3E501F00FCE31F /* net.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AF80CCE768E001E27C2 /* net.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786E10D3E502000FCE31F /* logging.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AEA0CCE768E001E27C2 /* logging.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786E30D3E502300FCE31F /* hash.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AE40CCE768E001E27C2 /* hash.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786E40D3E502400FCE31F /* inifiles.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE10CCE768E001E27C2 /* inifiles.c */; };
+		4D5786E50D3E502500FCE31F /* inifiles.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AE20CCE768E001E27C2 /* inifiles.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786E60D3E502500FCE31F /* dht.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AF00CCE768E001E27C2 /* dht.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5786E70D3E502600FCE31F /* bufio.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AD80CCE768E001E27C2 /* bufio.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5787110D3E53C700FCE31F /* kadc.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D5787100D3E53C700FCE31F /* kadc.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D5787130D3E544200FCE31F /* overnet_opcodes.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D678AF90CCE768E001E27C2 /* overnet_opcodes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D678B130CCE768E001E27C2 /* hash.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE30CCE768E001E27C2 /* hash.c */; };
 		4D678B1F0CCE768E001E27C2 /* dht.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AEF0CCE768E001E27C2 /* dht.c */; };
-		4DA82ADE0CD114A0000056AE /* inifiles.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AE10CCE768E001E27C2 /* inifiles.c */; };
+		4D6859150D6318990053AB8A /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D6859130D6318990053AB8A /* internal.h */; };
+		4D6859160D6318990053AB8A /* internal.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D6859140D6318990053AB8A /* internal.c */; };
+		4D6BBE360D65DF1A00BA42D5 /* net.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D678AF70CCE768E001E27C2 /* net.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,27 +62,37 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4D05EB080D646A1500E7E241 /* message.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = message.h; sourceTree = "<group>"; };
+		4D05EB090D646A1500E7E241 /* message.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = message.c; sourceTree = "<group>"; };
+		4D05EB0C0D646ACB00E7E241 /* contact.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = contact.h; sourceTree = "<group>"; };
+		4D05EB0D0D646ACB00E7E241 /* contact.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = contact.c; sourceTree = "<group>"; };
 		4D2E570A0CCF42CD0095A3C3 /* overnet_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = overnet_client.c; path = clients/overnet_client.c; sourceTree = "<group>"; };
 		4D2E57790CCF45A00095A3C3 /* Test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Test; sourceTree = BUILT_PRODUCTS_DIR; };
 		4D423C270CE76EA80025D375 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
 		4D423C280CE76EA80025D375 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		4D5785EA0D3E320700FCE31F /* kadc.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kadc.pch; sourceTree = "<group>"; };
+		4D5786CB0D3E4FD800FCE31F /* overnet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = overnet.h; sourceTree = "<group>"; };
+		4D5786CC0D3E4FD800FCE31F /* overnet.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = overnet.c; sourceTree = "<group>"; };
+		4D5787100D3E53C700FCE31F /* kadc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = kadc.h; sourceTree = "<group>"; };
 		4D678AD70CCE768E001E27C2 /* bufio.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = bufio.c; sourceTree = "<group>"; };
 		4D678AD80CCE768E001E27C2 /* bufio.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bufio.h; sourceTree = "<group>"; };
 		4D678AE10CCE768E001E27C2 /* inifiles.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = inifiles.c; sourceTree = "<group>"; };
 		4D678AE20CCE768E001E27C2 /* inifiles.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = inifiles.h; sourceTree = "<group>"; };
-		4D678AE30CCE768E001E27C2 /* int128.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = int128.c; sourceTree = "<group>"; };
-		4D678AE40CCE768E001E27C2 /* int128.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = int128.h; sourceTree = "<group>"; };
+		4D678AE30CCE768E001E27C2 /* hash.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = hash.c; sourceTree = "<group>"; };
+		4D678AE40CCE768E001E27C2 /* hash.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = hash.h; sourceTree = "<group>"; };
 		4D678AE90CCE768E001E27C2 /* logging.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = logging.c; sourceTree = "<group>"; };
-		4D678AEA0CCE768E001E27C2 /* logging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = logging.h; sourceTree = "<group>"; };
+		4D678AEA0CCE768E001E27C2 /* logging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = logging.h; sourceTree = "<group>"; };
 		4D678AEF0CCE768E001E27C2 /* dht.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = dht.c; sourceTree = "<group>"; };
 		4D678AF00CCE768E001E27C2 /* dht.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = dht.h; sourceTree = "<group>"; };
 		4D678AF70CCE768E001E27C2 /* net.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = net.c; sourceTree = "<group>"; };
 		4D678AF80CCE768E001E27C2 /* net.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = net.h; sourceTree = "<group>"; };
-		4D678AF90CCE768E001E27C2 /* overnet_opcodes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = overnet_opcodes.h; path = clients/overnet_opcodes.h; sourceTree = "<group>"; };
+		4D678AF90CCE768E001E27C2 /* overnet_opcodes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = overnet_opcodes.h; path = ../clients/overnet_opcodes.h; sourceTree = "<group>"; };
 		4D678AFF0CCE768E001E27C2 /* queue.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = queue.c; sourceTree = "<group>"; };
 		4D678B000CCE768E001E27C2 /* queue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = queue.h; sourceTree = "<group>"; };
 		4D678B010CCE768E001E27C2 /* rbt.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = rbt.c; sourceTree = "<group>"; };
 		4D678B020CCE768E001E27C2 /* rbt.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = rbt.h; sourceTree = "<group>"; };
+		4D6859130D6318990053AB8A /* internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = internal.h; sourceTree = "<group>"; };
+		4D6859140D6318990053AB8A /* internal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = internal.c; sourceTree = "<group>"; };
 		4DA82DA10CD12FD9000056AE /* kadc.ini */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = kadc.ini; sourceTree = "<group>"; };
 		4DF01A5A0CE88C2B00E5F1B8 /* Doxyfile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Doxyfile; sourceTree = "<group>"; };
 		D2AAC0630554660B00DB518D /* libKadC.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libKadC.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -103,24 +131,35 @@
 		08FB7795FE84155DC02AAC07 /* Library */ = {
 			isa = PBXGroup;
 			children = (
-				4D423C270CE76EA80025D375 /* utils.c */,
-				4D423C280CE76EA80025D375 /* utils.h */,
 				4D678AD70CCE768E001E27C2 /* bufio.c */,
 				4D678AD80CCE768E001E27C2 /* bufio.h */,
-				4D678AE10CCE768E001E27C2 /* inifiles.c */,
-				4D678AE20CCE768E001E27C2 /* inifiles.h */,
-				4D678AE30CCE768E001E27C2 /* int128.c */,
-				4D678AE40CCE768E001E27C2 /* int128.h */,
-				4D678AE90CCE768E001E27C2 /* logging.c */,
-				4D678AEA0CCE768E001E27C2 /* logging.h */,
 				4D678AEF0CCE768E001E27C2 /* dht.c */,
 				4D678AF00CCE768E001E27C2 /* dht.h */,
+				4D678AE10CCE768E001E27C2 /* inifiles.c */,
+				4D678AE20CCE768E001E27C2 /* inifiles.h */,
+				4D678AE30CCE768E001E27C2 /* hash.c */,
+				4D678AE40CCE768E001E27C2 /* hash.h */,
+				4D5785EA0D3E320700FCE31F /* kadc.pch */,
+				4D5787100D3E53C700FCE31F /* kadc.h */,
+				4D678AE90CCE768E001E27C2 /* logging.c */,
+				4D678AEA0CCE768E001E27C2 /* logging.h */,
 				4D678AF70CCE768E001E27C2 /* net.c */,
 				4D678AF80CCE768E001E27C2 /* net.h */,
+				4D5786CC0D3E4FD800FCE31F /* overnet.c */,
+				4D5786CB0D3E4FD800FCE31F /* overnet.h */,
+				4D678AF90CCE768E001E27C2 /* overnet_opcodes.h */,
 				4D678AFF0CCE768E001E27C2 /* queue.c */,
 				4D678B000CCE768E001E27C2 /* queue.h */,
 				4D678B010CCE768E001E27C2 /* rbt.c */,
 				4D678B020CCE768E001E27C2 /* rbt.h */,
+				4D423C270CE76EA80025D375 /* utils.c */,
+				4D423C280CE76EA80025D375 /* utils.h */,
+				4D6859130D6318990053AB8A /* internal.h */,
+				4D6859140D6318990053AB8A /* internal.c */,
+				4D05EB080D646A1500E7E241 /* message.h */,
+				4D05EB090D646A1500E7E241 /* message.c */,
+				4D05EB0C0D646ACB00E7E241 /* contact.h */,
+				4D05EB0D0D646ACB00E7E241 /* contact.c */,
 			);
 			name = Library;
 			path = src;
@@ -138,7 +177,6 @@
 		4D423BEA0CE74A290025D375 /* Clients */ = {
 			isa = PBXGroup;
 			children = (
-				4D678AF90CCE768E001E27C2 /* overnet_opcodes.h */,
 				4D2E570A0CCF42CD0095A3C3 /* overnet_client.c */,
 			);
 			name = Clients;
@@ -161,6 +199,20 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D423C2A0CE76EA80025D375 /* utils.h in Headers */,
+				4D5786CD0D3E4FD800FCE31F /* overnet.h in Headers */,
+				4D5786DE0D3E501D00FCE31F /* rbt.h in Headers */,
+				4D5786DF0D3E501E00FCE31F /* queue.h in Headers */,
+				4D5786E00D3E501F00FCE31F /* net.h in Headers */,
+				4D5786E10D3E502000FCE31F /* logging.h in Headers */,
+				4D5786E30D3E502300FCE31F /* hash.h in Headers */,
+				4D5786E50D3E502500FCE31F /* inifiles.h in Headers */,
+				4D5786E60D3E502500FCE31F /* dht.h in Headers */,
+				4D5786E70D3E502600FCE31F /* bufio.h in Headers */,
+				4D5787110D3E53C700FCE31F /* kadc.h in Headers */,
+				4D5787130D3E544200FCE31F /* overnet_opcodes.h in Headers */,
+				4D6859150D6318990053AB8A /* internal.h in Headers */,
+				4D05EB0A0D646A1500E7E241 /* message.h in Headers */,
+				4D05EB0E0D646ACB00E7E241 /* contact.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -233,15 +285,19 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4D678B130CCE768E001E27C2 /* int128.c in Sources */,
+				4D678B130CCE768E001E27C2 /* hash.c in Sources */,
 				4D678B1F0CCE768E001E27C2 /* dht.c in Sources */,
 				4D2E57010CCF42A60095A3C3 /* rbt.c in Sources */,
 				4D2E57040CCF42B70095A3C3 /* logging.c in Sources */,
-				4D2E5D240CCF8C9D0095A3C3 /* net.c in Sources */,
-				4D2E5D260CCF8CAA0095A3C3 /* queue.c in Sources */,
-				4DA82ADE0CD114A0000056AE /* inifiles.c in Sources */,
 				4D4286DD0CD214150082574E /* bufio.c in Sources */,
 				4D423C290CE76EA80025D375 /* utils.c in Sources */,
+				4D57863C0D3E3AC400FCE31F /* queue.c in Sources */,
+				4D5786CE0D3E4FD800FCE31F /* overnet.c in Sources */,
+				4D5786E40D3E502400FCE31F /* inifiles.c in Sources */,
+				4D6859160D6318990053AB8A /* internal.c in Sources */,
+				4D05EB0B0D646A1500E7E241 /* message.c in Sources */,
+				4D05EB0F0D646ACB00E7E241 /* contact.c in Sources */,
+				4D6BBE360D65DF1A00BA42D5 /* net.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -265,7 +321,16 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /usr/local/lib;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = src/kadc.pch;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"VERBOSEDEBUG=1",
+				);
+				HEADER_SEARCH_PATHS = /usr/local/include;
+				INSTALL_PATH = "@loader_path";
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
+				OTHER_LDFLAGS = "-levent";
 				PRODUCT_NAME = KadC;
 				ZERO_LINK = YES;
 			};
@@ -281,7 +346,12 @@
 				EXECUTABLE_PREFIX = lib;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = src/kadc.pch;
+				HEADER_SEARCH_PATHS = /usr/local/include;
 				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_SEARCH_PATHS = /usr/local/lib;
+				OTHER_LDFLAGS = "-levent";
 				PRODUCT_NAME = KadC;
 			};
 			name = Release;

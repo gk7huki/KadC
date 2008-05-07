@@ -36,7 +36,11 @@ of the following e-mail addresses (replace "(at)" with "@"):
  * This file implements a mutex-protected output facility,
  * with an ability to switch the output log file.
  */
-#include <int128.h>
+#define kc_logVerbose( ... )  kc_logPrint( KADC_LOG_VERBOSE, __VA_ARGS__ )
+#define kc_logDebug( ... )    kc_logPrint( KADC_LOG_DEBUG, __VA_ARGS__ )
+#define kc_logNormal( ... )   kc_logPrint( KADC_LOG_NORMAL,  __VA_ARGS__ )
+#define kc_logAlert( ... )    kc_logPrint( KADC_LOG_ALERT, __VA_ARGS__ )
+#define kc_logError( ... )    kc_logPrint( KADC_LOG_ERROR, __VA_ARGS__ )
 
 /** 
  * A message's log level.
@@ -45,7 +49,8 @@ typedef enum {
     KADC_LOG_VERBOSE,
     KADC_LOG_DEBUG,
     KADC_LOG_NORMAL,
-    KADC_LOG_ALERT
+    KADC_LOG_ALERT,
+    KADC_LOG_ERROR
 } kc_logLevel;
 
 /** 
@@ -107,10 +112,10 @@ kc_logTime( kc_logLevel lvl, const char *fmt, ... );
 char *
 KadC_getsn(char *s, int size);
 
-/* like fprintf for int128 data types in %32x format and mutex-locking with log output */
+/* like fprintf for kc_hash data types in %32x format and mutex-locking with log output */
 #if 0
-void KadC_int128flog(FILE *f, int128 i128);
-void KadC_int128log(int128 i128);
+void KadC_int128flog(FILE *f, kc_hash i128);
+void KadC_int128log(kc_hash i128);
 #endif /* 0 */
 #endif /* UNUSED */
 

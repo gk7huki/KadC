@@ -34,22 +34,25 @@ of the following e-mail addresses (replace "(at)" with "@"):
  * This file provide UDP communication capabilities.
  */
 
-#include <stdio.h>
-
 /**
  * A typedef for referring to a kc_udpIo object.
  */
 typedef struct _kc_udpIo kc_udpIo;
 
-/** 
- * A structure holding a message.
- */
-typedef struct _kc_udpMsg {
-	in_addr_t       remoteIp;	/**< The remote IP address, in host byte order */
-	in_port_t       remotePort;	/**< The remote port number, in host byte order */
-	char          * payload;    /**< A buffer containing the payload of the message */
-	int             payloadSize;/**< The size of the buffer */
-} kc_udpMsg;
+int
+kc_netOpen( int type, int domain );
+
+int
+kc_netBind( int fd, kc_contact * contact );
+
+int
+kc_netConnect( int fd, kc_contact * contact );
+
+int
+kc_netSetNonBlockingSocket( int socket );
+
+void
+kc_netClose( int socket );
 
 /** 
  * The callback prototype used when a UDP message arrives.
@@ -59,7 +62,7 @@ typedef struct _kc_udpMsg {
  * @param io Pointer to the kc_udpIo object that called-back.
  * @param msg Pointer to the recieved message.
  */
-typedef void (*kc_ioCallback)( void * ref, kc_udpIo * io, kc_udpMsg *msg );
+typedef void (*kc_ioCallback)( void * ref, kc_udpIo * io, kc_message *msg );
 
 /** 
  * Creates and initialize a kc_udpIo for UDP input/output handling.
@@ -81,7 +84,7 @@ typedef void (*kc_ioCallback)( void * ref, kc_udpIo * io, kc_udpMsg *msg );
  * @return An initialized kc_udpIo
  */
 kc_udpIo *
-kc_udpIoInit( in_addr_t addr, in_port_t port, int bufferSize, kc_ioCallback callback, void * ref );
+kc_udpIoInit( struct in_addr addr, struct in6_addr addr6, in_port_t port, int bufferSize, kc_ioCallback callback, void * ref );
 
 /** 
  * Cleanup and free a kc_udpIo.
@@ -103,7 +106,22 @@ kc_udpIoFree( kc_udpIo * io );
  * @return The number of bytes sent, or < 0 if an error occured
  */
 int
-kc_udpIoSendMsg( kc_udpIo * io, kc_udpMsg * msg );
+kc_udpIoSendMsg( kc_udpIo * io, kc_message * msg );
+
+/**
+ * A inet_ntoa wrapper for direct in_addr_t conversion.
+ * @see inet_ntoa()
+ * @param addr_t A network byte-ordered IP address.
+ */
+char *
+addr_ntoa( in_addr_t addr_t );
+
+/**
+ * A inet_ntoa wrapper for direct in_addr_t conversion.
+ * @see inet_ntoa()
+ * @param addr_t A host byte-ordered IP address.
+ */
+#define addr_htoa( addr ) addr_ntoa( htonl( addr ) )
 
 /** 
  * A multithreading-safe gethostbyname

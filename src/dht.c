@@ -28,255 +28,206 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-#include <time.h>
-#include <errno.h>
-#include <pthread.h>
-
-#include <arpa/inet.h>
-#include <sys/time.h>
-
-#include "utils.h"
-#include "rbt.h"
-
-#include "logging.h"
-
-#include "dht.h"
+/* Those are defaults for normal behavior, as per spec */
+/* Setting one of the kc_parameters values to 0 will make the DHT use the default */
 
 #define KADC_EXPIRATION_DELAY   86410   /* in s, the ttl of a node */
 #define KADC_REFRESH_DELAY      3600    /* in s, the delay after which a bucket must be refreshed */
 #define KADC_REPLICATION_DELAY  3600    /* in s, interval between Kademlia replication events */
 #define KADC_REPUBLISH_DELAY    86400   /* in s, the delay after which a key/value must be republished */
 
-struct _kc_dhtNode {
-    in_addr_t       addr;       /* IP address of this node, in network-byte order */
-    in_port_t       port;       /* UDP port of this node, in network-byte order */
-    int128          nodeID;
-    
-	time_t          lastSeen;	/* Last time we heard of it */
-//    time_t          rtt;        /* Round-trip-time to it */
-};
+#define KADC_PROBE_PARALLELISM  3       /* The number of concurrent probes agains the dht, 
+                                         * alpha in Kademlia terminology */
+#define KADC_PROBE_DELAY        5       /* The delay to wait between each alpha probes */
 
-typedef struct dhtBucket {
-	RbtHandle         * nodes;              /* Red-Black tree of nodes */
-    
-    unsigned char       availableSlots;     /* available slots in bucket */
-    
-    time_t              lastChanged;        /* Last time this bucket changed */
-    pthread_mutex_t     mutex;
-	
-} dhtBucket;
+#define MESSAGE_QUEUE_SIZE      400     /* Maximum number of queued messages in a session */
+#define MAX_SESSION_COUNT       128     /* Maximum number of concurrent "connections" */
+#define SESSION_TIMEOUT         10      /* in s, the ttl of a session */
+#define MAX_MESSAGE_PER_PULSE   0       /* Unused */
 
-struct _kc_dht {
-    dhtBucket         * buckets[128];   /* array of buckets */
-    
-    kc_dhtNode        * us;             /* pointer to ourself */
-    
-    kc_dhtReadCallback  readCallback;   /* callback used when we need reading something */
-    kc_dhtWriteCallback writeCallback;  /* callback used when we need to send something... */
-    
-    kc_udpIo          * io;             /* Our UDP network layer */
-    
-    unsigned char       bucketSize;     /* This DHT buckets size
-                                         * Also used to stop the bg thread, by setting to 0 */
-    
-    pthread_t           thread;
-    pthread_mutex_t     lock;
-};
+#define BUCKET_COUNT            128     /* Our bucket count */
 
-/* Management of the kbuckets/kspace table */
-static int
-dhtNodeCmp( const void *a, const void *b )
+#include <event.h>
+#include "internal.h"
+
+#pragma mark Events
+
+void dhtReplicate( int fd, short event_type, void * arg )
 {
-	const kc_dhtNode *pa = a;
-	const kc_dhtNode *pb = b;
-    
-	if( pa->lastSeen != pb->lastSeen)
-        return ( pa->lastSeen < pb->lastSeen ? -1 : 1 );
-    
-    return 0;
+    kc_logVerbose( "Replicate time!" );
 }
 
-static kc_dhtNode *
-dhtNodeInit( in_addr_t addr, in_port_t port, const int128 hash )
+void readcb( struct bufferevent * event, void * arg )
 {
-	kc_dhtNode *pkn = malloc( sizeof(kc_dhtNode) );
-    
-    if ( pkn == NULL )
-    {
-		kc_logPrint(KADC_LOG_DEBUG, "kc_kNodeInit failed!\n");
-        return NULL;
-    }
-    
-    pkn->addr = htonl( addr );
-    pkn->port = htons( port );
-    pkn->nodeID = int128dup( hash );    /* copy dereferenced data */
-	pkn->lastSeen = 0;
-    
-	return pkn;
+    kc_logDebug( "Got read event" );
+}
+
+void writecb( struct bufferevent * event, void * arg )
+{
+    kc_logDebug( "Got write event" );
+}
+
+void errorcb( struct bufferevent * event, short what, void * arg )
+{
+    kc_logAlert( "Got libevent error: %d", what );
 }
 
 static void
-dhtNodeFree( kc_dhtNode *pkn )
+kc_dhtLock( kc_dht * dht )
 {
-    free( pkn->nodeID );
-	free( pkn );
-}
-
-static dhtBucket *
-dhtBucketInit( int size )
-{
-	dhtBucket *pkb = calloc( 1, sizeof(dhtBucket) );
-	if(pkb == NULL)
-    {
-        kc_logPrint( KADC_LOG_DEBUG, "dhtBucketInit: malloc failed !" );
-        return NULL;
-    }
-    
-    /* if static initialization of recursive mutexes is available, use it;
-     * otherwise, hope that dynamic initialization is available... */
-
-    pthreadutils_mutex_init_recursive( &pkb->mutex );
-
-    pkb->nodes = rbtNew( dhtNodeCmp );
-	pkb->availableSlots = size;
-    
-	return pkb;
+    pthread_mutex_lock( &dht->lock );
 }
 
 static void
-dhtBucketLock( dhtBucket *pkb )
+kc_dhtUnlock( kc_dht * dht )
 {
-    pthread_mutex_lock( &pkb->mutex );
-}
-
-static void
-dhtBucketUnlock( dhtBucket *pkb )
-{
-    pthread_mutex_unlock( &pkb->mutex );
-}
-
-static void
-dhtBucketFree( dhtBucket *pkb )
-{
-	void *iter;
-	dhtBucketLock( pkb );
-
-	/* empty pkb->rbt */
-	while ( ( iter = rbtBegin( pkb->nodes ) ) != NULL)
-    {
-		kc_dhtNode *pkn;
-
-		rbtKeyValue( pkb->nodes, iter, NULL, (void**)&pkn );
-        
-		rbtErase( pkb->nodes, iter ); /* ?? */
-        
-		dhtNodeFree( pkn );	/* deallocate knode */
-	}
-    
-	rbtDelete( pkb->nodes );
-
-	dhtBucketUnlock( pkb );
-	pthread_mutex_destroy( &pkb->mutex );
-	free( pkb );
-}
-
-static void
-dhtPrintBucket( const dhtBucket * bucket )
-{
-    RbtIterator iter = rbtBegin( bucket->nodes );
-    if( iter != NULL )
-    {
-        do
-        {
-            int128  key;
-            kc_dhtNode * value;
-            char    buf[33];
-            
-            rbtKeyValue( bucket->nodes, iter, (void*)&key, (void*)&value );
-            
-            assert( key != NULL );
-            assert( value != NULL );
-            
-            struct in_addr ad;
-            ad.s_addr = value->addr;
-            kc_logPrint( KADC_LOG_NORMAL, "%s at %s:%d", int128sprintf( buf, key ), inet_ntoa( ad ), ntohs( value->port ) );
-            
-        } while ( ( iter = rbtNext( bucket->nodes, iter ) ) );
-    }
+    pthread_mutex_unlock( &dht->lock );
 }
 
 void *
-dhtPulse( void * arg );
+eventLoop( void * arg );
 
-void ioCallback( void * ref, kc_udpIo * io, kc_udpMsg *msg )
+kc_dht*
+kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
 {
-    kc_dht    * dht = ref;
-    kc_udpMsg * answer = malloc( sizeof(kc_udpMsg) );
-    int status;
+    assert( parameters != NULL );
     
-    status = dht->readCallback( dht, msg, answer );
-    
-    if ( status == 0 )
+    kc_logVerbose( "kc_dhtInit: dht init" );
+    kc_dht * dht = malloc( sizeof( kc_dht ) );
+    if ( dht == NULL )
     {
-        status = kc_udpIoSendMsg( dht->io, msg );
-        if ( status < 0 )
+		kc_logError( "kc_dhtInit: malloc failed!");
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: parameters init" );
+    /* Initialize our parameters to defaults if unspecified */
+    dht->parameters = malloc( sizeof(kc_dhtParameters) );
+    if( dht->parameters == NULL )
+    {
+        kc_logError( "kc_dhtInit: parameter malloc failed" );
+        free( dht );
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: parameters copy" );
+    memcpy( dht->parameters, parameters, sizeof(kc_dhtParameters) );
+    /* Mandatory parameters */
+    if ( dht->parameters->hashSize == 0 ||
+         dht->parameters->bucketSize == 0 ||
+         dht->parameters->callbacks.parseCallback == NULL || 
+         dht->parameters->callbacks.readCallback == NULL ||
+         dht->parameters->callbacks.writeCallback == NULL )
+    {
+        kc_logError( "Missing mandatory parameters in passed parameter structure" );
+        kc_dhtFree( dht );
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: parameters defaulting" );
+#define setToDefault( x, y ) dht->parameters->x = ( dht->parameters->x != 0 ? dht->parameters->x : y )
+    setToDefault( expirationDelay, KADC_EXPIRATION_DELAY );
+    setToDefault( refreshDelay, KADC_REFRESH_DELAY );
+    setToDefault( replicationDelay, KADC_REPLICATION_DELAY );
+    setToDefault( republishDelay, KADC_REPUBLISH_DELAY );
+    
+    setToDefault( lookupParallelism, KADC_PROBE_PARALLELISM );
+//    setToDefault( lookupDelay, KADC_PROBE_DELAY );
+    
+    setToDefault( maxQueuedMessages, MESSAGE_QUEUE_SIZE );
+    setToDefault( maxSessionCount, MAX_SESSION_COUNT );
+    setToDefault( maxMessagesPerPulse, MAX_MESSAGE_PER_PULSE );
+    setToDefault( sessionTimeout, SESSION_TIMEOUT );
+#undef setToDefault
+    
+    kc_logVerbose( "kc_dhtInit: mutex init" );
+    if ( ( pthread_mutex_init( &dht->lock, NULL ) != 0 ) )
+    {
+        kc_logAlert( "kc_dhtInit: mutex init failed" );
+        kc_dhtFree( dht );
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: event base init" );
+    dht->eventBase = event_init();
+    if( dht->eventBase == NULL )
+    {
+        kc_logError( "kc_dhtInit: libevent initialization failed" );
+        kc_dhtFree( dht );
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: hash init" );
+    if( hash == NULL )
+        dht->hash = kc_hashRandom( parameters->hashSize );
+    else
+    {
+        if( kc_hashLength( hash ) != parameters->hashSize )
         {
-            kc_logPrint( KADC_LOG_ALERT, "Couldn't send message, err %d", errno );
+            kc_logError( "Passed an %d-bit hash while parameters asks an %d-bit hash", kc_hashLength( hash ), parameters->hashSize );
+            kc_dhtFree( dht );
+            return NULL;
+        }
+        dht->hash = kc_hashDup( hash );
+    }
+    
+    kc_logVerbose( "kc_dhtInit: identities init" );
+    dht->identities = malloc( sizeof(dhtIdentity*) );
+    *dht->identities = NULL;
+    
+    kc_logVerbose( "kc_dhtInit: keys init" );
+    dht->keys = rbtNew( kc_hashCmp );
+    if( dht->keys == NULL )
+    {
+        kc_logAlert( "kc_dhtInit: failed creating Keys RBT" );
+        kc_dhtFree( dht );
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: sessions init" );
+    dht->sessions = rbtNew( dhtSessionCmp );
+    if( dht->sessions == NULL )
+    {
+        kc_logAlert( "kc_dhtInit: failed creating Sessions RBT" );
+        kc_dhtFree( dht );
+        return NULL;
+    }
+    
+    kc_logVerbose( "kc_dhtInit: buckets init" );
+    dht->buckets = calloc( sizeof(dhtBucket*), BUCKET_COUNT );
+    int i;
+    for( i = 0; i < BUCKET_COUNT; i++ )
+    {
+        dht->buckets[i] = dhtBucketInit( parameters->bucketSize );
+        if ( dht->buckets[i] == NULL )
+        {
+            kc_logAlert( "kc_dhtInit: bucket init failed" );
+            kc_dhtFree( dht );
+            return NULL;
         }
     }
     
-/*    if( answer->payload )
-        free( answer->payload );*/
-    free( answer );
-}
-
-kc_dht*
-kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallback readCallback, kc_dhtWriteCallback writeCallback )
-{    
-    kc_dht * dht = malloc( sizeof( kc_dht ) );
-    
-    if ( dht == NULL )
+    kc_logVerbose( "kc_dhtInit: replication timer init" );
+    struct timeval tv;
+    tv.tv_sec = ( dht->parameters->replicationDelay == 0 ? KADC_REPLICATION_DELAY : dht->parameters->replicationDelay );
+    tv.tv_usec = 0;
+    struct event ev;
+    event_set( &ev, -1, EV_TIMEOUT, dhtReplicate, dht );
+    if( evtimer_add( &ev, &tv ) != 0)
     {
-		kc_logPrint( KADC_LOG_DEBUG, "kc_dhtInit: malloc failed!\n");
+        kc_logAlert( "kc_dhtInit: failed adding replication timer" );
+        kc_dhtFree( dht );
         return NULL;
     }
     
-    int128 hash = int128random();
-    dht->us = dhtNodeInit( addr, port, hash );
-    free( hash );
-    
-    dht->readCallback = readCallback;
-    dht->writeCallback = writeCallback;
-    
-    dht->bucketSize = bucketMaxSize;
-    
-    if ( ( pthread_mutex_init( &dht->lock, NULL ) != 0 ) )
+    kc_logVerbose( "kc_dhtInit: pthread init" );
+    pthread_create( &dht->eventThread, NULL, eventLoop, dht );
+    if( dht->eventThread == NULL )
     {
-        kc_logPrint( KADC_LOG_DEBUG, "kc_dhtInit: mutex init failed\n" );
-        dhtNodeFree( dht->us );
-        free( dht );
+        kc_logAlert( "kc_dhtInit: thread init failed" );
+        kc_dhtFree( dht );
         return NULL;
     }
-    
-    dht->io = kc_udpIoInit( addr, port, 1024, ioCallback, dht );
-    if ( dht->io == NULL )
-    {
-        kc_logPrint( KADC_LOG_DEBUG, "kc_dhtInit: kc_udpIo failed\n" );
-        dhtNodeFree( dht->us );
-        pthread_mutex_destroy( &dht->lock );
-        free( dht );
-        return NULL;
-    }
-    int i;
-    for( i = 0; i < 128; i++ )
-        dht->buckets[i] = dhtBucketInit( dht->bucketSize );
-    
-    pthread_create( &dht->thread, NULL, dhtPulse, dht );
     
     return dht;
 }
@@ -285,95 +236,335 @@ void
 kc_dhtFree( kc_dht * dht )
 {
     /* We stop the background thread */
-    dht->bucketSize = 0;
-    pthread_join( dht->thread, NULL );
+    if( &dht->lock != NULL )
+    {
+        kc_dhtLock( dht );
+        if (  dht->eventBase != NULL )
+        {
+            event_base_free( dht->eventBase );
+            dht->eventBase = NULL;
+        }
+        kc_dhtUnlock( dht );
+    }
     
-    kc_udpIoFree( dht->io );
-  
-    int i;
-    for( i = 0; i < 128; i++ )
-        dhtBucketFree( dht->buckets[i] );
-
-    pthread_mutex_destroy( &dht->lock );
+    if( dht->eventThread != NULL )
+        pthread_join( dht->eventThread, NULL );
     
-    dhtNodeFree( dht->us );
+    if( dht->identities != NULL )
+    {
+        dhtIdentity * identity;
+        for( identity = *dht->identities; identity != NULL; identity++ )
+        {
+            dhtIdentityFree( identity );
+        }
+        free( dht->identities );
+    }
+    
+    if( dht->sessions != NULL )
+        rbtDelete( dht->sessions );
+    if( dht->keys != NULL )
+        rbtDelete( dht->keys );
+    
+    if( dht->buckets != NULL )
+    {
+        int i;
+        for( i = 0; i < BUCKET_COUNT; i++ )
+            dhtBucketFree( dht->buckets[i] );
+        free( dht->buckets );
+    }
+    
+    if( dht->parameters )
+        free( dht->parameters );
+    if( dht->hash )
+        kc_hashFree( dht->hash );
+    if( &dht->lock )
+        pthread_mutex_destroy( &dht->lock );
+    
     free( dht );
 }
 
-void
-kc_dhtLock( kc_dht * dht )
-{
-    pthread_mutex_lock( &dht->lock );
-}
-
-void
-kc_dhtUnlock( kc_dht * dht )
-{
-    pthread_mutex_unlock( &dht->lock );
-}
-
 void *
-dhtPulse( void * arg )
+eventLoop( void * arg )
 {
     kc_dht * dht = arg;
+    kc_logVerbose( "eventLoop: started with DHT %p", arg );
     
-    while( dht->bucketSize != 0 )
+    while( 1 )
     {
-        int i;
-        for( i = 0; i < 128; i++ )
+        kc_dhtLock( dht );
+        kc_logVerbose( "eventLoop: acquiring lock on DHT %p", arg );
+        if( dht->eventBase == NULL )
         {
-            dhtBucket   * bucket = dht->buckets[i];
-            if( time( NULL) - bucket->lastChanged > KADC_REFRESH_DELAY )
-            {
-                dhtBucketLock( bucket );
-                
-                /* FIXME: Need to refresh a bucket here */
-                
-                dhtBucketUnlock( bucket );
-            }
+            kc_dhtUnlock( dht );
+            break;
         }
         
-//        kc_dhtLock( dht );
+        int status = event_base_loop( dht->eventBase, 0 );
+        if( status != 0 )
+        {
+            kc_logAlert( "eventLoop: exiting with error %d", status );
+            kc_dhtUnlock( dht );
+            return (void*)1;
+        }
         
-//        kc_dhtUnlock( dht );
-        sleep( 5 );
+        kc_logVerbose( "eventLoop: relinquishing lock on DHT %p", arg );
+        kc_dhtUnlock( dht );
+        
     }
-    
-    return dht;
+    kc_logVerbose( "eventLoop: exiting" );
+    return 0;
 }
 
-void
-performPing( const kc_dht * dht, in_addr_t addr, in_port_t port )
+int
+kc_dhtAddIdentity( kc_dht * dht, kc_contact * contact )
 {
-    kc_udpMsg * msg = malloc( sizeof( kc_udpMsg ) );
+    assert( dht != NULL );
+    assert( contact != NULL );
+    
+    kc_logVerbose( "Adding identity %s to DHT %p", kc_contactPrint( contact ), dht );
+    
+    int type = kc_contactGetType( contact );
+    kc_contact * existingContact = kc_dhtGetOurContact( dht, type );
+    if( existingContact != NULL )
+    {
+        kc_logAlert( "We already use an identity for contact type %d, ignoring...", type );
+        return -1;
+    }
+    
+    /* Let's create a new identity */
+    dhtIdentity * identity = dhtIdentityInit( dht, contact );
+    
+    if( identity == NULL )
+    {
+        kc_logAlert( "Failed creating new identity %s", kc_contactPrint( contact ) );
+        return -1;
+    }
+    
+    kc_dhtLock( dht );
+    
+    int identityCount;
+    dhtIdentity ** lastIdentity;
+    for( identityCount = 0, lastIdentity = dht->identities; *lastIdentity != NULL; identityCount++, lastIdentity++ )
+        /* We loop until we get the NULL sentinel */
+        ;
+
+    *lastIdentity = identity;
+    
+    void *tmp;
+    
+    if( ( tmp = realloc( dht->identities, sizeof(kc_contact*) * ( identityCount + 1 ) ) ) == NULL )
+    {
+        kc_logAlert( "Failed realloc()ating identities array !" );
+        return -1;
+    }
+    dht->identities = tmp;
+     
+    dht->identities[identityCount + 1] = NULL;
+    
+    kc_dhtUnlock( dht );
+    return 0;
+}
+
+static dhtBucket *
+dhtBucketForHash( const kc_dht * dht, const kc_hash * hash )
+{
+    int logDist = kc_hashXorlog( dht->hash, hash );
+    if( logDist <= 0 )
+        return NULL;
+    
+    /* Get this node's bucket */
+    return dht->buckets[logDist];
+    
+}
+
+static kc_dhtNode *
+dhtNodeForContact( const kc_dht * dht, const kc_contact * contact )
+{
+    /* TODO: Make this work */
+    return NULL;
+}
+
+dhtIdentity *
+kc_dhtIdentityForContact( const kc_dht * dht,  kc_contact * contact )
+{
+    dhtIdentity * identity;
+    for( identity = *dht->identities; identity != NULL; identity++ )
+    {
+        if( kc_contactGetType( identity->us ) == kc_contactGetType( contact ) )
+            return identity;
+    }
+    return NULL;
+}
+
+static dhtSession *
+dhtSessionForMsg( const kc_dht * dht, kc_message * msg )
+{
+    RbtIterator sessIter;
+    for( sessIter = rbtBegin( dht->sessions ); sessIter != NULL; sessIter = rbtNext( dht->sessions, sessIter ) )
+    {
+        dhtSession * session;
+        kc_dhtNode * node;
+        rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
+        
+        if( kc_contactCmp( node->contact, kc_messageGetContact( msg ) ) && session->type == kc_messageGetType( msg ) )
+        {
+            return session;
+        }
+    }
+    return NULL;
+}
+
+static kc_dhtNode *
+dhtNodeForHash( const kc_dht * dht, kc_hash * hash )
+{
+    int logDist = kc_hashXorlog( dht->hash, hash );
+    if( logDist < 0 )
+    {
+        return NULL;
+    }
+    
+    /* Get this node's bucket */
+    dhtBucket     * bucket = dht->buckets[logDist];
+    kc_dhtNode    * node;
+    
+    RbtIterator nodeIter = rbtFind( bucket->nodes, hash );
+    if( nodeIter == NULL )
+        return NULL;
+    
+    rbtKeyValue( bucket->nodes, nodeIter, NULL, (void**)&node );
+    return node;
+}
+
+static int
+dhtSendMessage( kc_dht * dht, dhtSession * session )
+{
+    int status;
+    assert( dht != NULL );
+    assert( session != NULL );
+    
+    /* FIXME: Maybe we should lookup an existing session */
+    kc_dhtLock( dht );
+    RbtIterator sessIter = rbtFind( dht->sessions, session );
+    if( sessIter == NULL )
+    {
+        kc_logVerbose( "Session not found in DHT, inserting..." );
+        status = rbtInsert( dht->sessions, session, NULL );
+        if( status != RBT_STATUS_OK )
+        {
+            kc_logAlert( "Failed inserting session for outgoing message, err %d", status );
+            if( status == RBT_STATUS_DUPLICATE_KEY )
+                kc_logVerbose( "err 2 is duplicate key" );
+            kc_dhtUnlock( dht );
+            return -1;
+        }
+    };
+    
+    kc_message * answer = kc_messageInit( session->contact, session->type, 0, NULL );
+
+    status = dht->parameters->callbacks.writeCallback( dht, NULL, answer );
+    if( status )
+    {
+        kc_logAlert( "Failed writing message type %d, err %d", session->type, status );
+        kc_dhtUnlock( dht );
+        return -1;
+    }
+    
+    struct evbuffer * evbuf = evbuffer_new();
+    status = evbuffer_add( evbuf, kc_messageGetPayload( answer ), kc_messageGetSize( answer ) );
+    if( status != 0 )
+    {
+        kc_logAlert( "Failed putting message data in evbuffer for message, err %d", status );
+        kc_dhtUnlock( dht );
+        return -1;
+    }
+    
+    status = bufferevent_write_buffer( session->bufferEvent, evbuf );
+    if( status != 0 )
+    {
+        kc_logAlert( "Failed writing evbuffer to buffer event, err %d", status );
+        kc_dhtUnlock( dht );
+        return -1;
+    }
+    
+    kc_dhtUnlock( dht );
+    
+    if( session->callback == NULL )
+    {
+#if 0
+        kc_message * answer = kc_queueDequeueTimeout( session->queue, SESSION_TIMEOUT );
+        if( answer == NULL )
+        {
+            kc_logAlert( "Timeout" );
+            return 1;
+        }
+        assert( kc_messageGetType( answer ) != type );
+#endif
+        kc_logAlert( "FIXME: Redo sync send" );
+    }
+    return 0;
+}
+
+static int
+asyncCallback( const kc_dht * dht, const kc_message * msg )
+{
+    assert( dht != NULL );
+    assert( msg != NULL );
+    
+    switch( kc_messageGetType( msg ) )
+    {
+        case DHT_RPC_PING:
+        {
+            kc_dhtNode * node = dhtNodeForContact( dht, kc_messageGetContact( msg ) );
+            dhtBucket * bucket = dhtBucketForHash( dht, node->hash );
+            bucket->lastChanged = time( NULL );
+            node->lastSeen = time( NULL );
+            return 1;
+            break;
+        }
+            
+        default:
+            break;
+    }
+    return -1;
+}
+
+static int
+dhtPingByIP( kc_dht * dht, kc_contact * contact, kc_hash * hash, int sync )
+{
+    kc_dhtNode * node;
     int         status;
     
-    msg->remoteIp = addr;
-    msg->remotePort = port;
+    kc_logNormal( "PING %s (%s) %s", hashtoa( hash ), kc_contactPrint( contact ), ( sync ? "synchronously" : "asynchronously" ) );
     
-    status = dht->writeCallback( dht, DHT_RPC_PING, msg );
+    dhtIdentity * identity = kc_dhtIdentityForContact( dht, contact );
     
-    if ( status == 0 )
+    dhtSession * session = dhtSessionInit( dht, identity->us, contact, DHT_RPC_PING, 0, asyncCallback, ( dht->parameters->sessionTimeout != 0 ? dht->parameters->sessionTimeout : SESSION_TIMEOUT ) );
+    
+    status = dhtSendMessage( dht, session );
+    if( status != 0 )
     {
-        status = kc_udpIoSendMsg( dht->io, msg );
-        if ( status < 0 )
-        {
-            kc_logPrint( KADC_LOG_ALERT, "Couldn't send message, err %d", errno );
-        }
+        kc_logAlert( "Failed to send message for message type DHT_RPC_PING: %d", status );
+        free( node );
+        return -1;
     }
     
-    free( msg->payload );
-    free( msg );
+    if( sync )
+    {
+        /* TODO: Is there something special I should do here ? Update maybe ? */
+        return 0;
+    }
+    return 0;
 }
 
-int dhtRemoveNode( const kc_dht * dht, int128 hash )
+static int
+dhtPingByHash( kc_dht * dht, kc_hash * hash, int sync )
 {
     assert( dht != NULL );
     
-    int logDist = int128xorlog( dht->us->nodeID, hash );
+    int logDist = kc_hashXorlog( dht->hash, hash );
     if( logDist < 0 )
     {
-//        kc_logPrint( KADC_LOG_DEBUG, "Trying to add our own node. Ignoring..." );
+        kc_logDebug( "Trying to ping our own node. Ignoring..." );
         return -1;
     }
     
@@ -381,8 +572,368 @@ int dhtRemoveNode( const kc_dht * dht, int128 hash )
     dhtBucket     * bucket = dht->buckets[logDist];
     kc_dhtNode    * node;
     
-    // Get the node corresponding to hash
+    RbtIterator nodeIter = rbtFind( bucket->nodes, hash );
+    if( nodeIter == NULL )
+    {
+        kc_logDebug( "Can't find a node with hash %s. Ignoring...", hashtoa( hash ) );
+        return -1;
+    }
+    
+    rbtKeyValue( bucket->nodes, nodeIter, NULL, (void**)&node );
+    
+    return dhtPingByIP( dht, node->contact, node->hash, sync );
+}
+
+static int
+dhtStore( kc_dht * dht, void * key, dhtValue * value )
+{
+    kc_dhtNode ** nodes;
+    kc_dhtNode * node;
+    int status;
+    int count;
+    
+    assert( dht != NULL );
+    assert( key != NULL );
+    assert( value != NULL );
+    
+    nodes = kc_dhtGetNodes( dht, key, &count);
+    if( count == 0 )
+    {
+        kc_logDebug( "No known nodes to republish to. Ignoring..." );
+        return 0;
+    }
+    
+    for( node = nodes[0]; node != NULL; node++ )
+    {
+        dhtIdentity * identity = kc_dhtIdentityForContact( dht, node->contact );
+        dhtSession * session = dhtSessionInit( dht, identity->us, node->contact, DHT_RPC_STORE, 0, asyncCallback, ( dht->parameters->sessionTimeout != 0 ? dht->parameters->sessionTimeout : SESSION_TIMEOUT ) );
+        status = dhtSendMessage( dht, session );
+        if( status != 0 )
+        {
+            kc_logAlert( "Failed writing DHT_RPC_STORE message" );
+            return -1;
+        }
+    }
+    
+    free( nodes );
+    return 0;
+}
+
+static void*
+dhtPerformLookup( const kc_dht * dht, kc_hash * hash, int value )
+{
+    /* We select alpha contacts from the non-empty closest bucket to the key.
+     * We can spill outside the bucket if fewer than alpha contacts, and closestNode must be noted
+     */
+    kc_dhtNode ** nodes;
+    kc_dhtNode * node;
+    kc_dhtNode * closestNode;
+    int count = KADC_PROBE_PARALLELISM;
+    int status;
+    nodes = kc_dhtGetNodes( dht, hash, &count );
+    if( count == 0 )
+    {
+        kc_logDebug( "No known nodes to perform lookup from. Ignoring..." );
+        return 0;
+    }
+    
+    if( count < KADC_PROBE_PARALLELISM )
+    {
+        /* FIXME: Spill ! */
+    }
+    
+    qsort( nodes, count, sizeof(kc_dhtNode), dhtNodeCmpHash );
+    closestNode = nodes[0];
+    
+    /* We create a shortlist by issuing a FIND_* to the selected contacts.
+     * A contact failing to answer is removed from the shortlist */
+    kc_dhtNode **tempNode;
+    for( tempNode = nodes; tempNode != NULL; tempNode++ )
+    {
+        
+    }
+    
+    /* TODO: Reselect alpha contacts from the shortlist and resend a FIND_* to them => PARALLEL SEARCH.
+     * We shouldn't re-send to already contacted contacts.
+     * We update closestNode accordingly.
+     * We continue until we can't find a node closer than closestNode, or we have k contacts */
+    /* TODO: If searching a value, the search end as soon as the value is found,
+     * and the value is stored at the closest node which did not return the value */
+    
+    
+    for( node = nodes[0]; node != NULL; node++ )
+    {
+        
+        kc_message * answer = kc_messageInit( node->contact, DHT_RPC_FIND_VALUE, 0, NULL );
+
+        status = dht->parameters->callbacks.writeCallback( dht, NULL, answer );
+        if( status != 0 )
+        {
+            kc_logAlert( "Failed writing DHT_RPC_STORE message" );
+            return NULL;
+        }
+        
+        status = kc_queueEnqueue( dht->sndQueue, answer );
+        if( status != 0 )
+        {
+            kc_logAlert( "Failed enqueing DHT_RPC_STORE message" );
+            return NULL;
+        }
+    }
+    
+    free( nodes );
+    return NULL;
+}
+
+static void*
+dhtFindNode( const kc_dht * dht, kc_hash * hash )
+{
+    return dhtPerformLookup( dht, hash, 0 );
+}
+
+static void*
+dhtFindValue( const kc_dht * dht, kc_hash * key )
+{
+    return dhtPerformLookup( dht, key, 1 );
+}
+#if 0
+static void
+ioCallback( void * ref, kc_udpIo * io, kc_message *msg )
+{
+    kc_dht    * dht = ref;
+    int status;
+    
+    status = dht->parameters->callbacks.parseCallback( dht, msg );
+    
+    const kc_contact * contact = kc_messageGetContact( msg );
+    kc_dhtNode * node = dhtNodeForContact( dht, contact );
+    if( node != NULL )
+    {
+        /* Unexpected communication from an unknown node, add it to our nodes */
+        /* FIXME: I should parse the hash for this node, if available */
+        kc_dhtAddNode( dht, contact, NULL );
+    }
+    
+    dhtSession * session = dhtSessionForMsg( dht, msg );
+    if( session != NULL )
+    {
+        status = kc_queueEnqueue( session->queue, msg );
+        if ( status != 0 )
+        {
+            kc_logAlert( "Couldn't enqueue incoming message, err %d", status );
+        }
+        return;
+    }
+    else
+    {
+        session = dhtSessionInit( contact, kc_messageGetType( msg ), 1, asyncCallback, dht->parameters->maxQueuedMessages );
+        
+        if( session == NULL )
+        {
+            kc_logAlert( "Failed creating new session object" );
+            return;
+        }
+        kc_dhtLock( dht );
+        if( rbtInsert( dht->sessions, session, NULL ) != RBT_STATUS_OK )
+        {
+            kc_logAlert( "Failed inserting new session object" );
+            kc_dhtUnlock( dht );
+            return;
+        }
+        kc_dhtUnlock( dht );
+        
+        status = asyncCallback( dht, msg );
+        if( status != 0 )
+        {
+            kc_logAlert( "asyncCallback failed with err %d", status );
+        }
+    }
+    return;
+}
+#endif
+#if 0
+void *
+dhtPulse( void * arg )
+{
+    kc_dht * dht = arg;
+    
+    while( parameters->bucketSize != 0 )
+    {
+        /* Sessions update */
+        RbtIterator sessIter;
+        for( sessIter = rbtBegin( dht->sessions );
+             sessIter != NULL;
+             sessIter = rbtNext( dht->sessions, sessIter ) )
+        {
             
+            dhtSession * session;
+            rbtKeyValue( dht->sessions, sessIter, (void*)session, NULL );
+            if( session == NULL )
+                continue;
+            
+            if( session->callback != NULL )
+            {
+                /* This is a synchronous session, nothing to see here */
+                continue;
+            }
+            
+            kc_message * msg = kc_queueDequeueTimeout( session->queue, 0 );
+            if( msg == NULL )
+            {
+                /* No messages here, move on */
+                continue;
+            }
+            int status = session->callback( dht, msg );
+            if( status == -1 )
+            {
+                rbtEraseKey( dht->sessions, session );
+                dhtSessionFree( session );
+            }
+        }
+        /* Routing table refresh */
+        int i;
+        for( i = 0; i < BUCKET_COUNT; i++ )
+        {
+            dhtBucket   * bucket = dht->buckets[i];
+            if( time( NULL ) - bucket->lastChanged > KADC_REFRESH_DELAY )
+            {
+                dhtBucketLock( bucket );
+                
+                RbtIterator iter;
+                for( iter = rbtBegin( bucket->nodes ); iter != NULL; iter = rbtNext( bucket->nodes, iter ) )
+                {
+                    kc_dhtNode * node;
+                    rbtKeyValue( bucket->nodes, iter, NULL, (void**)&node );
+                    if( node != NULL && time( NULL ) - node->lastSeen > KADC_REFRESH_DELAY )
+                    {
+                        if( dhtPingByHash( dht, node->hash, 1 ) == 0 )
+                            continue;
+                        else
+                        {
+                            node->lastSeen = time( NULL );
+                            bucket->lastChanged = time( NULL );
+                            break;
+                        }
+                    }
+                }
+                
+                dhtBucketUnlock( bucket );
+            }
+        }
+        
+        /* Key/Value republish */
+        int replicateAll;
+        int needsCleanup = 0;
+        replicateAll = ( time( NULL ) - dht->lastReplication >= KADC_REPLICATION_DELAY );
+        if( replicateAll )
+            kc_logNormal( "Started replicating all our keys..." );
+        
+        RbtIterator keys;
+        for( keys = rbtBegin( dht->keys ); keys != NULL; keys = rbtNext( dht->keys, keys ) )
+        {
+            void * key;
+            dhtValue * value;
+            
+            rbtKeyValue( dht->keys, keys, (void**)&key, (void**)value);
+            assert( key != NULL );
+            assert( value != NULL );
+            
+            int replicateThis = 0;
+            time_t now = time( NULL );
+            
+            /* We need to expire it */
+            if( now - value->published >= KADC_EXPIRATION_DELAY )
+            {
+                /* I'm doing this in two pass because the deletion is likely to change
+                 * the RB tree and break the iterators I'm using */
+                value->published = 0;
+                needsCleanup = 0;
+                continue;
+            }
+            
+            /* If this is our value, we need to republish it */
+            if( value->mine && now - value->published >= KADC_REPUBLISH_DELAY )
+                replicateThis = 1;
+                
+            if( replicateThis || replicateAll )
+            {
+                dhtStore( dht, key, value );
+                if( replicateThis )
+                    value->published = now;
+            }
+        }
+        
+        if( replicateAll )
+        {
+            kc_logNormal( "Replication ended..." );
+            dht->lastReplication = time( NULL );
+        }
+        
+        if( needsCleanup )
+        {
+            kc_logNormal( "Started cleanup of expired keys" );
+        
+            /* Two pass replication, cleanup our keys */
+            for( keys = rbtBegin( dht->keys ); keys != NULL; keys = rbtNext( dht->keys, keys ) )
+            {
+                void * key;
+                dhtValue * value;
+                
+                rbtKeyValue( dht->keys, keys, (void**)&key, (void**)value);
+                assert( key != NULL );
+                assert( value != NULL );
+                
+                if( value->published == 0 )
+                {
+                    rbtErase( dht->keys, keys );
+                    keys = rbtBegin( dht->keys );
+                }
+            }
+            
+            kc_logNormal( "Cleanup ended" );
+        }
+            
+        /* Send our messages */
+        kc_message * msg;
+        i = 0;
+        if( time( NULL ) - dht->probeDelay >= KADC_PROBE_DELAY )
+        {
+            kc_logDebug(" Probe time !" );
+            
+            dht->probeDelay = time( NULL );
+            kc_dhtLock( dht );
+            while( ( msg = kc_queueDequeueTimeout( dht->sndQueue, 0 ) ) && i++ < KADC_PROBE_PARALLELISM )
+            {
+                const kc_contact * contact = kc_messageGetContact( msg );
+                kc_logDebug( "Probing %s with %d", kc_contactPrint( contact ), kc_messageGetType( msg ) );
+//                int err = kc_udpIoSendMsg( dht->io, msg );
+//                if( err < 0 ) {
+//                    kc_logAlert( "Failed sending probe: %d", err );
+//                }
+                
+                kc_messageFree( msg );
+            }
+            kc_dhtUnlock( dht );
+        }
+            
+        sleep( 5 );
+    }
+    
+    return dht;
+}
+#endif
+
+int dhtRemoveNode( const kc_dht * dht, kc_hash * hash )
+{
+    assert( dht != NULL );
+    
+    /* Get this node's bucket */
+    kc_dhtNode    * node;
+    dhtBucket     * bucket = dhtBucketForHash( dht, hash );
+    
+    if( bucket == NULL )
+        return -1;
+    
     dhtBucketLock( bucket );
     
     RbtIterator first = rbtFind( bucket->nodes, hash );
@@ -408,31 +959,29 @@ int dhtRemoveNode( const kc_dht * dht, int128 hash )
 }
 
 int
-kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
+kc_dhtAddNode( kc_dht * dht, const kc_contact * contact, const kc_hash * hash )
 {
     assert( dht != NULL );
     
-    int logDist = int128xorlog( dht->us->nodeID, hash );
-    if( logDist < 0 )
-    {
-        kc_logPrint( KADC_LOG_DEBUG, "Trying to add our own node. Ignoring..." );
-        return -1;
-    }
-    
     /* Get this node's bucket */
-    dhtBucket     * bucket = dht->buckets[logDist];
     kc_dhtNode    * node;
+    dhtBucket     * bucket = dhtBucketForHash( dht, hash );
+    
+    if( bucket == NULL )
+    {
+        kc_logVerbose( "Trying to add our own node. Ignoring." );
+        return 0;
+    }
     
     RbtIterator nodeIter = rbtFind( bucket->nodes, hash );
     if( nodeIter != NULL )
     {
         dhtBucketLock( bucket );
-        char msg[33];
+        
         // This node is already in our bucket list, let's update it's info */
-        kc_logPrint( KADC_LOG_DEBUG, "Node %s already in our bucket, updating...", int128sprintf( msg, hash ) );
+        kc_logDebug( "Node %s already in our bucket, updating...", hashtoa( hash ) );
         rbtKeyValue( bucket->nodes, nodeIter, NULL, (void**)&node );
-        node->addr = addr;
-        node->port = port;
+        node->contact = contact;
         node->lastSeen = time(NULL);
         /* FIXME: handle node type */
         //        node->type = 0;
@@ -441,15 +990,13 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
     }
     
     /* We don't have it, allocate one */
-    node = dhtNodeInit( addr, port, hash );
+    node = dhtNodeInit( contact, hash );
     
     if( node == NULL )
     {
-        kc_logPrint( KADC_LOG_ALERT, "kc_dhtAddNode: dhtNodeInit failed !");
+        kc_logAlert( "kc_dhtAddNode: dhtNodeInit failed !");
         return -1;
     }
-    
-    kc_dhtNode    * oldNode;
     
     if( bucket->availableSlots == 0 )
     {
@@ -459,17 +1006,33 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
          * - If one fails, we remove it and add the new one at the end
          * - If they all replied, we store it in our "backup nodes" list 
          */
-        /* FIXME: Right now, we just consider the first one didn't replied */
         
         dhtBucketLock( bucket );
-        RbtIterator first = rbtBegin( bucket->nodes );
-        assert( first != NULL );
-        rbtKeyValue( bucket->nodes, first, NULL, (void**)&oldNode );
-        assert( oldNode != NULL );
-        /* We remove it */
-        rbtErase( bucket->nodes, first );
-        dhtNodeFree( oldNode );
-        bucket->availableSlots++;
+        RbtIterator nodeIter;
+        
+        for( nodeIter = rbtBegin( bucket->nodes ); nodeIter != NULL; nodeIter = rbtNext( bucket->nodes, nodeIter ) )
+        {
+            kc_dhtNode    * oldNode;
+            rbtKeyValue( bucket->nodes, nodeIter, NULL, (void**)&oldNode );
+            if( dhtPingByIP( dht, oldNode->contact, oldNode->hash, 1 ) == 0 )
+            {
+                /* This one replied, try next... */
+                oldNode->lastSeen = time( NULL );
+                continue;
+            } else {
+                /* We remove the old one */
+                rbtErase( bucket->nodes, nodeIter );
+                dhtNodeFree( oldNode );
+                bucket->availableSlots++;
+            }
+        }
+        
+        if( bucket->availableSlots == 0 )
+        {
+            /* We just checked every node, and none is bad, add as a backup node */
+            /* TODO: Handle backup nodes */
+            return 0;
+        }
     }
     
     /* We mark it as seen just now */
@@ -487,22 +1050,112 @@ kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash )
 }
 
 void
-kc_dhtCreateNode( const kc_dht * dht, in_addr_t addr, in_port_t port)
+kc_dhtCreateNode( kc_dht * dht, kc_contact * contact )
 {
     assert( dht != NULL);
     
-    performPing( dht, addr, port );
+    dhtPingByIP( dht, contact, NULL, 0 );
+}
+
+int
+kc_dhtStoreKeyValue( kc_dht * dht, kc_hash * key, void * value )
+{
+    assert( dht != NULL );
+    assert( key != NULL );
+    
+    dhtValue * dhtVal = malloc( sizeof(dhtValue) );
+    dhtVal->value = value; /* FIXME: Copy ? */
+    dhtVal->published = 0; 
+    dhtVal->mine = 1;
+    
+    return dhtStore( dht, key, dhtVal );
+}
+
+void *
+kc_dhtValueForKey( const kc_dht * dht, void * key )
+{
+    assert( dht != NULL );
+    assert( key != NULL );
+    
+    dhtValue * value = rbtFind( dht->keys, key );
+    if( value != NULL )
+    {
+        return value->value;
+    }
+    
+    kc_logDebug( "Key %s not found, performing lookup", hashtoa( key ) );
+    
+    return dhtFindValue( dht, key );
+}
+
+void
+kc_dhtPrintState( const kc_dht * dht )
+{
+    kc_logNormal( "DHT %p hash : %s", dht, hashtoa( dht->hash ) );
+    if( *dht->identities == NULL )
+        kc_logNormal( "No identities" );
+    else
+    {
+        kc_logNormal( "Our Identities :" );
+        dhtIdentity ** identity;
+        for( identity = dht->identities; *identity != NULL ; identity++ )
+        {
+            kc_logNormal( "%s", kc_contactPrint( (*identity)->us ) );
+        }
+    }
+    
+    RbtIterator sessIter;
+    if( rbtBegin( dht->sessions ) == NULL )
+    {
+        kc_logNormal( "No running sessions" );
+    }
+    else
+    {
+        kc_logNormal( "Running sessions :" );
+
+        for( sessIter = rbtBegin( dht->sessions ); sessIter != NULL; sessIter = rbtNext( dht->sessions, sessIter ) )
+        {
+            dhtSession * session;
+            rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
+            if( session != NULL )
+                kc_logNormal( "%s session to %s:%d, timeout in %d", ( session->incoming ? "Incoming" : "Outgoing" ), kc_contactPrint( session->contact ) );
+        }
+    }
+}
+
+void
+kc_dhtPrintKeys( const kc_dht * dht )
+{
+    if( rbtBegin( dht->keys ) == NULL )
+    {
+        kc_logNormal( "DHT has no keys" );
+    }
+    else
+    {
+        kc_logNormal( "DHT has following keys stored :" );
+        RbtIterator keysIter;
+        for( keysIter = rbtBegin( dht->keys ); keysIter != NULL; keysIter = rbtNext( dht->keys, keysIter ) )
+        {
+            kc_hash * key;
+            dhtValue * value;
+            
+            rbtKeyValue( dht->keys, keysIter, (void*)key, (void*)value );
+            kc_logNormal( "Key %s: %x, expires %d", hashtoa( key ), value->value, time( NULL ) - value->published );
+        }
+    }
 }
 
 void
 kc_dhtPrintTree( const kc_dht * dht )
 {
     int i;
-    for( i = 0; i < 128; i++ )
+    for( i = 0; i < BUCKET_COUNT; i++ )
     {
-        kc_logPrint( KADC_LOG_NORMAL, "Bucket %d contains %d nodes :", i, dht->bucketSize - dht->buckets[i]->availableSlots );
-        dhtPrintBucket( dht->buckets[i] );
-        kc_logPrint( KADC_LOG_NORMAL, "" );
+        if( dht->parameters->bucketSize - dht->buckets[i]->availableSlots != 0 )
+        {
+            kc_logNormal( "Bucket %d contains %d nodes :", i, dht->parameters->bucketSize - dht->buckets[i]->availableSlots );
+            dhtPrintBucket( dht->buckets[i] );
+        }
     }
 }
 
@@ -511,83 +1164,165 @@ kc_dhtNodeCount( const kc_dht *dht )
 {
     int total = 0;
     int i;
-    for( i = 0; i < 128; i++)
-        total += dht->bucketSize - dht->buckets[i]->availableSlots;
+    for( i = 0; i < BUCKET_COUNT; i++)
+        total += dht->parameters->bucketSize - dht->buckets[i]->availableSlots;
     
     return abs( total );
 }
 
-const kc_dhtNode**
-kc_dhtGetNode( const kc_dht * dht, int * nodeCount )
+kc_dhtNode**
+kc_dhtGetNodes( const kc_dht * dht, kc_hash * hash, int * nodeCount )
 {
     assert( dht != NULL );
     assert( nodeCount != NULL );
     
-    /* FIXME: I'm not really sure how to get a correct list of node here,
-     * I'll get them in order, but they'll be sorted, so maybe it's bad
-     */
-    
-    int count = kc_dhtNodeCount( dht );
-    
-    /* We return a bucket-worth of nodes, or our max number of nodes if we don't have enough */
-    *nodeCount = ( count < *nodeCount ? count : dht->bucketSize );
-    
-    const kc_dhtNode ** nodes = calloc( *nodeCount, sizeof(kc_dhtNode) );
-
-    int i = 0;
-    int j;
-    for( j = 0; j < 128; i++ )
+    if( hash == NULL )
     {
-        dhtBucket * bucket = dht->buckets[i];
+        /* FIXME: I'm not really sure how to get a correct list of nodes here,
+         * I'll get them in order, but they'll be sorted, so maybe it's bad
+         */
+        int count = kc_dhtNodeCount( dht );
         
-        RbtIterator iter;
-        for( iter = rbtBegin( bucket->nodes );
-             i < *nodeCount && iter != NULL;
-             iter = rbtNext( bucket->nodes, iter ) )
+        /* We return nodeCount nodes (or parameters->bucketSize if 0), or all our nodes if we don't have enough */
+        *nodeCount = ( *nodeCount == 0 ? dht->parameters->bucketSize : *nodeCount );
+        *nodeCount = ( count < *nodeCount ? count : *nodeCount );
+        
+        kc_dhtNode ** nodes = calloc( *nodeCount, sizeof(kc_dhtNode) );
+        
+        int i = 0;
+        int j;
+        for( j = 0; j < BUCKET_COUNT; i++ )
         {
-            rbtKeyValue( bucket->nodes, iter, NULL, (void**)&nodes[i++] );
+            dhtBucket * bucket = dht->buckets[i];
+            
+            RbtIterator iter;
+            for( iter = rbtBegin( bucket->nodes );
+                i < *nodeCount && iter != NULL;
+                iter = rbtNext( bucket->nodes, iter ) )
+            {
+                rbtKeyValue( bucket->nodes, iter, NULL, (void**)&nodes[i++] );
+            }
+            
+            if( i >= *nodeCount )
+                break;
         }
         
-        if( i >= *nodeCount )
-            break;
+        return nodes;
     }
-    
-    return nodes;
+    else /* hash == NULL */
+    {
+        dhtBucket * bucket = dhtBucketForHash( dht, hash );
+        
+        int count = dht->parameters->bucketSize - bucket->availableSlots;
+        
+        /* We return nodeCount nodes (or parameters->bucketSize if 0), or all our nodes if we don't have enough */
+        *nodeCount = ( *nodeCount == 0 ? dht->parameters->bucketSize : *nodeCount );
+        *nodeCount = ( count < *nodeCount ? count : *nodeCount );
+        
+        kc_dhtNode ** nodes = calloc( *nodeCount, sizeof(kc_dhtNode) );
+        
+        RbtIterator iter;
+        int i = 0;
+        for( iter = rbtBegin( bucket->nodes );
+            i < *nodeCount && iter != NULL;
+            iter = rbtNext( bucket->nodes, iter ) )
+        {
+            rbtKeyValue( bucket->nodes, iter, NULL, (void**)&nodes[i++] );
+            
+            if( i >= *nodeCount )
+                break;
+        }
+        
+        return nodes;
+    }
 }
 
-in_addr_t
-kc_dhtGetOurIp( const kc_dht * dht )
+kc_contact *
+kc_dhtGetOurContact( const kc_dht * dht, int type )
 {
-    return kc_dhtNodeGetIp( dht->us );
+    dhtIdentity * identity;
+    for( identity = *dht->identities; identity != NULL; identity++ )
+    {
+        if( kc_contactGetType( identity->us ) == type )
+            return identity->us;
+    }
+    return NULL;
 }
 
-in_port_t
-kc_dhtGetOurPort( const kc_dht * dht )
-{
-    return kc_dhtNodeGetPort( dht->us );
-}
-
-int128
+kc_hash *
 kc_dhtGetOurHash( const kc_dht * dht )
 {
-    return kc_dhtNodeGetHash( dht->us );
+    return dht->hash;
 }
 
-in_addr_t
-kc_dhtNodeGetIp( const kc_dhtNode * node )
+
+dhtIdentity *
+dhtIdentityInit( kc_dht * dht, kc_contact * contact )
 {
-    return ntohl( node->addr );
+    assert( dht != NULL );
+    assert( contact != NULL );
+    
+    int status = 0;
+    int type = kc_contactGetType( contact );
+    
+    dhtIdentity * identity = malloc( sizeof(dhtIdentity) );
+    
+    identity->fd = kc_netOpen( type, SOCK_DGRAM );
+    if( identity->fd == -1 )
+    {
+        kc_logAlert( "Error opening socket" );
+        free( identity );
+        return NULL;
+    }
+    
+    status = kc_netBind( identity->fd, contact );
+    if( status == -1 )
+    {
+        kc_logAlert( "Error binding socket to %s", kc_contactPrint( contact ) );
+        kc_netClose( identity->fd );
+        free( identity );
+        return NULL;
+    }
+    
+    identity->inputEvent = bufferevent_new( identity->fd, readcb, NULL, errorcb, dht );
+    if( identity->inputEvent == NULL )
+    {
+        kc_logAlert( "Error creating buffer event for identity %s", kc_contactPrint( contact ) );
+        kc_netClose( identity->fd );
+        free( identity );
+        return NULL;
+    }
+    
+    status = bufferevent_base_set( dht->eventBase, identity->inputEvent );
+    if( status != 0 )
+    {
+        kc_logAlert( "Error setting event buffer base for identity %s", kc_contactPrint( contact ) );
+        kc_netClose( identity->fd );
+        bufferevent_free( identity->inputEvent );
+        free( identity );
+        return NULL;
+    }
+    
+    identity->us = kc_contactDup( contact );
+    if( identity->us == NULL )
+    {
+        kc_logAlert( "Failed creating contact for identity %s", kc_contactPrint( contact ) );
+        kc_netClose( identity->fd );
+        bufferevent_free( identity->inputEvent );
+        free( identity );
+        return NULL;
+    }
+    
+    return identity;
 }
 
-in_port_t
-kc_dhtNodeGetPort( const kc_dhtNode * node )
+void
+dhtIdentityFree( dhtIdentity * identity )
 {
-    return ntohs( node->port );
+    assert( identity != NULL );
+    
+    kc_contactFree( identity->us );
+    bufferevent_free( identity->inputEvent );
+    kc_netClose( identity->fd );
+    free( identity );
 }
-
-int128
-kc_dhtNodeGetHash( const kc_dhtNode * node )
-{
-    return node->nodeID;
-}
-

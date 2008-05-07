@@ -28,9 +28,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-#include <int128.h>
-#include <bufio.h>
-
 /* functions to get/put short/long unsigned integers
    and peernode structures from/to Kademlia packets.
    In Overnet, the byte order is generally
@@ -47,7 +44,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 /* get an unsigned short stored as little endian */
 short int
-getushortle( char **ppb ) {
+getushortle( const char **ppb ) {
 	unsigned short u;
 	u = *(*ppb)++;
 	u += (*(*ppb)++)<<8 ;
@@ -56,7 +53,7 @@ getushortle( char **ppb ) {
 
 /* get an unsigned long stored as little endian */
 long int
-getulongle( char **ppb ) {
+getulongle( const char **ppb ) {
 	unsigned long u;
 	u = *(*ppb)++;
 	u += (*(*ppb)++)<<8;
@@ -66,28 +63,22 @@ getulongle( char **ppb ) {
 }
 
 /* get an IP address stored in network byte order (big endian) */
-long int
-getipn( char **ppb ) {
-	unsigned long u;
+struct in_addr
+getipn( const char **ppb ) {
+	in_addr_t u;
 	u = *(*ppb)++;
-	u = u<<8;
+	u = u << 8;
 	u += *(*ppb)++;
-	u = u<<8;
+	u = u << 8;
 	u += *(*ppb)++;
-	u = u<<8;
+	u = u << 8;
 	u += *(*ppb)++;
-	return u;
+    struct in_addr addr;
+    addr.s_addr = u;
+	return addr;
 }
 
 
-/* get an int128 stored in network byte order (big endian) */
-int128
-getint128n( int128 hash, char **ppb ) {
-	int i;
-	for(i=0; i<16; i++)
-		hash[i] = *(*ppb)++;
-	return hash;
-}
 
 /* store an unsigned short as little endian */
 char *
@@ -109,19 +100,12 @@ putulongle( char **ppb, long u ) {
 
 /* store an IP address in network byte order (big endian) */
 char *
-putipn( char **ppb, long u ) {
-	*(*ppb)++ = (unsigned char)(u>>24);
-	*(*ppb)++ = (unsigned char)(u>>16);
-	*(*ppb)++ = (unsigned char)(u>>8);
+putipn( char **ppb, struct in_addr addr ) {
+    in_addr_t u = addr.s_addr;
+	*(*ppb)++ = (unsigned char)(u >> 24);
+	*(*ppb)++ = (unsigned char)(u >> 16);
+	*(*ppb)++ = (unsigned char)(u >> 8);
 	*(*ppb)++ = (unsigned char)u;
 	return *ppb;
 }
 
-/* store an int128 in network byte order (big endian) */
-char *
-putint128n( char **ppb, int128 hash ) {
-	int i;
-	for(i=0; i<16; i++)
-		*(*ppb)++ = hash[i];
-	return *ppb;
-}

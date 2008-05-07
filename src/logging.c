@@ -28,17 +28,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-#include <stdlib.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <time.h>
-#include <assert.h>
-
-#include "int128.h"
-#include "logging.h"
-
 static FILE *logf = NULL;
 static pthread_mutex_t console_io_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -83,19 +72,31 @@ kc_logFile( FILE *f, kc_logLevel lvl, const char *fmt, ... )
 void
 kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
 {
+	pthread_mutex_lock( &console_io_mutex );
     char  * dbgMsg;
-    char  * dbgLvl;
+    char  * dbgLvl = "";
+    
     vasprintf( &dbgMsg, fmt, ap );
+    if( dbgMsg == NULL )
+    {
+        printf( "Failed allocating memory for message: %s", fmt );
+        return;
+    }
+    
+    /* FIXME: This will need a fix in non-debug mode */
+    /* Maybe handle this as a global log level instead of a preprocessor macro... */    
     
     switch ( lvl )
     {
         case KADC_LOG_VERBOSE:
+
 #ifdef VERBOSEDEBUG
-            dbgLvl = "(VERBOSEDEBUG): ";
+            dbgLvl = "(VERBOSEDEBUG) ";
 #endif
+            break;
         case KADC_LOG_DEBUG:
 #ifdef DEBUG
-            dbgLvl = "(DEBUG): ";
+            dbgLvl = "(DEBUG) ";
 #endif
             break;
             
@@ -104,13 +105,16 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
             break;
             
         case KADC_LOG_ALERT:
-            dbgLvl = "!!!ALERT!!! ";
+            dbgLvl = "!ALERT! ";
+            break;
+            
+        case KADC_LOG_ERROR:
+            dbgLvl = "!!!ERROR!!! ";
             break;
             
         default:
             break;
     }
-	pthread_mutex_lock( &console_io_mutex );
     if( logf == NULL )
         logf = stdout;
     if ( stamp == 1 )
@@ -123,9 +127,9 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
 	
     if ( logf != stdout )
         fflush( logf );
-	pthread_mutex_unlock( &console_io_mutex );
     
     free( dbgMsg );
+	pthread_mutex_unlock( &console_io_mutex );
 }
 
 void
@@ -170,7 +174,7 @@ char *KadC_getsn(char *s, int size) {
 
 #if 0
 void
-KadC_int128flog( FILE *f, int128 i128 )
+KadC_int128flog( FILE *f, kc_hash i128 )
 {
 	int i;
 	if( i128 == NULL )
@@ -181,7 +185,7 @@ KadC_int128flog( FILE *f, int128 i128 )
 }
 
 void
-KadC_int128log( int128 i128 )
+KadC_int128log( kc_hash i128 )
 {
 	int i;
 	if( i128 == NULL )

@@ -1,101 +1,126 @@
-/****************************************************************\
+/*
+ *  newqueue.h
+ *  KadC
+ *
+ *  Created by Etienne on 16/01/08.
+ *  Copyright 2008 __MyCompanyName__. All rights reserved.
+ *
+ */
 
-Copyright 2004 Enzo Michelangeli
+#ifndef _KADC_NEWQUEUE_H
+#define _KADC_NEWQUEUE_H
 
-This file is part of the KadC library.
+typedef struct _kc_queue kc_queue;
 
-KadC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+/* ----- methods ----- */
 
-KadC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+/**
+ * Allocates and initializes a new queue
+ *
+ * This function handle the succesful creation of a queue
+ * @param size The maximum size of the queue
+ * @return An initialized kc_queue structure
+ */
+kc_queue *kc_queueInit( int size );
 
-You should have received a copy of the GNU General Public License
-along with KadC; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+/**
+ * Destroys an existing queue
+ * 
+ * This function resets q and deallocates all its items.
+ * @param q The queue to destroy.
+ */
+void kc_queueFree( kc_queue *q );
 
-In addition, closed-source licenses for this software may be granted
-by the copyright owner on commercial basis, with conditions negotiated
-case by case. Interested parties may contact Enzo Michelangeli at one
-of the following e-mail addresses (replace "(at)" with "@"):
 
- em(at)em.no-ip.com
- em(at)i-t-vision.com
+/**
+ * Empties a queue
+ * This function frees nodes, but not dynamic data pointed by the nodes
+ * @param q The queue to empty
+ * @return The empty queue
+ */
+kc_queue *kc_queueEmpty( kc_queue *q );
 
-\****************************************************************/
+/**
+ * Add an item to the queue
+ * 
+ * This function enqueues an item in the queue.
+ * Enqueuing NULL will trigger dequeuing on the listening threads
+ * because it performs a pthread_cond_signal() without putting
+ * data in the queue.
+ * 
+ * @param q The queue to enqueue in.
+ * @param data A pointer to the item to queue
+ * @return Returns 0 if successful, -1 if no memory, 1 if queue full.
+ */
+int kc_queueEnqueue( kc_queue *q, void *data );
 
-#ifndef _KADC_QUEUE_H
-#define _KADC_QUEUE_H
+/**
+ * Dequeue an item from a queue.
+ * 
+ * This function dequeues an item from the queue.
+ * It will block the executing thread until there is data avaliable
+ * @param The queue to dequeue from.
+ * @return A pointer to the dequeued item. You are responsible for freeing it.
+ */
+void *kc_queueDequeue( kc_queue *q );
 
-/* Queues */
-typedef struct _qnode {
-	struct _qnode *next;
-	void *data;
-} qnode;
+/**
+ * Dequeue an item from a queue with a timeout.
+ * 
+ * This function dequeues an item from the queue.
+ * It will block the executing thread until some data is retrieved from the queue,
+ * or the timeout (in ms) expires. Signals do NOT cause early termination.
+ * @param q The queue to dequeue from.
+ * @param timeout A timeout in ms.
+ * @return A pointer to the dequeued item. You are responsible for freeing it.
+ */
+void *kc_queueDequeueTimeout( kc_queue *q, unsigned long int timeout );
 
-/* The mutex/cond pair may be shared among queues; one thread may
-   then wait for data to be available in any of them */
+/* TODO: Doxy this ! */
+int kc_queueCount( kc_queue *q );
 
-typedef struct _mutex_cond_pair {
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-	int refcount;
-} mutex_cond_pair;
+/**
+ * Test if a queue has data available.
+ *
+ * Use this macro to test a positive status returned by kc_queueSelect
+ * for a given queue index in the queue array.
+ * If HAS_DATA(queueSelectStatus, i) is true, a call to 
+ * kc_queueDequeue[Timeout](qarray[i][, timeout]) will return immediately.
+ *
+ * @param queueSelectStatus The return bitmap from kc_queueSelect.
+ * @param i The index of the queue to check for data availability.
+ * @return 0 if there's data available, 0 otherwise.
+ */
+#define kc_queueHasData( queueSelectStatus, i ) ( ( queueSelectStatus & (1 << i) ) != 0 )
 
-typedef struct _queue {
-	qnode *head;
-	qnode *tail;
-	mutex_cond_pair *mcp;
-	int size;
-	int n;
-	/* ----- methods ----- */
-	/* reset queue
-	   frees nodes, but NOT any dynamic data pointed by the nodes!! */
-	struct _queue *(*resetq)(struct _queue *q);
-	/* returns 0 if successful, -1 if no memory, 1 if queue full.
-	   enq'ing NULL simulates a timeout on the deqw() (and deqw()),
-	   as it performs a pthread_cond_signal() without putting
-	   data in the queue. */
-	int (*enq)(struct _queue *q, void *data);
-	/* blocks the thread until some data is retrieved from the queue */
-	void *(*deqw)(struct _queue *q);
-	/* blocks the thread until some data is retrieved from the queue, or
-	   a millis_timeout expires. Signals do NOT cause early termination. */
-	void *(*deqtw)(struct _queue *q, unsigned long int millis_timeout);
-	/* let q point to q1's mutex/cond pair; the pair originally
-	   pointed by q has the reference count decreased and, if
-	   that reaches zero, is destroyed.
-	   NOTE: BOTH q1 and q must have no threads holding their
-	   mutexes or waiting on their conds when this method is called,
-	   or else the results will be undefined!
-	   Returns: 0 = OK, 1 = the queues were associated already */
-	int (*associate)(struct _queue *q, struct _queue *q1);
-	/* waits at most millis_timeout milliseconds for data to be
-	   available for dequeuing from one of more _associated_ queues
-	   in the array *qarray[] (max 31-element large).
-	   Returns:
-	   	0	for timeout
-	   	-1	error (qarray = NULL, some queues were not associated etc.)
-	   	>0  a bitmap of the ready queues: if (returned_value & (1 << i)) != 0,
-	   	    then qarray[i] has data and qarray[i]->deqtw(qarray[i], millistimeout)
-	   	    won't block. */
-	long int (*select)(struct _queue *q[], unsigned long int millis_timeout);
-	/* resets q and then deallocates t */
-	void (*destroy)(struct _queue *q);
-} queue;
+/**
+ * Associate 2 queues
+ *
+ * let q point to q1's mutex/cond pair; the pair originally
+ * pointed by q has the reference count decreased and, if
+ * that reaches zero, is destroyed.
+ * NOTE: BOTH q1 and q must have no threads holding their
+ * mutexes or waiting on their conds when this method is called,
+ * or else the results will be undefined!
+ * @param q The queue to associate
+ * @param q1 The that will be used
+ * @return 0 if successful, 1 if the queues were already associated
+ */
+int kc_queueAssociate( kc_queue *q, kc_queue *q1 );
 
-/* macro to test a positive status returned by:
-   selectq_status = qarray[i]->select(qarray, millistimeout);
-   if HAS_DATA(selectq_status, i) is true, a call to
-   qarray[i]->deqtw(qarray[i], millis_timeout) will immediately
-   return data available in qarray[i], without blocking */
-#define HAS_DATA(selectq_status, i) (((selectq_status) & (1<<(i))) != 0)
+/**
+ * Wait for data availability
+ *
+ * This function will block at most timeout milliseconds for data to be
+ * available for dequeuing from one of more _associated_ queues
+ * in qarray.
+ * In case of a positive return value, use if (returned_value & (1 << i)) != 0
+ * to read the indexes of the queues that have data available and won't block.
+ *
+ * @param q An array of kc_queues (max 31-element large). All of those will need to be associated.
+ * @param timeout The timeout value in milliseconds.
+ * @return If > 0,  a bitmap of the ready queues, otherwise 0 on timeout, -1 on error (qarray == NULL, unassociated queues, etc.).
+ */
+long int kc_queueSelect( kc_queue *qarray[], unsigned long int timeout );
 
-/* allocates queue and initializes all fields incl. methods */
-queue *new_queue(int size);
-
-#endif /* _KADC_QUEUE_H */
+#endif

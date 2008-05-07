@@ -30,8 +30,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef KADC_BUFIO_H
 #define KADC_BUFIO_H
 
-#include <int128.h>
-
 /* functions to get/put short/long unsigned integers
    and peernode structures from/to Kademlia packets.
    In Overnet, the byte order is generally
@@ -47,27 +45,21 @@ of the following e-mail addresses (replace "(at)" with "@"):
  */
 
 /* get an unsigned short stored as little endian */
-short int getushortle( char **ppb);
+short int getushortle( const char **ppb );
 
 /* get an unsigned long stored as little endian */
-long int getulongle( char **ppb);
+long int getulongle( const char **ppb );
 
 /* get an IP address stored in network byte order (big endian) */
-long int getipn( char **ppb);
-
-/* get an int128 stored in network byte order (big endian) */
-int128 getint128n(int128 hash, char **ppb);
+struct in_addr getipn( const char **ppb );
 
 /* store an unsigned short as little endian */
-char *putushortle( char **ppb, short int u);
+char *putushortle( char **ppb, short int u );
 
 /* store an unsigned long as little endian */
-char *putulongle( char **ppb, long int u);
+char *putulongle( char **ppb, long int u );
 
 /* store an IP address in network byte order (big endian) */
-char *putipn( char **ppb, long int u);
-
-/* store an int128 in network byte order (big endian) */
-char *putint128n( char **ppb, int128 hash);
+char *putipn( char **ppb, struct in_addr u );
 
 #endif /* KADC_BUFIO_H */

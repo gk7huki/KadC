@@ -41,81 +41,32 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef KADC_ROUTING_H
 #define KADC_ROUTING_H
 
-#include <sys/types.h>
-
-#include <net.h>
-#include <int128.h>
-
 /**
  * A DHT structure
  */
 typedef struct _kc_dht kc_dht;
 
 /**
- *A DHT node
+ * A DHT node
  */
 typedef struct _kc_dhtNode kc_dhtNode;
 
-/**
- * A DHT message type.
- *
- * This is used in the DHT write callback.
- * @see kc_dhtWriteCallback
- */
-typedef enum {
-    DHT_RPC_PING = 0,
-    DHT_RPC_STORE,
-    DHT_RPC_FIND_NODE,
-    DHT_RPC_FIND_VALUE
-} kc_dhtMsgType;
-
-/**
- * The callback protoype used when the DHT needs to write a packet.
- *
- * This callback is called as soon as the DHT needs to send data to another node.
- * You'll get a pointer to the kc_dht, a dht_msg_type specifiying the type of message
- * you should write, and a pointer to the message that will be sent.
- *
- * @param dht The DHT willing to communicate
- * @param type The type of message to write
- * @param msg A malloc()ed pointer to a kc_udpMsg. You'll need to malloc() msg->payload,
- * and set msg->payloadSize accordingly... The pointer will be freed after use.
- * @return You should return 0 if you want the msg message sent, or 1 if you don't.
- */
-typedef int (*kc_dhtWriteCallback)( const kc_dht * dht, kc_dhtMsgType type, kc_udpMsg * msg );
-
-/**
- * The callback protoype used when the DHT needs to read a packet.
- *
- * This callback is called as soon as the DHT needs to parset data from another node.
- * You'll get a pointer to the kc_dht, a pointer to the recieved kc_udpMsg, and a pointer to
- * the correct message to reply to the sender node.
- *
- * @param dht The DHT willing to communicate.
- * @param msg A kc_udpMsg containing the data recieved from the node.
- * @param answer A kc_udpMsg containing the data the DHT should sent to the node as a reply. You'll need to malloc() msg->payload, and set msg->payloadSize accordingly... The pointer will be freed after use.
- * @return You should return 0 if you want the answer message sent, or 1 if you don't.
- */
-typedef int (*kc_dhtReadCallback)( const kc_dht * dht, const kc_udpMsg * msg, kc_udpMsg * answer );
-
+typedef struct _kc_dhtParameters kc_dhtParameters;
 
 /** 
  * Creates and init a new kc_dhtInit.
  *
  * This function handles the successful creation of a kc_dht structure.
- 
- * @param addr Our local IP address, in host byte-order
- * @param port Our local port, in host byte-order
- * @param bucketMaxSize The size of the kBuckets inside of the DHT
- * @param readCallback A callback function called when the DHT need to parse a message from the network
- * @param writeCallback A callback function called when the DHT need to write a message to the network 
+ *
+ * @param hash Our local hash
+ * @param parameters A struct containing various settings and callback functions.
  * @return A pointer to an initialized kc_dht
  */
 kc_dht*
-kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallback readCallback, kc_dhtWriteCallback writeCallback );
+kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters );
 
 /** 
- * Frees an existing kc_dhtInt structure.
+ * Frees an existing kc_dht structure.
  *
  * This function is responsible for the correct deallocation of a kc_dht structure
  *
@@ -124,51 +75,84 @@ kc_dhtInit( in_addr_t addr, in_port_t port, int bucketMaxSize, kc_dhtReadCallbac
 void
 kc_dhtFree( kc_dht * dht );
 
+int
+kc_dhtAddIdentity( kc_dht * dht, kc_contact * contact );
+
 /**
  * Schedule a node for addition in the DHT.
  *
  * This function takes an IP address/port, and will subsequently issue a PING to 
- * the corresponding node to obtain its nodeId, before adding it to the DHT.
+ * the corresponding node to obtain its hash, before adding it to the DHT.
  *
  * @param dht The kc_dht in which to add the node
  * @param addr The node's IP address, in host byte-order
  * @param port The node's port number, in host byte-order
  */
 void
-kc_dhtCreateNode( const kc_dht * dht, in_addr_t addr, in_port_t port);
+kc_dhtCreateNode( kc_dht * dht, kc_contact * contact );
 
 /**
  * Adds a node to the DHT.
  *
  * This method is here for protocol-implementors to use when a node is to be added to the DHT.
  * 
- * @param dht The DHT in which to add this node
- * @param addr The node's IP address, in host byte-order
- * @param port The node's port number, in host byte-order
- * @param hash The node's hash
- * @return This function returns 0 on success, -1 on failure, and 1 if the node was already known
+ * @param dht The DHT in which to add this node.
+ * @param addr The node's IP address, in host byte-order.
+ * @param port The node's port number, in host byte-order.
+ * @param hash The node's hash.
+ * @return This function returns 0 on success, -1 on failure, and 1 if the node was already known.
  */
 int
-kc_dhtAddNode( const kc_dht * dht, in_addr_t addr, in_port_t port, int128 hash );
-
+kc_dhtAddNode( kc_dht * dht, const kc_contact * contact, const kc_hash * hash );
 
 /**
  * Store a key/value pair in the DHT.
  *
- * This function takes a key/value pair, store it in the DHT
+ * This function takes a key/value pair to be stored in the DHT.
+ * If there's already a value for this key, it will be exchanged, and value will point to the old value.
  *
  * @param dht The DHT in which to store this key/value.
  * @param key The key to store in the DHT.
  * @param value The value associated with the above key.
- * @return This function returns 0 on success, -1 otherwise.
+ * @return This function returns 0 on success, 1 if there was an exchange, -1 on error.
  */
 int
-kc_dhtStoreKeyValue( const kc_dht * dht, void * key, void * value );
+kc_dhtStoreKeyValue( kc_dht * dht, kc_hash * key, void * value );
+
+/**
+ * Retrieve a value for a key from the DHT.
+ * 
+ * This function search the known keys and returns the value associated with the specified key.
+ *
+ * @param dht The DHT to lookup.
+ * @param key The key to lookup.
+ * @return The value, or NULL if not found.
+ */
+void *
+kc_dhtValueForKey( const kc_dht * dht, void * key );
+
+/**
+ * Outputs the DHT state to stdout.
+ *
+ * This is for debugging purposes. All running sessions are printed.
+ * @param dht The DHT to print
+ */
+void
+kc_dhtPrintState( const kc_dht * dht );
+
+/**
+ * Outputs the DHT keys to stdout.
+ *
+ * This is for debugging purposes. All currently known keys/values pairs are printed.
+ * @param dht The DHT to print
+ */
+void
+kc_dhtPrintKeys( const kc_dht * dht );
 
 /**
  * Outputs the DHT structure to stdout.
  *
- * This is for debugging purposes. Each entry in the DHT is output...
+ * This is for debugging purposes. Each bucket in the DHT is printed, along with its known nodes.
  * @param dht The DHT to print
  */
 void
@@ -197,31 +181,25 @@ kc_dhtRemoveNodes( kc_dht *dht );
  * Returns a list of nodes
  *
  * The list will contain MIN( currentNodeCount, dhtBucketSize ).
+ * If hash is NULL, the returned list will contain nodes from every bucket (actually in bucket order).
+ * Otherwise, the returned list will contain nodes from the closest bucket to the hash.
  *
  * @param dht The kc_dht to clear
+ * @param hash A hash for filtering results
  * @param nodeCount A pointer that will be set to the count of returned node
  * @return An array of kc_dhtNodes
  */
-const kc_dhtNode**
-kc_dhtGetNode( const kc_dht * dht, int * nodeCount );
+kc_dhtNode **
+kc_dhtGetNodes( const kc_dht * dht, kc_hash * hash, int * nodeCount );
 
 /**
  * Gets the IP address of the local node.
  *
- * @param dht The kc_dht to get the local IP from
+ * @param dht The kc_dht to get the contact from
  * @return The local IP address
  */
-in_addr_t
-kc_dhtGetOurIp( const kc_dht * dht );
-
-/**
- * Gets the port number of the local node.
- *
- * @param dht The kc_dht to get the port number from
- * @return The local port number
- */
-in_port_t
-kc_dhtGetOurPort( const kc_dht * dht );
+kc_contact *
+kc_dhtGetOurContact( const kc_dht * dht, int type );
 
 /**
  * Gets the hash (identifier) of the local node.
@@ -229,36 +207,20 @@ kc_dhtGetOurPort( const kc_dht * dht );
  * @param dht The kc_dht to get the local hash from
  * @return The local node's hash value
  */
-int128
+kc_hash *
 kc_dhtGetOurHash( const kc_dht * dht );
-
-
-/**
- * Gets the IP address of a node.
- *
- * @param node The kc_dhtNode to get the IP from
- * @return The IP address of the node
- */
-in_addr_t
-kc_dhtNodeGetIp( const kc_dhtNode * node );
-
-/**
- * Gets the port number of a node.
- *
- * @param node The kc_dhtNode to get the port number from
- * @return The port number of the node
- */
-in_port_t
-kc_dhtNodeGetPort( const kc_dhtNode * node );
 
 /**
  * Gets the hash (identifier) of a node.
- *
- * @param node The kc_dhtNode to get the hash from
- * @return The hash of the node
  */
-int128
+kc_hash *
 kc_dhtNodeGetHash( const kc_dhtNode * node );
+
+/**
+ * Sets the hash of a node.
+ */
+void
+kc_dhtNodeSetHash( kc_dhtNode * node, kc_hash * hash );
 
 /*void setup_kba(KadEngine *pKE, int kbsize);
 void destroy_kba(KadEngine *pKE);

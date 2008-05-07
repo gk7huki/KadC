@@ -67,55 +67,90 @@ of the following e-mail addresses (replace "(at)" with "@"):
 /***************************************************************************/
 
 /* Overnet  - using symbolic names derived from Ethereal's plugin */
-/* In Overnet PEER is 23 byte long, as TCPport is missing */
-#define OP_EDONKEYHEADER		0xE3
+enum ov_proto {
+    OP_EDONKEYHEADER =          0xE3
+};
+typedef char ov_proto;
 
-#define OVERNET_CONNECT                     0x0A  /* > <PEER (sender)[23]> [2+23=25]				*/
-#define OVERNET_CONNECT_REPLY               0x0B  /* < <LEN[2]> <PEER [23]>[len]	[2+2+23*LEN]		*/
+/* In Overnet PEER is 23 byte long, as TCPport is missing
+ * packed because I need it 23-bytes long */
+struct ov_node
+{
+    char        hash[16];
+    char        ip[4];
+    in_port_t   port;
+    char        unused;
+} __attribute__ ((packed));
 
-#define OVERNET_PUBLICIZE                   0x0C  /* > <PEER (sender)[23]> [2+23=25]				*/ /* OvernetPublicize in mldonkey */
-#define OVERNET_PUBLICIZE_ACK               0x0D  /* < (null) [2+0=2]								*/
+enum ov_messageType {
+    OVERNET_CONNECT =           0x0A,  /* > <PEER (sender)[23]> [2+23=25]				*/
+    OVERNET_CONNECT_REPLY =     0x0B,  /* < <LEN[2]> <PEER [23]>[len]	[2+2+23*LEN]		*/
 
-#define OVERNET_SEARCH                      0x0E  /* > <PARAMETER[1]> <HASH> [2+1+16=19]			*/ /* OvernetSearch in mldonkey */
-#define OVERNET_SEARCH_NEXT                 0x0F  /* < <HASH> <LEN[1]> <PEER>[len] 2+16+1+23*LEN]	*/ /* OvernetSearchReply in mldonkey; LEN <= 4 */
+    OVERNET_PUBLICIZE =         0x0C,  /* > <PEER (sender)[23]> [2+23=25]				*/ /* OvernetPublicize in mldonkey */
+    OVERNET_PUBLICIZE_ACK =     0x0D,  /* < (null) [2+0=2]								*/
 
-/* if the peer lists itself in the OVERNET_SEARCH_NEXT reply, the initiator may send it a OVERNET_SEARCH_INFO */
-#define OVERNET_SEARCH_INFO                 0x10  /* > <HASH> 0 <MIN> <MAX> [2+16+1+2+2 = 23]		*/ /* OvernetGetSearchResults in mldonkey */
-												  /*   <HASH> 1 <SEARCH_TREE> <MIN> <MAX> */ /* OvernetGetSearchResults in mldonkey */
-#define OVERNET_SEARCH_RESULT               0x11  /* < <SEARCH_HASH> <FILE_HASH> <CNT4> <META>[cnt]*//* OvernetSearchResult in mldonkey. Zero or more packets, followed by a OVERNET_SEARCH_END  */
-/* the two ushorts are listed by OvernetClc:
-> s fat day -Audio
-> Got results. (2650,2650)
-  Got results. (4564,4564)
-Meaning?? */
-#define OVERNET_SEARCH_END                  0x12  /* < <HASH> <two ushorts> [2+16+4=22]*/	/* OvernetNoResult in mldonkey */
+    OVERNET_SEARCH =            0x0E,  /* > <PARAMETER[1]> <HASH> [2+1+16=19]			*/ /* OvernetSearch in mldonkey */
+    OVERNET_SEARCH_NEXT =       0x0F,  /* < <HASH> <LEN[1]> <PEER>[len] 2+16+1+23*LEN]	*/ /* OvernetSearchReply in mldonkey; LEN <= 4 */
+    
+    /* if the peer lists itself in the OVERNET_SEARCH_NEXT reply, the initiator may send it a OVERNET_SEARCH_INFO */
+    OVERNET_SEARCH_INFO =       0x10,  /* > <HASH> 0 <MIN> <MAX> [2+16+1+2+2 = 23]		*/ /* OvernetGetSearchResults in mldonkey */
+    /*   <HASH> 1 <SEARCH_TREE> <MIN> <MAX> */ /* OvernetGetSearchResults in mldonkey */
+    OVERNET_SEARCH_RESULT =     0x11,  /* < <SEARCH_HASH> <FILE_HASH> <CNT4> <META>[cnt]*//* OvernetSearchResult in mldonkey. Zero or more packets, followed by a OVERNET_SEARCH_END  */
+    /* the two ushorts are listed by OvernetClc:
+     > s fat day -Audio
+     > Got results. (2650,2650)
+     Got results. (4564,4564)
+     Meaning?? */
+    OVERNET_SEARCH_END =        0x12,  /* < <HASH> <two ushorts> [2+16+4=22]*/	/* OvernetNoResult in mldonkey */
+    
+    /* cDonkey only publishes 2 METAs: filename (EDONKEY_STAG_NAME) and filesize (EDONKEY_STAG_SIZE) */
+    /* OvernetClc publishes filename, filesize, filetype (EDONKEY_STAG_TYPE) fileformat (EDONKEY_STAG_FORMAT) and availability (EDONKEY_STAG_AVAILABILITY) */
+    OVERNET_PUBLISH =           0x13,  /* >  <kwHASH> <fileHASH> <CNT4> <META>[cnt] (publishing filename, filetype, fileformat, filesize...)
+     <fileHASH> <myHASH> <CNT4> <META>[cnt] (publishing loc) */	/* OvernetPublish in mldonkey */
+    OVERNET_PUBLISH_ACK =       0x14,  /* < <firstHASHinPublish>	[2+16=18]						*/	/* OvernetPublished in mldonkey */
+    
+    /* A good use of OVERNET_IDENTIFY is to learn hash and subjective IP/UDP port of a peer which has
+     become known through an unsolicited request not carrying sender peernode data,
+     typically OVERNET_SEARCH, OVERNET_SEARCH_INFO, OVERNET_PUBLISH, OVERNET_IP_QUERY
+     This may be the single point where the NATted status of a peer is checked.
+     If a peer is found to be NATted, it should NOT be added to kspace/kbuckets
+     or to contacts rbt, because generally it will be impossible to query. */
+    OVERNET_IDENTIFY =          0x1E,  /* > (null)	[2+0=2]							*/ /* (not defined in mldonkey) */
+    OVERNET_IDENTIFY_REPLY =    0x15,  /* < <CONTACT (sender)> [2+22=24]				*/	/* (not defined in mldonkey) */
+    OVERNET_IDENTIFY_ACK =      0x16,  /* > <PORT_tcp (sender)> [2+2=4]				*/	/* (not defined in mldonkey) */
+    
+    /* please open a TCP connection to my PORT_tcp (and send me the file targetHASH?)  */
+    OVERNET_FIREWALL_CONNECTION =       0x18,  /* > <targetHASH> <senderTcpPORT> [2+16+2=20]	*/ /* OvernetFirewallConnection in mldonkey */
+    OVERNET_FIREWALL_CONNECTION_ACK =   0x19,  /* < <targetHASH>	[2+16=18]					*/ /* OvernetFirewallConnectionACK in mldonkey */
+    OVERNET_FIREWALL_CONNECTION_NACK =  0x1A,  /* < <targetHASH>	[2+16=18]					*/ /* OvernetFirewallConnectionNACK in mldonkey */
+    
+    OVERNET_IP_QUERY =                  0x1B,  /* > <PORT_tcp> [2+2=4]						*/ /* OvernetGetMyIP in mldonkey */
+    OVERNET_IP_QUERY_ANSWER =           0x1C,  /* < <IP>		[2+4=6]							*/ /* OvernetGetMyIPResult in mldonkey */
+    OVERNET_IP_QUERY_END =              0x1D,  /* < (null)	[2+0=2] only if Tport accessible*/ /* OvernetGetMyIPDone in mldonkey */
+    
+    OVERNET_PEER_NOTFOUND =             0x21  /* > <HASH> <IP> <PORT> <FLAG> mldonkey removes the peer when it receives it*/  /* OvernetPeerNotFound in mldonkey */
+};
+typedef char ov_messageType;
 
-/* cDonkey only publishes 2 METAs: filename (EDONKEY_STAG_NAME) and filesize (EDONKEY_STAG_SIZE) */
-/* OvernetClc publishes filename, filesize, filetype (EDONKEY_STAG_TYPE) fileformat (EDONKEY_STAG_FORMAT) and availability (EDONKEY_STAG_AVAILABILITY) */
-#define OVERNET_PUBLISH                     0x13  /* >  <kwHASH> <fileHASH> <CNT4> <META>[cnt] (publishing filename, filetype, fileformat, filesize...)
-														<fileHASH> <myHASH> <CNT4> <META>[cnt] (publishing loc) */	/* OvernetPublish in mldonkey */
-#define OVERNET_PUBLISH_ACK                 0x14  /* < <firstHASHinPublish>	[2+16=18]						*/	/* OvernetPublished in mldonkey */
+#define OV_EDONKEY_HEADER ov_proto protoType; ov_messageType messageType
+struct ov_header
+{
+    OV_EDONKEY_HEADER;
+    void          * message;
+};
 
-/* A good use of OVERNET_IDENTIFY is to learn hash and subjective IP/UDP port of a peer which has
-   become known through an unsolicited request not carrying sender peernode data,
-   typically OVERNET_SEARCH, OVERNET_SEARCH_INFO, OVERNET_PUBLISH, OVERNET_IP_QUERY
-   This may be the single point where the NATted status of a peer is checked.
-   If a peer is found to be NATted, it should NOT be added to kspace/kbuckets
-   or to contacts rbt, because generally it will be impossible to query. */
-#define OVERNET_IDENTIFY                    0x1E  /* > (null)	[2+0=2]							*/ /* (not defined in mldonkey) */
-#define OVERNET_IDENTIFY_REPLY              0x15  /* < <CONTACT (sender)> [2+22=24]				*/	/* (not defined in mldonkey) */
-#define OVERNET_IDENTIFY_ACK                0x16  /* > <PORT_tcp (sender)> [2+2=4]				*/	/* (not defined in mldonkey) */
+struct ov_connect
+{
+    OV_EDONKEY_HEADER;
+    struct ov_node      node;
+};
 
-/* please open a TCP connection to my PORT_tcp (and send me the file targetHASH?)  */
-#define OVERNET_FIREWALL_CONNECTION         0x18  /* > <targetHASH> <senderTcpPORT> [2+16+2=20]	*/ /* OvernetFirewallConnection in mldonkey */
-#define OVERNET_FIREWALL_CONNECTION_ACK     0x19  /* < <targetHASH>	[2+16=18]					*/ /* OvernetFirewallConnectionACK in mldonkey */
-#define OVERNET_FIREWALL_CONNECTION_NACK    0x1A  /* < <targetHASH>	[2+16=18]					*/ /* OvernetFirewallConnectionNACK in mldonkey */
-
-#define OVERNET_IP_QUERY                    0x1B  /* > <PORT_tcp> [2+2=4]						*/ /* OvernetGetMyIP in mldonkey */
-#define OVERNET_IP_QUERY_ANSWER             0x1C  /* < <IP>		[2+4=6]							*/ /* OvernetGetMyIPResult in mldonkey */
-#define OVERNET_IP_QUERY_END                0x1D  /* < (null)	[2+0=2] only if Tport accessible*/ /* OvernetGetMyIPDone in mldonkey */
-
-#define OVERNET_PEER_NOTFOUND				0x21  /* > <HASH> <IP> <PORT> <FLAG> mldonkey removes the peer when it receives it*/  /* OvernetPeerNotFound in mldonkey */
+struct ov_connect_reply
+{
+    OV_EDONKEY_HEADER;
+    short               nodeCount;
+    struct ov_node      nodes[];
+};
 
 /*
    PARAMETER used in OVERNET_SEARCH:
