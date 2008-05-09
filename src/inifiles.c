@@ -171,12 +171,6 @@ tonextsection( FILE *file, char *section, int section_size )
 kc_contact *
 parseContact( parblock pb, int oldStyle )
 {
-    kc_contact * contact;
-    
-    struct in_addr addr;
-    struct in6_addr addr6;
-    int status = 0;
-    
     char * address;
     char * port;
     
@@ -191,34 +185,7 @@ parseContact( parblock pb, int oldStyle )
         port = pb[1];
     }
     
-    /* Try parsing IPv4 address */
-    status = inet_pton( AF_INET, pb[1], &addr );
-    if( status == 1 )
-    {
-        /* This is a valid IPv4 address, create a contact from it */
-        contact = kc_contactInit( &addr, sizeof(struct in_addr), atoi( pb[2] ) );
-        return contact;
-    }
-    if( status == 0 )
-    {
-        /* Failed with invalid address for proto type, retry parsing in IPv6 */
-        status = inet_pton( AF_INET6, pb[1], &addr6 );
-        if( status == 1 )
-        {
-            /* This is a valid IPv6 address, create a contact from it */
-            contact = kc_contactInit( &addr6, sizeof(struct in6_addr), atoi( pb[2] ) );
-            return contact;
-        }
-    }
-    
-    /* We failed, report */
-    if( status == -1 )
-    {
-        kc_logError( "System error while parsing contact address: %s", strerror( errno ) );
-        return NULL;
-    }
-    
-    return contact;
+    return kc_contactInitFromChar( address, port );
 }
 
 int
@@ -395,4 +362,38 @@ kc_iniParseNodeSection( FILE * iniFile, const char * secName, int * nodeCount )
     kc_logVerbose( "Read %d nodes from the %s section of KadCmain.ini", *nodeCount, secName );
     
     return nodes;
+}
+
+int
+kc_iniParseCommand( FILE * commandFile, kc_dht * dht )
+{
+    assert( commandFile != NULL );
+    assert( dht != NULL );
+    
+    
+    char command[256];
+    char * test;
+    test = fgets( command, 256, stdin );
+    if( test == NULL )
+        return -1;
+    else
+    {
+        char * ret = strchr( command, '\n' );
+        *ret = '\0';
+        
+        if( strcmp( command, "printState" ) == 0 )
+        {
+            kc_dhtPrintState( dht );
+        }
+        else if( strcmp( command, "addNode" ) == 0 )
+        {
+            
+        }
+        else
+        {
+            printf( "unknown command: %s\n", command );
+            
+        }
+    }
+    return 0;
 }

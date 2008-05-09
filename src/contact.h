@@ -15,6 +15,9 @@ typedef struct _kc_contact kc_contact;
 kc_contact *
 kc_contactInit( void * addr, size_t length, in_port_t port );
 
+kc_contact *
+kc_contactInitFromChar( char * address, char * port );
+
 void
 kc_contactFree( kc_contact * contact );
 

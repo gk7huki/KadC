@@ -49,6 +49,44 @@ kc_contactInit( void * addr, size_t len, in_port_t port )
 }
 
 kc_contact *
+kc_contactInitFromChar( char * address, char * port )
+{
+    kc_contact * contact;
+    
+    struct in_addr addr;
+    struct in6_addr addr6;
+    int status = 0;
+    /* Try parsing IPv4 address */
+    status = inet_pton( AF_INET, address, &addr );
+    if( status == 1 )
+    {
+        /* This is a valid IPv4 address, create a contact from it */
+        contact = kc_contactInit( &addr, sizeof(struct in_addr), atoi( port ) );
+        return contact;
+    }
+    if( status == 0 )
+    {
+        /* Failed with invalid address for proto type, retry parsing in IPv6 */
+        status = inet_pton( AF_INET6, address, &addr6 );
+        if( status == 1 )
+        {
+            /* This is a valid IPv6 address, create a contact from it */
+            contact = kc_contactInit( &addr6, sizeof(struct in6_addr), atoi( port ) );
+            return contact;
+        }
+    }
+    
+    /* We failed, report */
+    if( status == -1 )
+    {
+        kc_logError( "System error while parsing contact address: %s", strerror( errno ) );
+        return NULL;
+    }
+    
+    return contact;
+}
+
+kc_contact *
 kc_contactDup( const kc_contact * contact )
 {
     assert( contact != NULL );
@@ -173,6 +211,8 @@ kc_contactPrint( const kc_contact * contact )
     static char * addrStr;
     if( addrStr == NULL )
         addrStr = calloc( addrLen, sizeof(char) );
+    else
+        addrStr = realloc( addrStr, addrLen * sizeof(char) );
     assert( addrStr != NULL );
             
     inet_ntop( contact->type, contact->addr, addrStr, addrLen );
@@ -183,6 +223,5 @@ kc_contactPrint( const kc_contact * contact )
     assert( contactStr != NULL );
     
     sprintf( contactStr, "%s:%d", addrStr, contact->port );
-    free( addrStr );
     return contactStr;
 }

@@ -30,6 +30,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef KADC_INIFILES_H
 #define KADC_INIFILES_H
 
+#include "dht.h"
+
 /** @file inifiles.h
  * This file provide an abstraction at reading config files.
  *
@@ -47,7 +49,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
  
  */
 int
-kc_iniParseLocalSection( FILE * iniFile, kc_contact * contact[], kc_hash ** hash );
+kc_iniParseLocalSection( FILE * iniFile, kc_contact ** contact, kc_hash ** hash );
 
 /**
  * Get a list of nodes from a configuration file.
@@ -66,5 +68,8 @@ kc_iniParseLocalSection( FILE * iniFile, kc_contact * contact[], kc_hash ** hash
 
 kc_contact **
 kc_iniParseNodeSection( FILE * iniFile, const char * secName, int * nodeCount );
+
+int
+kc_iniParseCommand( FILE * commandFile, kc_dht * dht );
 
 #endif /* KADC_INIFILES_H */

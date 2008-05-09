@@ -84,6 +84,9 @@ kc_dhtUnlock( kc_dht * dht )
     pthread_mutex_unlock( &dht->lock );
 }
 
+void
+eventLog( int severity, const char *msg );
+
 void *
 eventLoop( void * arg );
 
@@ -157,6 +160,8 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
         return NULL;
     }
     
+    event_set_log_callback( eventLog );
+    
     kc_logVerbose( "kc_dhtInit: hash init" );
     if( hash == NULL )
         dht->hash = kc_hashRandom( parameters->hashSize );
@@ -208,12 +213,18 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
     }
     
     kc_logVerbose( "kc_dhtInit: replication timer init" );
+    dht->replicationTimer = malloc( sizeof(struct event) );
+    if( dht->replicationTimer == NULL ) {
+        kc_logAlert( "kc_dhtInit: failed creating Replication Timer" );
+        kc_dhtFree( dht );
+        return NULL;
+    }
     struct timeval tv;
-    tv.tv_sec = ( dht->parameters->replicationDelay == 0 ? KADC_REPLICATION_DELAY : dht->parameters->replicationDelay );
+    tv.tv_sec = dht->parameters->replicationDelay;
     tv.tv_usec = 0;
-    struct event ev;
-    event_set( &ev, -1, EV_TIMEOUT, dhtReplicate, dht );
-    if( evtimer_add( &ev, &tv ) != 0)
+    event_set( dht->replicationTimer, -1, EV_TIMEOUT | EV_PERSIST, dhtReplicate, dht );
+    event_base_set( dht->eventBase, dht->replicationTimer );
+    if( evtimer_add( dht->replicationTimer, &tv ) != 0)
     {
         kc_logAlert( "kc_dhtInit: failed adding replication timer" );
         kc_dhtFree( dht );
@@ -235,13 +246,14 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
 void
 kc_dhtFree( kc_dht * dht )
 {
+    struct event_base * tempBase;
     /* We stop the background thread */
     if( &dht->lock != NULL )
     {
         kc_dhtLock( dht );
-        if (  dht->eventBase != NULL )
+        if ( dht->eventBase != NULL )
         {
-            event_base_free( dht->eventBase );
+            tempBase = dht->eventBase;
             dht->eventBase = NULL;
         }
         kc_dhtUnlock( dht );
@@ -249,6 +261,8 @@ kc_dhtFree( kc_dht * dht )
     
     if( dht->eventThread != NULL )
         pthread_join( dht->eventThread, NULL );
+    
+    event_base_free( tempBase );
     
     if( dht->identities != NULL )
     {
@@ -283,6 +297,17 @@ kc_dhtFree( kc_dht * dht )
     free( dht );
 }
 
+void
+eventLog( int severity, const char *msg )
+{
+    kc_logLevel lvl;
+    if( severity == _EVENT_LOG_ERR )
+        lvl = KADC_LOG_ERROR;
+    else
+        lvl = KADC_LOG_DEBUG;
+    kc_logPrint( lvl, msg );
+}
+
 void *
 eventLoop( void * arg )
 {
@@ -291,24 +316,25 @@ eventLoop( void * arg )
     
     while( 1 )
     {
+/*        kc_logVerbose( "eventLoop: acquiring lock on DHT %p", arg );
         kc_dhtLock( dht );
-        kc_logVerbose( "eventLoop: acquiring lock on DHT %p", arg );
+        kc_logVerbose( "eventLoop: lock acquired on DHT %p", arg );*/
         if( dht->eventBase == NULL )
         {
-            kc_dhtUnlock( dht );
+//            kc_dhtUnlock( dht );
             break;
         }
         
-        int status = event_base_loop( dht->eventBase, 0 );
+        int status = event_base_loop( dht->eventBase, EVLOOP_ONCE );
         if( status != 0 )
         {
             kc_logAlert( "eventLoop: exiting with error %d", status );
-            kc_dhtUnlock( dht );
+//            kc_dhtUnlock( dht );
             return (void*)1;
         }
         
-        kc_logVerbose( "eventLoop: relinquishing lock on DHT %p", arg );
-        kc_dhtUnlock( dht );
+//        kc_logVerbose( "eventLoop: relinquishing lock on DHT %p", arg );
+//        kc_dhtUnlock( dht );
         
     }
     kc_logVerbose( "eventLoop: exiting" );
@@ -355,6 +381,7 @@ kc_dhtAddIdentity( kc_dht * dht, kc_contact * contact )
     if( ( tmp = realloc( dht->identities, sizeof(kc_contact*) * ( identityCount + 1 ) ) ) == NULL )
     {
         kc_logAlert( "Failed realloc()ating identities array !" );
+        kc_dhtUnlock( dht );
         return -1;
     }
     dht->identities = tmp;
@@ -391,7 +418,9 @@ kc_dhtIdentityForContact( const kc_dht * dht,  kc_contact * contact )
     for( identity = *dht->identities; identity != NULL; identity++ )
     {
         if( kc_contactGetType( identity->us ) == kc_contactGetType( contact ) )
+        {
             return identity;
+        }
     }
     return NULL;
 }
@@ -535,10 +564,11 @@ dhtPingByIP( kc_dht * dht, kc_contact * contact, kc_hash * hash, int sync )
     int         status;
     
     kc_logNormal( "PING %s (%s) %s", hashtoa( hash ), kc_contactPrint( contact ), ( sync ? "synchronously" : "asynchronously" ) );
-    
+    kc_dhtLock( dht );
     dhtIdentity * identity = kc_dhtIdentityForContact( dht, contact );
     
-    dhtSession * session = dhtSessionInit( dht, identity->us, contact, DHT_RPC_PING, 0, asyncCallback, ( dht->parameters->sessionTimeout != 0 ? dht->parameters->sessionTimeout : SESSION_TIMEOUT ) );
+    dhtSession * session = dhtSessionInit( dht, identity->us, contact, DHT_RPC_PING, 0, asyncCallback, dht->parameters->sessionTimeout );
+    kc_dhtUnlock( dht );
     
     status = dhtSendMessage( dht, session );
     if( status != 0 )
@@ -606,7 +636,7 @@ dhtStore( kc_dht * dht, void * key, dhtValue * value )
     for( node = nodes[0]; node != NULL; node++ )
     {
         dhtIdentity * identity = kc_dhtIdentityForContact( dht, node->contact );
-        dhtSession * session = dhtSessionInit( dht, identity->us, node->contact, DHT_RPC_STORE, 0, asyncCallback, ( dht->parameters->sessionTimeout != 0 ? dht->parameters->sessionTimeout : SESSION_TIMEOUT ) );
+        dhtSession * session = dhtSessionInit( dht, identity->us, node->contact, DHT_RPC_STORE, 0, asyncCallback, dht->parameters->sessionTimeout );
         status = dhtSendMessage( dht, session );
         if( status != 0 )
         {
@@ -1052,7 +1082,8 @@ kc_dhtAddNode( kc_dht * dht, const kc_contact * contact, const kc_hash * hash )
 void
 kc_dhtCreateNode( kc_dht * dht, kc_contact * contact )
 {
-    assert( dht != NULL);
+    assert( dht != NULL );
+    assert( contact != NULL );
     
     dhtPingByIP( dht, contact, NULL, 0 );
 }
@@ -1118,7 +1149,7 @@ kc_dhtPrintState( const kc_dht * dht )
             dhtSession * session;
             rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
             if( session != NULL )
-                kc_logNormal( "%s session to %s:%d, timeout in %d", ( session->incoming ? "Incoming" : "Outgoing" ), kc_contactPrint( session->contact ) );
+                kc_logNormal( "%s session to %s", ( session->incoming ? "Incoming" : "Outgoing" ), kc_contactPrint( session->contact ) );
         }
     }
 }

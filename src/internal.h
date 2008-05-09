@@ -94,9 +94,9 @@ typedef struct dhtSession {
     
     struct bufferevent    * bufferEvent;
     
-    evbuffercb              readCb;
+/*    evbuffercb              readCb;
     evbuffercb              writeCb;
-    everrorcb               errorCb;
+    everrorcb               errorCb;*/
     
 } dhtSession;
 
@@ -147,6 +147,7 @@ struct _kc_dht {
     kc_dhtParameters  * parameters;     /* Our parameters */
         
     struct event_base * eventBase;      /* Our libevent base */
+    struct event      * replicationTimer;
     
     dhtIdentity      ** identities;     /* Pointer to an array of identities (as in "IPv4/IPv6 identity") */
     kc_hash           * hash;           /* Our hash, because it is common between all our identities */

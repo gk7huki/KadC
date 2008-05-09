@@ -182,6 +182,7 @@ void sessionReadCB( struct bufferevent * event, void * arg )
 {
     dhtSession * session = arg;
     kc_logError( "Session read for contact: %s", kc_contactPrint( session->contact ) );
+    
 }
 
 void sessionWriteCB( struct bufferevent * event, void * arg )
@@ -193,7 +194,17 @@ void sessionWriteCB( struct bufferevent * event, void * arg )
 void sessionErrorCB( struct bufferevent * event, short what, void * arg )
 {
     dhtSession * session = arg;
-    kc_logError( "Session error for contact %s: %d", kc_contactPrint( session->contact ), what );
+    kc_logError( "Session error for contact %s: %d (%s)", kc_contactPrint( session->contact ), what );
+    if( what & EVBUFFER_READ )
+        kc_logError( "Read" );
+    if( what & EVBUFFER_WRITE )
+        kc_logError( "Write" );
+    if( what & EVBUFFER_EOF )
+        kc_logError( "EOF" );
+    if( what & EVBUFFER_ERROR )
+        kc_logError( "Error" );
+    if( what & EVBUFFER_TIMEOUT )
+        kc_logError( "Timeout" );
 }
 
 dhtSession *
@@ -254,6 +265,8 @@ dhtSessionInit( const kc_dht * dht, kc_contact * bindContact, kc_contact * conne
     }
     bufferevent_settimeout( self->bufferEvent, dht->parameters->sessionTimeout, dht->parameters->sessionTimeout );
     bufferevent_enable( self->bufferEvent, EV_READ | EV_WRITE );
+    
+    kc_logVerbose( "Successfully inited session %p to %s (timeout %d)", self, kc_contactPrint( connectContact ), sessionTimeout );
     
     return self;
 }
