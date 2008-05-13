@@ -246,23 +246,17 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
 void
 kc_dhtFree( kc_dht * dht )
 {
-    struct event_base * tempBase;
     /* We stop the background thread */
-    if( &dht->lock != NULL )
-    {
-        kc_dhtLock( dht );
-        if ( dht->eventBase != NULL )
-        {
-            tempBase = dht->eventBase;
-            dht->eventBase = NULL;
-        }
-        kc_dhtUnlock( dht );
-    }
+
+    struct timeval tv;
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    event_base_loopexit( dht->eventBase, &tv );
     
     if( dht->eventThread != NULL )
         pthread_join( dht->eventThread, NULL );
     
-    event_base_free( tempBase );
+    event_base_free( dht->eventBase );
     
     if( dht->identities != NULL )
     {
@@ -316,26 +310,22 @@ eventLoop( void * arg )
     
     while( 1 )
     {
-/*        kc_logVerbose( "eventLoop: acquiring lock on DHT %p", arg );
-        kc_dhtLock( dht );
-        kc_logVerbose( "eventLoop: lock acquired on DHT %p", arg );*/
         if( dht->eventBase == NULL )
         {
-//            kc_dhtUnlock( dht );
             break;
         }
         
-        int status = event_base_loop( dht->eventBase, EVLOOP_ONCE );
+        struct timeval tv;
+        tv.tv_sec = 2;
+        tv.tv_usec = 0;
+        event_base_loopexit( dht->eventBase, &tv );
+        int status = event_base_loop( dht->eventBase, 0 );
         if( status != 0 )
         {
             kc_logAlert( "eventLoop: exiting with error %d", status );
-//            kc_dhtUnlock( dht );
             return (void*)1;
         }
-        
-//        kc_logVerbose( "eventLoop: relinquishing lock on DHT %p", arg );
-//        kc_dhtUnlock( dht );
-        
+//        kc_logVerbose( "eventLoop: looping!" );
     }
     kc_logVerbose( "eventLoop: exiting" );
     return 0;
@@ -465,75 +455,6 @@ dhtNodeForHash( const kc_dht * dht, kc_hash * hash )
 }
 
 static int
-dhtSendMessage( kc_dht * dht, dhtSession * session )
-{
-    int status;
-    assert( dht != NULL );
-    assert( session != NULL );
-    
-    /* FIXME: Maybe we should lookup an existing session */
-    kc_dhtLock( dht );
-    RbtIterator sessIter = rbtFind( dht->sessions, session );
-    if( sessIter == NULL )
-    {
-        kc_logVerbose( "Session not found in DHT, inserting..." );
-        status = rbtInsert( dht->sessions, session, NULL );
-        if( status != RBT_STATUS_OK )
-        {
-            kc_logAlert( "Failed inserting session for outgoing message, err %d", status );
-            if( status == RBT_STATUS_DUPLICATE_KEY )
-                kc_logVerbose( "err 2 is duplicate key" );
-            kc_dhtUnlock( dht );
-            return -1;
-        }
-    };
-    
-    kc_message * answer = kc_messageInit( session->contact, session->type, 0, NULL );
-
-    status = dht->parameters->callbacks.writeCallback( dht, NULL, answer );
-    if( status )
-    {
-        kc_logAlert( "Failed writing message type %d, err %d", session->type, status );
-        kc_dhtUnlock( dht );
-        return -1;
-    }
-    
-    struct evbuffer * evbuf = evbuffer_new();
-    status = evbuffer_add( evbuf, kc_messageGetPayload( answer ), kc_messageGetSize( answer ) );
-    if( status != 0 )
-    {
-        kc_logAlert( "Failed putting message data in evbuffer for message, err %d", status );
-        kc_dhtUnlock( dht );
-        return -1;
-    }
-    
-    status = bufferevent_write_buffer( session->bufferEvent, evbuf );
-    if( status != 0 )
-    {
-        kc_logAlert( "Failed writing evbuffer to buffer event, err %d", status );
-        kc_dhtUnlock( dht );
-        return -1;
-    }
-    
-    kc_dhtUnlock( dht );
-    
-    if( session->callback == NULL )
-    {
-#if 0
-        kc_message * answer = kc_queueDequeueTimeout( session->queue, SESSION_TIMEOUT );
-        if( answer == NULL )
-        {
-            kc_logAlert( "Timeout" );
-            return 1;
-        }
-        assert( kc_messageGetType( answer ) != type );
-#endif
-        kc_logAlert( "FIXME: Redo sync send" );
-    }
-    return 0;
-}
-
-static int
 asyncCallback( const kc_dht * dht, const kc_message * msg )
 {
     assert( dht != NULL );
@@ -558,19 +479,87 @@ asyncCallback( const kc_dht * dht, const kc_message * msg )
 }
 
 static int
+dhtSendMessage( kc_dht * dht, kc_messageType type, kc_contact * contact )
+{
+    int status;
+    assert( dht != NULL );
+    assert( contact != NULL );
+    
+    dhtSession * session = dhtSessionInit( dht, contact, type, 0, asyncCallback );
+    
+    kc_dhtLock( dht );
+    RbtIterator sessIter = rbtFind( dht->sessions, session );
+    if( sessIter == NULL )
+    {
+        kc_logVerbose( "Session not found in DHT, inserting..." );
+        status = rbtInsert( dht->sessions, session, NULL );
+        if( status != RBT_STATUS_OK )
+        {
+            kc_logAlert( "Failed inserting session for outgoing message, err %d", status );
+            if( status == RBT_STATUS_DUPLICATE_KEY )
+                kc_logVerbose( "err 2 is duplicate key" );
+            kc_dhtUnlock( dht );
+            return -1;
+        }
+        if( dhtSessionStart( session, dht ) != 0 )
+        {
+            kc_logAlert( "Failed starting session" );
+            kc_dhtUnlock( dht );
+            return -1;
+        }
+    }
+    else
+    {
+        kc_logVerbose( "A session was found..." );
+        dhtSessionFree( session );
+        rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
+    }
+    
+    kc_message * answer = kc_messageInit( session->contact, session->type, 0, NULL );
+    
+    kc_logVerbose( "dhtSendMessage: Writing message type: %d", session->type );
+    status = dht->parameters->callbacks.writeCallback( dht, NULL, answer );
+    if( status )
+    {
+        kc_logAlert( "Failed writing message type %d, err %d", session->type, status );
+        kc_dhtUnlock( dht );
+        return -1;
+    }
+    
+    status = dhtSessionSend( session, answer );
+    if( status )
+    {
+        kc_logAlert( "Failed sending message type %d, err %d", session->type, status );
+        kc_dhtUnlock( dht );
+        return -1;
+    }
+    
+    kc_dhtUnlock( dht );
+    
+    if( session->callback == NULL )
+    {
+#if 0
+        kc_message * answer = kc_queueDequeueTimeout( session->queue, SESSION_TIMEOUT );
+        if( answer == NULL )
+        {
+            kc_logAlert( "Timeout" );
+            return 1;
+        }
+        assert( kc_messageGetType( answer ) != type );
+#endif
+        kc_logAlert( "FIXME: Redo sync send" );
+    }
+    return 0;
+}
+
+static int
 dhtPingByIP( kc_dht * dht, kc_contact * contact, kc_hash * hash, int sync )
 {
     kc_dhtNode * node;
     int         status;
     
     kc_logNormal( "PING %s (%s) %s", hashtoa( hash ), kc_contactPrint( contact ), ( sync ? "synchronously" : "asynchronously" ) );
-    kc_dhtLock( dht );
-    dhtIdentity * identity = kc_dhtIdentityForContact( dht, contact );
-    
-    dhtSession * session = dhtSessionInit( dht, identity->us, contact, DHT_RPC_PING, 0, asyncCallback, dht->parameters->sessionTimeout );
-    kc_dhtUnlock( dht );
-    
-    status = dhtSendMessage( dht, session );
+    status = dhtSendMessage( dht, DHT_RPC_PING, contact );    
     if( status != 0 )
     {
         kc_logAlert( "Failed to send message for message type DHT_RPC_PING: %d", status );
@@ -626,7 +615,7 @@ dhtStore( kc_dht * dht, void * key, dhtValue * value )
     assert( key != NULL );
     assert( value != NULL );
     
-    nodes = kc_dhtGetNodes( dht, key, &count);
+    nodes = kc_dhtGetNodes( dht, key, &count );
     if( count == 0 )
     {
         kc_logDebug( "No known nodes to republish to. Ignoring..." );
@@ -635,9 +624,7 @@ dhtStore( kc_dht * dht, void * key, dhtValue * value )
     
     for( node = nodes[0]; node != NULL; node++ )
     {
-        dhtIdentity * identity = kc_dhtIdentityForContact( dht, node->contact );
-        dhtSession * session = dhtSessionInit( dht, identity->us, node->contact, DHT_RPC_STORE, 0, asyncCallback, dht->parameters->sessionTimeout );
-        status = dhtSendMessage( dht, session );
+        status = dhtSendMessage( dht, DHT_RPC_STORE, node->contact );
         if( status != 0 )
         {
             kc_logAlert( "Failed writing DHT_RPC_STORE message" );
@@ -690,23 +677,22 @@ dhtPerformLookup( const kc_dht * dht, kc_hash * hash, int value )
     /* TODO: If searching a value, the search end as soon as the value is found,
      * and the value is stored at the closest node which did not return the value */
     
-    
+    /* Now send those messages ! */
     for( node = nodes[0]; node != NULL; node++ )
     {
-        
-        kc_message * answer = kc_messageInit( node->contact, DHT_RPC_FIND_VALUE, 0, NULL );
+        kc_message * answer = kc_messageInit( node->contact, ( value ? DHT_RPC_FIND_VALUE : DHT_RPC_FIND_NODE ), 0, NULL );
 
         status = dht->parameters->callbacks.writeCallback( dht, NULL, answer );
         if( status != 0 )
         {
-            kc_logAlert( "Failed writing DHT_RPC_STORE message" );
+            kc_logAlert( "Failed writing %s message", ( value ? "DHT_RPC_FIND_VALUE" : "DHT_RPC_FIND_NODE" ) );
             return NULL;
         }
         
         status = kc_queueEnqueue( dht->sndQueue, answer );
         if( status != 0 )
         {
-            kc_logAlert( "Failed enqueing DHT_RPC_STORE message" );
+            kc_logAlert( "Failed enqueing %s message", ( value ? "DHT_RPC_FIND_VALUE" : "DHT_RPC_FIND_NODE" ) );
             return NULL;
         }
     }
@@ -989,7 +975,7 @@ int dhtRemoveNode( const kc_dht * dht, kc_hash * hash )
 }
 
 int
-kc_dhtAddNode( kc_dht * dht, const kc_contact * contact, const kc_hash * hash )
+kc_dhtAddNode( kc_dht * dht, kc_contact * contact, kc_hash * hash )
 {
     assert( dht != NULL );
     

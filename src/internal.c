@@ -194,22 +194,25 @@ void sessionWriteCB( struct bufferevent * event, void * arg )
 void sessionErrorCB( struct bufferevent * event, short what, void * arg )
 {
     dhtSession * session = arg;
-    kc_logError( "Session error for contact %s: %d (%s)", kc_contactPrint( session->contact ), what );
+    char * errStr = calloc( 15, sizeof(char) );
     if( what & EVBUFFER_READ )
-        kc_logError( "Read" );
+        sprintf( errStr, "%s", "Read" );
     if( what & EVBUFFER_WRITE )
-        kc_logError( "Write" );
+        sprintf( errStr, "%s", "Write" );
     if( what & EVBUFFER_EOF )
-        kc_logError( "EOF" );
+        sprintf( errStr, "%s %s", errStr, "EOF" );
     if( what & EVBUFFER_ERROR )
-        kc_logError( "Error" );
+        sprintf( errStr, "%s %s", errStr, "error" );
     if( what & EVBUFFER_TIMEOUT )
-        kc_logError( "Timeout" );
+        sprintf( errStr, "%s %s", errStr, "timeout" );
+    
+    kc_logError( "%s for contact %s", errStr, kc_contactPrint( session->contact ) );
+    free( errStr );
 }
 
 dhtSession *
-dhtSessionInit( const kc_dht * dht, kc_contact * bindContact, kc_contact * connectContact,
-                 kc_messageType type, int incoming, kc_sessionCallback callback, int sessionTimeout )
+dhtSessionInit( const kc_dht * dht, kc_contact * connectContact, kc_messageType type,
+               int incoming, kc_sessionCallback callback )
 {
     dhtSession * self = malloc( sizeof(dhtSession) );
     if( self == NULL )
@@ -222,51 +225,11 @@ dhtSessionInit( const kc_dht * dht, kc_contact * bindContact, kc_contact * conne
     self->type = type;
     self->incoming = incoming;
     self->callback = callback;
+
+    self->socket = -1;
+    self->bufferEvent = NULL;
     
-    int contactType = kc_contactGetType( connectContact );
-    
-    self->socket = kc_netOpen( contactType, SOCK_DGRAM );
-    if( self->socket == -1 )
-    {
-        kc_logError( "Unable to open socket to %s", kc_contactPrint( connectContact ) );
-        free( self );
-        return NULL;
-    }
-    
-    int status;
-    status = kc_netBind( self->socket, bindContact );
-    if( status == -1 )
-    {
-        kc_logError( "Unable to bind socket" );
-        free( self );
-        return NULL;
-    }
-    
-    status = kc_netConnect( self->socket, connectContact );
-    if( status == -1 )
-    {
-        kc_logError( "Unable to connect socket" );
-        free( self );
-        return NULL;
-    }
-    
-    self->bufferEvent = bufferevent_new( self->socket, sessionReadCB, sessionWriteCB, sessionErrorCB, self );
-    if( self->bufferEvent == NULL )
-    {
-        kc_logError( "Failed creating event buffer" );
-        free( self );
-        return NULL;
-    }
-    if( bufferevent_base_set( dht->eventBase, self->bufferEvent ) != 0 )
-    {
-        kc_logError( "Failed setting event buffer base" );
-        free( self );
-        return NULL;
-    }
-    bufferevent_settimeout( self->bufferEvent, dht->parameters->sessionTimeout, dht->parameters->sessionTimeout );
-    bufferevent_enable( self->bufferEvent, EV_READ | EV_WRITE );
-    
-    kc_logVerbose( "Successfully inited session %p to %s (timeout %d)", self, kc_contactPrint( connectContact ), sessionTimeout );
+    kc_logVerbose( "Successfully inited session %p to %s", self, kc_contactPrint( connectContact ) );
     
     return self;
 }
@@ -274,6 +237,99 @@ dhtSessionInit( const kc_dht * dht, kc_contact * bindContact, kc_contact * conne
 void
 dhtSessionFree( dhtSession * session )
 {
-    bufferevent_free( session->bufferEvent );
+    if( session->bufferEvent != NULL )
+        bufferevent_free( session->bufferEvent );
+    if( session->socket != -1 )
+        kc_netClose( session->socket );
+    
     free( session );
+}
+
+int
+dhtSessionStart( dhtSession * session, kc_dht * dht )
+{
+    dhtIdentity * id = kc_dhtIdentityForContact( dht, session->contact );
+    kc_contact * bindContact = id->us;
+    
+    int contactType = kc_contactGetType( session->contact );
+    
+    session->socket = kc_netOpen( contactType, SOCK_DGRAM );
+    if( session->socket == -1 )
+    {
+        kc_logError( "Unable to open socket to %s", kc_contactPrint( session->contact ) );
+        return 1;
+    }
+    
+    int status;
+    status = kc_netBind( session->socket, bindContact );
+    if( status == -1 )
+    {
+        kc_logError( "Unable to bind socket" );
+        return 1;
+    }
+    
+    status = kc_netConnect( session->socket, session->contact );
+    if( status == -1 )
+    {
+        kc_logError( "Unable to connect socket" );
+        return 1;
+    }
+    
+    session->bufferEvent = bufferevent_new( session->socket, sessionReadCB, sessionWriteCB, sessionErrorCB, session );
+    if( session->bufferEvent == NULL )
+    {
+        kc_logError( "Failed creating event buffer" );
+        return 1;
+    }
+    if( bufferevent_base_set( dht->eventBase, session->bufferEvent ) != 0 )
+    {
+        kc_logError( "Failed setting event buffer base" );
+        return 1;
+    }
+    bufferevent_settimeout( session->bufferEvent, dht->parameters->sessionTimeout, dht->parameters->sessionTimeout );
+    
+    if( bufferevent_enable( session->bufferEvent, EV_READ | EV_WRITE ) != 0 )
+    {
+        kc_logError( "Failed enabling event buffer" );
+        return 1;
+    }
+    return 0;
+}
+
+void
+evbufferCB(struct evbuffer * evbuf, size_t oldSize, size_t newSize, void * arg )
+{
+    kc_logVerbose( "evbufferCB: buffer %p modified %d -> %d", evbuf, oldSize, newSize );
+}
+
+int
+dhtSessionSend( dhtSession * session, kc_message * message )
+{
+    assert( session != NULL );
+    assert( message != NULL );
+    
+    int status;
+    
+    kc_logVerbose( "dhtSessionSend: Creating a new evbuffer" );
+    struct evbuffer * evbuf = evbuffer_new();
+    evbuffer_setcb( evbuf, evbufferCB, NULL );
+    
+    kc_logVerbose( "dhtSessionSend: converting kc_message to evbuffer" );
+    status = evbuffer_add( evbuf, kc_messageGetPayload( message ), kc_messageGetSize( message ) );
+    if( status != 0 )
+    {
+        kc_logAlert( "Failed putting message data in evbuffer for message, err %d", status );
+        return -1;
+    }
+    
+    kc_logVerbose( "dhtSessionSend: Writing evbuffer in session bufferEvent" );
+    status = bufferevent_write_buffer( session->bufferEvent, evbuf );
+    if( status != 0 )
+    {
+        kc_logAlert( "Failed writing evbuffer to buffer event, err %d", status );
+        return -1;
+    }
+    evbuffer_free( evbuf );
+    
+    return 0;
 }

@@ -204,13 +204,19 @@ void
 dhtPrintBucket( const dhtBucket * bucket );
 
 dhtSession *
-dhtSessionInit( const kc_dht * dht, kc_contact * bindContact, kc_contact * connectContact, kc_messageType type, int incoming, kc_sessionCallback callback, int sessionTimeout );
+dhtSessionInit( const kc_dht * dht, kc_contact * connectContact, kc_messageType type, int incoming, kc_sessionCallback callback );
 
 void
 dhtSessionFree( dhtSession * session );
 
 int
 dhtSessionCmp( const void *a, const void *b );
+
+int
+dhtSessionStart( dhtSession * session, kc_dht * dht );
+
+int
+dhtSessionSend( dhtSession * session, kc_message * message );
 
 dhtIdentity *
 dhtIdentityInit( kc_dht * dht, kc_contact * contact );

@@ -370,30 +370,36 @@ kc_iniParseCommand( FILE * commandFile, kc_dht * dht )
     assert( commandFile != NULL );
     assert( dht != NULL );
     
+    printf( "(kadc) " );
     
     char command[256];
-    char * test;
-    test = fgets( command, 256, stdin );
+    char *test = trimfgets( command, 256, stdin );
     if( test == NULL )
         return -1;
+    
+    parblock args;
+    int argCount = parseline( command, args );
+    
+    if( strcmp( args[0], "printState" ) == 0 )
+        kc_dhtPrintState( dht );
+    else if( strcmp( args[0], "printTree" ) == 0 )
+        kc_dhtPrintTree( dht );
+    else if( strcmp( args[0], "printKeys" ) == 0 )
+        kc_dhtPrintKeys( dht );
+    else if( strcmp( args[0], "addNode" ) == 0 )
+    {
+        if( argCount != 3 )
+        {
+            kc_logNormal("addNode requires 2 arguments" );
+            kc_logNormal("addNode addr port" );
+            return 0;
+        }
+        kc_contact * contact = kc_contactInitFromChar( args[1], args[2] );
+        kc_dhtCreateNode( dht, contact );
+    }
     else
     {
-        char * ret = strchr( command, '\n' );
-        *ret = '\0';
-        
-        if( strcmp( command, "printState" ) == 0 )
-        {
-            kc_dhtPrintState( dht );
-        }
-        else if( strcmp( command, "addNode" ) == 0 )
-        {
-            
-        }
-        else
-        {
-            printf( "unknown command: %s\n", command );
-            
-        }
+        kc_logNormal( "unknown command: %s", args[0] );
     }
     return 0;
 }

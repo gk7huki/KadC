@@ -85,8 +85,7 @@ kc_dhtAddIdentity( kc_dht * dht, kc_contact * contact );
  * the corresponding node to obtain its hash, before adding it to the DHT.
  *
  * @param dht The kc_dht in which to add the node
- * @param addr The node's IP address, in host byte-order
- * @param port The node's port number, in host byte-order
+ * @param contact The node's contact info.
  */
 void
 kc_dhtCreateNode( kc_dht * dht, kc_contact * contact );
@@ -95,15 +94,15 @@ kc_dhtCreateNode( kc_dht * dht, kc_contact * contact );
  * Adds a node to the DHT.
  *
  * This method is here for protocol-implementors to use when a node is to be added to the DHT.
+ * The contact and hash passed will be retained by the DHT. Do not free them.
  * 
  * @param dht The DHT in which to add this node.
- * @param addr The node's IP address, in host byte-order.
- * @param port The node's port number, in host byte-order.
+ * @param contact The node's contact info.
  * @param hash The node's hash.
  * @return This function returns 0 on success, -1 on failure, and 1 if the node was already known.
  */
 int
-kc_dhtAddNode( kc_dht * dht, const kc_contact * contact, const kc_hash * hash );
+kc_dhtAddNode( kc_dht * dht, kc_contact * contact, kc_hash * hash );
 
 /**
  * Store a key/value pair in the DHT.
