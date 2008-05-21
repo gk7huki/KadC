@@ -29,6 +29,9 @@
 #define min( a, b ) ( a < b ? a : b )
 #endif
 
+#include <event2/event.h>
+#include <event2/bufferevent.h>
+
 #include "logging.h"
 #include "utils.h"
 #include "hash.h"
@@ -38,5 +41,6 @@
 #include "contact.h"
 #include "inifiles.h"
 #include "message.h"
+#include "session.h"
 #include "dht.h"
 #include "net.h"

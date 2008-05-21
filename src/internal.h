@@ -7,8 +7,6 @@
  *
  */
 
-#include <event.h>
-
 /**
  * The callback protoype used when the DHT needs to know a message's type.
  *
@@ -79,27 +77,6 @@ struct _kc_dhtParameters {
 
 int openAndBindSocket( kc_contact * contact );
 
-typedef int (*kc_sessionCallback)( const kc_dht * dht, const kc_message * msg );
-
-#pragma mark struct dhtSession
-typedef struct dhtSession {
-    kc_contact            * contact;
-    
-    kc_messageType          type;
-    int                     incoming;
-    
-    int                     socket;
-    
-    kc_sessionCallback      callback;
-    
-    struct bufferevent    * bufferEvent;
-    
-/*    evbuffercb              readCb;
-    evbuffercb              writeCb;
-    everrorcb               errorCb;*/
-    
-} dhtSession;
-
 #pragma mark struct kc_dhtNode
 struct _kc_dhtNode {
     kc_contact    * contact;
@@ -117,7 +94,6 @@ typedef struct dhtBucket {
     
     time_t              lastChanged;        /* Last time this bucket changed */
     pthread_mutex_t     mutex;
-	
 } dhtBucket;
 
 #pragma mark struct dhtValue
@@ -130,9 +106,11 @@ typedef struct dhtValue {
 
 #pragma mark dhtIdentity
 typedef struct dhtIdentity {
+    kc_dht            * dht;            /* The DHT owning this identity */
     kc_contact        * us;             /* Our contact (like IPv4, IPv6 node) */
     int                 fd;             /* The socket bound to the contact above */  
     struct bufferevent * inputEvent;    /* The bufferevent for the socket above */
+//    pthread_t           thread;         /* The thread listen to incoming data */
 } dhtIdentity;
 
 #pragma mark struct kc_dht
@@ -162,6 +140,12 @@ struct _kc_dht {
 
 dhtIdentity *
 kc_dhtIdentityForContact( const kc_dht * dht,  kc_contact * contact );
+
+int
+kc_dhtAddSession( kc_dht * dht,  kc_session * session );
+
+int
+kc_dhtDeleteSession( kc_dht * dht, kc_session * session );
 
 kc_dhtNode *
 dhtNodeInit( kc_contact * contact, const kc_hash * hash );
@@ -202,21 +186,6 @@ dhtBucketUnlock( dhtBucket *pkb );
 
 void
 dhtPrintBucket( const dhtBucket * bucket );
-
-dhtSession *
-dhtSessionInit( const kc_dht * dht, kc_contact * connectContact, kc_messageType type, int incoming, kc_sessionCallback callback );
-
-void
-dhtSessionFree( dhtSession * session );
-
-int
-dhtSessionCmp( const void *a, const void *b );
-
-int
-dhtSessionStart( dhtSession * session, kc_dht * dht );
-
-int
-dhtSessionSend( dhtSession * session, kc_message * message );
 
 dhtIdentity *
 dhtIdentityInit( kc_dht * dht, kc_contact * contact );

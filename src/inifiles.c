@@ -378,6 +378,7 @@ kc_iniParseCommand( FILE * commandFile, kc_dht * dht )
         return -1;
     
     parblock args;
+    memset( args, 0, sizeof(args) );
     int argCount = parseline( command, args );
     
     if( strcmp( args[0], "printState" ) == 0 )
@@ -396,6 +397,10 @@ kc_iniParseCommand( FILE * commandFile, kc_dht * dht )
         }
         kc_contact * contact = kc_contactInitFromChar( args[1], args[2] );
         kc_dhtCreateNode( dht, contact );
+    }
+    else if( strcmp( args[0], "" ) == 0 )
+    {
+        // Do nothing
     }
     else
     {

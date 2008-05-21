@@ -30,6 +30,9 @@ typedef enum {
 kc_message *
 kc_messageInit( kc_contact * contact, kc_messageType type, size_t length, char* data );
 
+kc_message *
+kc_messageInitFromEvBuffer( kc_contact * contact, kc_messageType type, struct evbuffer * buffer );
+
 void
 kc_messageFree( kc_message * message );
 
@@ -39,11 +42,11 @@ kc_messageGetContact( const kc_message * message );
 kc_messageType
 kc_messageGetType( const kc_message * message );
 
-const char *
-kc_messageGetPayload( const kc_message * message );
+char *
+kc_messageGetData( kc_message * message );
 
 size_t
-kc_messageGetSize( const kc_message * message );
+kc_messageGetSize( kc_message * message );
 
 void
 kc_messageSetContact( kc_message * message, kc_contact * contact );
@@ -51,10 +54,10 @@ kc_messageSetContact( kc_message * message, kc_contact * contact );
 void
 kc_messageSetType( kc_message * message, kc_messageType type );
 
-void
-kc_messageSetPayload( kc_message * message, char * payload );
+int
+kc_messageSetData( kc_message * message, void * data, size_t size );
 
-void
-kc_messageSetSize( kc_message * message, size_t size );
+int
+kc_messageWriteToBufferEvent( kc_message * message, struct bufferevent * bufevent );
 
 #endif

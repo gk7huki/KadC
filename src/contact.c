@@ -9,6 +9,7 @@
 
 #include "contact.h"
 
+/* Maybe I could use sockaddrs directly ? */
 struct _kc_contact
 {
     void      * addr;
@@ -46,6 +47,35 @@ kc_contactInit( void * addr, size_t len, in_port_t port )
     self->port = port;
     
     return self;
+}
+
+kc_contact *
+kc_contactInitFromSockAddr( struct sockaddr * addr, size_t addrLen )
+{
+    kc_contact * contact;
+    switch( addrLen ) {
+        case sizeof(struct sockaddr_in): {
+            struct sockaddr_in * sock_in;
+            struct in_addr addr4;
+            sock_in = (struct sockaddr_in*)addr;
+            addr4 = sock_in->sin_addr;
+            contact = kc_contactInit( &addr4, sizeof(addr4), ntohs( sock_in->sin_port ) );
+        }
+            break;
+            
+        case sizeof(struct sockaddr_in6): {
+            struct sockaddr_in6 * sock_in6;
+            struct in6_addr addr6;
+            sock_in6 = (struct sockaddr_in6*)addr;
+            addr6 = sock_in6->sin6_addr;
+            contact = kc_contactInit( &addr6, sizeof(addr6), ntohs( sock_in6->sin6_port ) );
+        }
+            break;
+            
+        default:
+            break;
+    }
+    return contact;
 }
 
 kc_contact *
@@ -160,6 +190,15 @@ kc_contactGetType( const kc_contact * contact )
 {
     assert( contact != NULL );
     return contact->type;
+}
+
+int
+kc_contactGetDomain( const kc_contact * contact )
+{
+    assert( contact != NULL );
+#warning TODO: In case someone wants to watch a DHT running over TCP...
+    return SOCK_DGRAM;
+    
 }
 
 void

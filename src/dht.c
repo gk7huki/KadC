@@ -47,7 +47,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 #define BUCKET_COUNT            128     /* Our bucket count */
 
-#include <event.h>
 #include "internal.h"
 
 #pragma mark Events
@@ -55,21 +54,6 @@ of the following e-mail addresses (replace "(at)" with "@"):
 void dhtReplicate( int fd, short event_type, void * arg )
 {
     kc_logVerbose( "Replicate time!" );
-}
-
-void readcb( struct bufferevent * event, void * arg )
-{
-    kc_logDebug( "Got read event" );
-}
-
-void writecb( struct bufferevent * event, void * arg )
-{
-    kc_logDebug( "Got write event" );
-}
-
-void errorcb( struct bufferevent * event, short what, void * arg )
-{
-    kc_logAlert( "Got libevent error: %d", what );
 }
 
 static void
@@ -151,8 +135,10 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
         return NULL;
     }
     
+#warning FIXME: Can't get UDP working with kqueues
+    setenv( "EVENT_NOKQUEUE", "1", 1 );
     kc_logVerbose( "kc_dhtInit: event base init" );
-    dht->eventBase = event_init();
+    dht->eventBase = event_base_new();
     if( dht->eventBase == NULL )
     {
         kc_logError( "kc_dhtInit: libevent initialization failed" );
@@ -190,7 +176,7 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
     }
     
     kc_logVerbose( "kc_dhtInit: sessions init" );
-    dht->sessions = rbtNew( dhtSessionCmp );
+    dht->sessions = rbtNew( kc_sessionCmp );
     if( dht->sessions == NULL )
     {
         kc_logAlert( "kc_dhtInit: failed creating Sessions RBT" );
@@ -213,17 +199,15 @@ kc_dhtInit( kc_hash * hash, kc_dhtParameters * parameters )
     }
     
     kc_logVerbose( "kc_dhtInit: replication timer init" );
-    dht->replicationTimer = malloc( sizeof(struct event) );
+    struct timeval tv;
+    tv.tv_sec = dht->parameters->replicationDelay;
+    tv.tv_usec = 0;
+    dht->replicationTimer = evperiodic_assign( NULL, dht->eventBase, &tv, dhtReplicate, dht );
     if( dht->replicationTimer == NULL ) {
         kc_logAlert( "kc_dhtInit: failed creating Replication Timer" );
         kc_dhtFree( dht );
         return NULL;
     }
-    struct timeval tv;
-    tv.tv_sec = dht->parameters->replicationDelay;
-    tv.tv_usec = 0;
-    event_set( dht->replicationTimer, -1, EV_TIMEOUT | EV_PERSIST, dhtReplicate, dht );
-    event_base_set( dht->eventBase, dht->replicationTimer );
     if( evtimer_add( dht->replicationTimer, &tv ) != 0)
     {
         kc_logAlert( "kc_dhtInit: failed adding replication timer" );
@@ -415,17 +399,83 @@ kc_dhtIdentityForContact( const kc_dht * dht,  kc_contact * contact )
     return NULL;
 }
 
-static dhtSession *
+kc_session *
+kc_dhtCreateAndAddIncomingSession( kc_dht * dht, kc_contact * connectContact, kc_messageType msgType, kc_sessionCallback callback )
+{
+    kc_session * session = kc_sessionInit( dht, connectContact, msgType, 1, callback );
+    if( kc_dhtAddSession( dht, session ) != 0 )
+    {
+        kc_sessionFree( session );
+        return NULL;
+    }
+    if( kc_sessionStart( session ) != 0 )
+    {
+        kc_dhtDeleteSession( dht, session );
+        kc_sessionFree( session );
+        return NULL;
+    }
+    return session;
+}
+
+kc_session *
+kc_dhtCreateAndAddOutgoingSession( kc_dht * dht, kc_contact * connectContact, kc_messageType msgType, kc_sessionCallback callback )
+{
+    kc_session * session = kc_sessionInit( dht, connectContact, msgType, 0, callback );
+    if( kc_dhtAddSession( dht, session ) != 0 )
+    {
+        kc_sessionFree( session );
+        return NULL;
+    }
+    if( kc_sessionStart( session ) != 0 )
+    {
+        kc_dhtDeleteSession( dht, session );
+        kc_sessionFree( session );
+        return NULL;
+    }
+    return session;
+}
+
+int
+kc_dhtAddSession( kc_dht * dht, kc_session * session )
+{
+    assert( dht != NULL );
+    assert( session != NULL );
+    int status;
+    status = rbtInsert( dht->sessions, session, NULL );
+    if( status != RBT_STATUS_OK )
+    {
+        kc_logError( "kc_dhtAddSession: Failed inserting session in DHT" );
+        return -1;
+    }
+    return 0;
+}
+
+int
+kc_dhtDeleteSession( kc_dht * dht, kc_session * session )
+{
+    
+    RbtIterator sessIter;
+    sessIter = rbtFind( dht->sessions, session );
+    if( sessIter == NULL )
+    {
+        kc_logError( "kc_dhtDeleteSession: session not found" );
+        return -1;
+    }
+    rbtErase( dht->sessions, sessIter );
+    return 0;
+}
+
+static kc_session *
 dhtSessionForMsg( const kc_dht * dht, kc_message * msg )
 {
     RbtIterator sessIter;
     for( sessIter = rbtBegin( dht->sessions ); sessIter != NULL; sessIter = rbtNext( dht->sessions, sessIter ) )
     {
-        dhtSession * session;
+        kc_session * session;
         kc_dhtNode * node;
         rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
         
-        if( kc_contactCmp( node->contact, kc_messageGetContact( msg ) ) && session->type == kc_messageGetType( msg ) )
+        if( kc_contactCmp( node->contact, kc_messageGetContact( msg ) ) && kc_sessionGetType( session ) == kc_messageGetType( msg ) )
         {
             return session;
         }
@@ -485,60 +535,32 @@ dhtSendMessage( kc_dht * dht, kc_messageType type, kc_contact * contact )
     assert( dht != NULL );
     assert( contact != NULL );
     
-    dhtSession * session = dhtSessionInit( dht, contact, type, 0, asyncCallback );
+    kc_session * session = kc_dhtCreateAndAddOutgoingSession( dht, contact, type, asyncCallback );
     
-    kc_dhtLock( dht );
-    RbtIterator sessIter = rbtFind( dht->sessions, session );
-    if( sessIter == NULL )
-    {
-        kc_logVerbose( "Session not found in DHT, inserting..." );
-        status = rbtInsert( dht->sessions, session, NULL );
-        if( status != RBT_STATUS_OK )
-        {
-            kc_logAlert( "Failed inserting session for outgoing message, err %d", status );
-            if( status == RBT_STATUS_DUPLICATE_KEY )
-                kc_logVerbose( "err 2 is duplicate key" );
-            kc_dhtUnlock( dht );
-            return -1;
-        }
-        if( dhtSessionStart( session, dht ) != 0 )
-        {
-            kc_logAlert( "Failed starting session" );
-            kc_dhtUnlock( dht );
-            return -1;
-        }
-    }
-    else
-    {
-        kc_logVerbose( "A session was found..." );
-        dhtSessionFree( session );
-        rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
-    }
+    kc_message * answer = kc_messageInit( kc_sessionGetContact( session ), kc_sessionGetType( session ), 0, NULL );
     
-    kc_message * answer = kc_messageInit( session->contact, session->type, 0, NULL );
-    
-    kc_logVerbose( "dhtSendMessage: Writing message type: %d", session->type );
+    kc_logVerbose( "dhtSendMessage: Writing message type: %d", kc_sessionGetType( session ) );
     status = dht->parameters->callbacks.writeCallback( dht, NULL, answer );
     if( status )
     {
-        kc_logAlert( "Failed writing message type %d, err %d", session->type, status );
+        kc_logAlert( "Failed writing message type %d, err %d", kc_sessionGetType( session ), status );
         kc_dhtUnlock( dht );
         return -1;
     }
     
-    status = dhtSessionSend( session, answer );
+    status = kc_sessionSend( session, answer );
     if( status )
     {
-        kc_logAlert( "Failed sending message type %d, err %d", session->type, status );
+        kc_logAlert( "Failed sending message type %d, err %d", kc_sessionGetType( session ), status );
         kc_dhtUnlock( dht );
         return -1;
     }
     
     kc_dhtUnlock( dht );
-    
+#if 0 
     if( session->callback == NULL )
     {
-#if 0
+
         kc_message * answer = kc_queueDequeueTimeout( session->queue, SESSION_TIMEOUT );
         if( answer == NULL )
         {
@@ -546,16 +568,15 @@ dhtSendMessage( kc_dht * dht, kc_messageType type, kc_contact * contact )
             return 1;
         }
         assert( kc_messageGetType( answer ) != type );
-#endif
-        kc_logAlert( "FIXME: Redo sync send" );
     }
+    kc_logAlert( "FIXME: Redo sync send" );
+#endif
     return 0;
 }
 
 static int
 dhtPingByIP( kc_dht * dht, kc_contact * contact, kc_hash * hash, int sync )
 {
-    kc_dhtNode * node;
     int         status;
     
     kc_logNormal( "PING %s (%s) %s", hashtoa( hash ), kc_contactPrint( contact ), ( sync ? "synchronously" : "asynchronously" ) );
@@ -563,7 +584,6 @@ dhtPingByIP( kc_dht * dht, kc_contact * contact, kc_hash * hash, int sync )
     if( status != 0 )
     {
         kc_logAlert( "Failed to send message for message type DHT_RPC_PING: %d", status );
-        free( node );
         return -1;
     }
     
@@ -714,7 +734,7 @@ dhtFindValue( const kc_dht * dht, kc_hash * key )
 }
 #if 0
 static void
-ioCallback( void * ref, kc_udpIo * io, kc_message *msg )
+ioCallback( void * ref, kc_message *msg )
 {
     kc_dht    * dht = ref;
     int status;
@@ -733,12 +753,7 @@ ioCallback( void * ref, kc_udpIo * io, kc_message *msg )
     dhtSession * session = dhtSessionForMsg( dht, msg );
     if( session != NULL )
     {
-        status = kc_queueEnqueue( session->queue, msg );
-        if ( status != 0 )
-        {
-            kc_logAlert( "Couldn't enqueue incoming message, err %d", status );
-        }
-        return;
+        
     }
     else
     {
@@ -767,6 +782,7 @@ ioCallback( void * ref, kc_udpIo * io, kc_message *msg )
     return;
 }
 #endif
+
 #if 0
 void *
 dhtPulse( void * arg )
@@ -1132,10 +1148,10 @@ kc_dhtPrintState( const kc_dht * dht )
 
         for( sessIter = rbtBegin( dht->sessions ); sessIter != NULL; sessIter = rbtNext( dht->sessions, sessIter ) )
         {
-            dhtSession * session;
+            kc_session * session;
             rbtKeyValue( dht->sessions, sessIter, (void*)&session, NULL );
             if( session != NULL )
-                kc_logNormal( "%s session to %s", ( session->incoming ? "Incoming" : "Outgoing" ), kc_contactPrint( session->contact ) );
+                kc_logNormal( "%s", kc_sessionPrint( session ) );
         }
     }
 }
@@ -1272,6 +1288,187 @@ kc_dhtGetOurHash( const kc_dht * dht )
     return dht->hash;
 }
 
+#if 0
+void *
+dhtIdentityThread( void * arg )
+{
+    dhtIdentity * identity = arg;
+    kc_logVerbose( "dhtIdentityThread: started for identity %s", kc_contactPrint( identity->us ) );
+    while( identity->fd != 0 )
+    {
+		/* the following select() works around a problem with OpenBSD
+         and possibly other BSD systems as well: close(fd) in one
+         thread hangs if another thread is waiting for input. So,
+         we make this thread wait in select(), BEFORE the recvfrom(). */
+		int             status;
+		struct timeval  timeout;
+        
+		fd_set rset;
+        
+        if( identity->fd == -1 )
+            return 0;
+        
+        FD_ZERO( &rset );
+        FD_SET( identity->fd, &rset );
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 500000;	/* 500 ms timeout */
+        
+        status = select( identity->fd + 1, &rset, NULL, NULL, &timeout );
+        if( status <= 0 )
+        {
+            if ( status != 0 ) {
+				kc_logAlert( "dhtIdentityThread: select() failed with status %d", status );
+            }
+            // There was an error, or we timeout, try reading again...
+            continue;
+        }
+        
+#ifdef __WIN32__
+#else
+        if( errno == EINTR )
+            continue;
+#endif
+        char * buf;
+#define BUFSIZE 256
+		buf = calloc( BUFSIZE, sizeof(char) );
+		if( buf == NULL )
+        {
+			kc_logError( "dhtIdentityThread: Failed to allocate memory for buffer" );
+			continue;
+		}
+        else
+        {
+            //            int             bl_seconds;
+            struct sockaddr remoteAddr;
+            int             nrecv;
+            socklen_t       addrLen = sizeof(remoteAddr);
+            /* NOTE: if a datagram longer than t->size arrives,
+             the buffer is only filled in with the first t->size
+             characters; however:
+             - With Cygwin, the whole datagram size is returned
+             in nrecv, WITHOUT TRUNCATION
+             - With -mno-cygwin, nrecv returns -1
+             */
+            nrecv = recvfrom( identity->fd, buf, BUFSIZE - 1, 0, &remoteAddr, &addrLen);
+            
+            if( nrecv > BUFSIZE - 1 )
+                nrecv = -1;	/* in UNIX as in WIN32 ignore oversize datagrams */
+            
+            /* ...catch oversize datagrams */
+            if( nrecv <= 0 )
+            {
+                free( buf );
+                continue;
+            }
+            
+            kc_contact * contact = kc_contactInitFromSockAddr( &remoteAddr, addrLen );
+            if( contact == NULL )
+            {
+                kc_logError( "dhtIdentityThread: Failed creating contact, incoming message lost." );
+                continue;
+            }
+            kc_logVerbose( "dhtIdentityThread: incoming message from %s", kc_contactPrint( contact ) );
+#if 0
+            if ( ( bl_seconds = node_is_blacklisted( pul, remoteip, remoteport ) ) != 0 ) {
+                kc_logDebug( "udp_recv_thread: Discarded datagram from blacklisted node %s:%u (%d seconds left)\n",
+                            addr_ntoa( ad ), remoteport, bl_seconds );
+                free( buf );
+                continue;
+            }
+#endif
+            
+            struct evbuffer * buffer = evbuffer_new();
+            evbuffer_add( buffer, buf, nrecv);
+            kc_message * msg = kc_messageInitFromEvBuffer( contact, DHT_RPC_UNKNOWN, buffer );
+            if ( msg == NULL )
+            {
+                kc_contactFree( contact );
+                free( buf );
+                continue;
+            }
+            
+            /* Allow the protocol to take a look at what we have here... */
+            status = identity->dht->parameters->callbacks.parseCallback( identity->dht, msg );
+            if( status == DHT_RPC_UNKNOWN )
+            {
+                kc_logError( "Protocol reports an unknown message type, ignoring message..." );
+                kc_messageFree( msg );
+                kc_contactFree( contact );
+                free( buf );
+                continue;
+            }
+            
+            /* enqueue the message for udp_proc_thread */
+            kc_session * session = dhtSessionForMsg( identity->dht, msg );
+            if( session == NULL ) {
+                kc_logDebug( "dhtIdentityThread: No existing session for message, creating..." );
+                session = kc_dhtCreateAndAddIncomingSession( identity->dht, contact, DHT_RPC_UNKNOWN, asyncCallback );
+                if( session == NULL )
+                {
+                    kc_logError( "Failed starting new incoming session" );
+                    kc_messageFree( msg );
+                    kc_contactFree( contact );
+                    free( buf );
+                    continue;
+                }
+                
+            }
+            
+            status = kc_sessionRecieved( session, msg );
+            if( status != 0 )
+            {
+                kc_logVerbose( "dhtIdentityThread: failed adding message buffer to session (err:%d), input datagram lost!", status);
+                kc_messageFree( msg );
+                kc_contactFree( contact );
+                free( buf );
+                continue;
+            }
+        }
+        // We've finished recieving another packet, free the buffer we've used...
+		free( buf );
+        
+    }
+    kc_logVerbose( "dhtIdentityThread: stopped for identity %s", kc_contactPrint( identity->us ) );
+    return 0;
+}
+#endif
+
+
+static void
+identityReadCB( struct bufferevent * event, void * arg )
+{
+    dhtIdentity * identity = arg;
+    kc_logNormal( "Identity read for contact: %s", kc_contactPrint( identity->us ) );
+    /* Means we have recieved data from this contact */
+}
+
+/* Unused ? */
+static void
+identityWriteCB( struct bufferevent * event, void * arg )
+{
+    dhtIdentity * identity = arg;
+    kc_logNormal( "Identity write for contact: %s", kc_contactPrint( identity->us ) );
+}
+
+static void
+identityErrorCB( struct bufferevent * event, short what, void * arg )
+{
+    dhtIdentity * identity = arg;
+    char * errStr = calloc( 15, sizeof(char) );
+    if( what & EVBUFFER_READ )
+        sprintf( errStr, "%s", "Read" );
+    if( what & EVBUFFER_WRITE )
+        sprintf( errStr, "%s", "Write" );
+    if( what & EVBUFFER_EOF )
+        sprintf( errStr, "%s %s", errStr, "EOF" );
+    if( what & EVBUFFER_ERROR )
+        sprintf( errStr, "%s %s", errStr, "error" );
+    if( what & EVBUFFER_TIMEOUT )
+        sprintf( errStr, "%s %s", errStr, "timeout" );
+    
+    kc_logError( "%s for identity %s", errStr, kc_contactPrint( identity->us ) );
+    free( errStr );
+}
 
 dhtIdentity *
 dhtIdentityInit( kc_dht * dht, kc_contact * contact )
@@ -1281,10 +1478,18 @@ dhtIdentityInit( kc_dht * dht, kc_contact * contact )
     
     int status = 0;
     int type = kc_contactGetType( contact );
+    int domain = kc_contactGetDomain( contact );
     
     dhtIdentity * identity = malloc( sizeof(dhtIdentity) );
+    if( identity == NULL )
+    {
+        kc_logError( "Failed dhtIdentity malloc()" );
+        return NULL;
+    }
     
-    identity->fd = kc_netOpen( type, SOCK_DGRAM );
+    identity->dht = dht;
+    
+    identity->fd = kc_netOpen( type, domain );
     if( identity->fd == -1 )
     {
         kc_logAlert( "Error opening socket" );
@@ -1301,7 +1506,26 @@ dhtIdentityInit( kc_dht * dht, kc_contact * contact )
         return NULL;
     }
     
-    identity->inputEvent = bufferevent_new( identity->fd, readcb, NULL, errorcb, dht );
+    identity->us = kc_contactDup( contact );
+    if( identity->us == NULL )
+    {
+        kc_logAlert( "Failed creating contact for identity %s", kc_contactPrint( contact ) );
+        kc_netClose( identity->fd );
+        
+        free( identity );
+        return NULL;
+    }
+    
+/*    pthread_create( &identity->thread, NULL, dhtIdentityThread, identity );
+    if( identity->thread == NULL )
+    {
+        kc_logError( "Failed creating identity thread" );
+        kc_netClose( identity->fd );
+        free( identity );
+        return NULL;
+    }*/
+
+    identity->inputEvent = bufferevent_new( identity->fd, identityReadCB, identityWriteCB, identityErrorCB, identity );
     if( identity->inputEvent == NULL )
     {
         kc_logAlert( "Error creating buffer event for identity %s", kc_contactPrint( contact ) );
@@ -1320,10 +1544,10 @@ dhtIdentityInit( kc_dht * dht, kc_contact * contact )
         return NULL;
     }
     
-    identity->us = kc_contactDup( contact );
-    if( identity->us == NULL )
+    status = bufferevent_enable( identity->inputEvent, EV_READ );
+    if( status != 0 )
     {
-        kc_logAlert( "Failed creating contact for identity %s", kc_contactPrint( contact ) );
+        kc_logAlert( "Error enabling reading on event buffer for identity %s", kc_contactPrint( contact ) );
         kc_netClose( identity->fd );
         bufferevent_free( identity->inputEvent );
         free( identity );
@@ -1338,8 +1562,15 @@ dhtIdentityFree( dhtIdentity * identity )
 {
     assert( identity != NULL );
     
-    kc_contactFree( identity->us );
+/*    int tempFd = identity->fd;
+    identity->fd = -1;
+    
+    pthread_join( identity->thread, NULL );*/
     bufferevent_free( identity->inputEvent );
-    kc_netClose( identity->fd );
+    
+    kc_netClose( identity->fd /*tempFd*/ );
+    
+    kc_contactFree( identity->us );
+
     free( identity );
 }

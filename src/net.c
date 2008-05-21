@@ -96,7 +96,7 @@ kc_netOpen( int type, int domain )
         return -1;
     }
     
-    kc_logVerbose( "Setting socket options..." );
+    kc_logVerbose( "Setting socket %d options...", fd );
     
     if( setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on) ) < 0)
     {
@@ -116,7 +116,7 @@ kc_netOpen( int type, int domain )
 int
 kc_netBind( int fd, kc_contact * contact )
 {
-    kc_logVerbose( "Binding socket to %s", kc_contactPrint( contact ) );
+    kc_logVerbose( "Binding socket %d to %s", fd, kc_contactPrint( contact ) );
     
     struct sockaddr * local = contactToSockAddr( contact );
     
@@ -134,7 +134,7 @@ kc_netBind( int fd, kc_contact * contact )
 int
 kc_netConnect( int fd, kc_contact * contact )
 {
-    kc_logVerbose( "Connecting socket to %s", kc_contactPrint( contact ) );
+    kc_logVerbose( "Connecting socket %d to %s", fd, kc_contactPrint( contact ) );
     
     struct sockaddr * local = contactToSockAddr( contact );
     
@@ -146,6 +146,12 @@ kc_netConnect( int fd, kc_contact * contact )
     }
     free( local );
     return fd;
+}
+
+int
+kc_netSetNonBlockingSocket( int socket )
+{
+    return evutil_make_socket_nonblocking( socket );
 }
 
 void
@@ -389,7 +395,6 @@ udp_recv_thread( void *arg )
 	kc_udpIo          * pul = arg;
 
 	kc_logVerbose( "udp_recv_thread: pul->fd = %d, pul->bufsize = %d\n", pul->fd, pul->bufsize );
-
 
 	while( 1 )
     {

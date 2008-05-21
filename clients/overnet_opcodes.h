@@ -67,10 +67,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 /***************************************************************************/
 
 /* Overnet  - using symbolic names derived from Ethereal's plugin */
-enum ov_proto {
-    OP_EDONKEYHEADER =          0xE3
-};
-typedef char ov_proto;
+#define OP_EDONKEYHEADER (char)0xE3
 
 /* In Overnet PEER is 23 byte long, as TCPport is missing
  * packed because I need it 23-bytes long */
@@ -131,6 +128,7 @@ enum ov_messageType {
     OVERNET_PEER_NOTFOUND =             0x21  /* > <HASH> <IP> <PORT> <FLAG> mldonkey removes the peer when it receives it*/  /* OvernetPeerNotFound in mldonkey */
 };
 typedef char ov_messageType;
+typedef char ov_proto;
 
 #define OV_EDONKEY_HEADER ov_proto protoType; ov_messageType messageType
 struct ov_header

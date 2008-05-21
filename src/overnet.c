@@ -11,43 +11,41 @@
 #include "overnet.h"
 #include "overnet_opcodes.h"
 
-char *
-ov_writePing( const kc_dht * dht, size_t * size )
+int
+ov_writePing( const kc_dht * dht, kc_message * message )
 {
     kc_contact * contact = kc_dhtGetOurContact( dht, AF_INET );
     kc_hash * ourHash = kc_dhtGetOurHash( dht );
     if( kc_hashLength( ourHash ) != 128 )
     {
         /* We doesn't work with non-128 hashes */
-        *size = 0;
-        return NULL;
+        return -1;
     }
     
     const struct in_addr * addr = kc_contactGetAddr( contact );
     
-    *size = sizeof(struct ov_connect);
-    struct ov_connect * msg = malloc( *size );
+    struct ov_connect * msg = malloc( sizeof(struct ov_connect) );
     msg->protoType = OP_EDONKEYHEADER;
     msg->messageType = OVERNET_CONNECT;
-    
     
     puthashn( msg->node.hash, ourHash );
     /* FIXME: External IP needed here */
     memcpy( msg->node.ip, addr, sizeof(struct in_addr) );
     msg->node.port = kc_contactGetPort( contact );
     msg->node.unused = 0;
-
     
-    return (void*)msg;
+    int status;
+    status = kc_messageSetData( message, msg, sizeof(msg) );
+    
+    free( msg );
+    return status;
 }
 
-char *
-ov_writePingReply( const kc_dht * dht, size_t * size )
+int
+ov_writePingReply( const kc_dht * dht, kc_message * message )
 {
 //    *size = 4; /* Proto type (1) + opcode (1) */
-    
-    *size = sizeof(struct ov_connect_reply);
-    struct ov_connect_reply * msg = malloc( *size );
+    struct ov_connect_reply * msg = malloc( sizeof(struct ov_connect_reply) );
     
     msg->protoType = OP_EDONKEYHEADER;
     msg->messageType = OVERNET_CONNECT_REPLY;
@@ -83,8 +81,11 @@ ov_writePingReply( const kc_dht * dht, size_t * size )
     }
     
     msg->nodeCount = i;
-    *size = sizeof(struct ov_connect_reply) + 8 * sizeof(struct ov_node);
-    return (void*)msg;
+    int status;
+    size_t size = sizeof(struct ov_connect_reply) + 8 * sizeof(struct ov_node);
+    status = kc_messageSetData( message, msg, size );
+    free( msg );
+    return status;
 }
 
 char *
@@ -94,10 +95,62 @@ ov_writePublicize( const kc_dht * dht, size_t * size )
 }
 
 int
-ov_parseCallback( const kc_dht * dht, const kc_message * msg )
+ov_parseCallback( const kc_dht * dht, kc_message * msg )
 {
-    /* TODO: */
-    return -1;
+    /* We will only read required parts for routing here,
+     * contact info, message type and hash (if available).
+     * The remaining data should be left in the buffer and
+     * processed by the read callback.
+     */
+    struct ov_header * header = (struct ov_header*)kc_messageGetData( msg );
+
+    if( header->protoType != OP_EDONKEYHEADER )
+    {
+        kc_logAlert( "parseCallback: unknown protocol type %X", header->protoType );
+        return 1;
+    }
+    
+    switch( header->messageType )
+    {
+        case OVERNET_CONNECT:
+            kc_logDebug( "parseCallback: got a OVERNET_CONNECT" );
+            
+            kc_messageSetType( msg, DHT_RPC_PING );
+            return DHT_RPC_PING;
+            break;
+            
+        case OVERNET_CONNECT_REPLY:
+            kc_logDebug( "parseCallback: got a OVERNET_CONNECT_REPLY" );
+            
+            kc_messageSetType( msg, DHT_RPC_PING );
+            return DHT_RPC_PING;
+            
+            break;
+/*            case OVERNET_PUBLICIZE:
+            kc_logDebug( "parseCallback: got a OVERNET_PUBLICIZE" );
+            
+            return 0;
+            break;
+            
+            case OVERNET_PUBLICIZE_ACK:
+            kc_logDebug( "parseCallback: got a OVERNET_PUBLICIZE_ACK" );
+            break;
+            
+            case OVERNET_SEARCH:
+            kc_logDebug( "parseCallback: got a OVERNET_SEARCH" );
+            break;
+            
+            case OVERNET_PUBLISH:
+            kc_logDebug( "parseCallback: got a OVERNET_PUBLISH" );
+            break;
+            */
+            default:
+            break;
+    }            
+    kc_logAlert( "parseCallback: unknown message type %d", header->messageType );
+    
+    kc_messageSetType( msg, DHT_RPC_UNKNOWN );
+    return DHT_RPC_UNKNOWN;
 }
 
 int
@@ -105,86 +158,91 @@ ov_readCallback( kc_dht * dht, const kc_message * msg )
 {
     const kc_contact * contact = kc_messageGetContact( msg );
     kc_logDebug( "readCallback: got a message from %s", kc_contactPrint( contact ) );
-    kc_logDebug( "readCallback: message len %d", kc_messageGetSize( msg ) );
-    const char* bp = kc_messageGetPayload( msg );
-    
-    if( *bp++ != (char)OP_EDONKEYHEADER )
+#if 0    
+    switch( messageType )
     {
-        kc_logAlert( "readCallback: unknown protocol type %X", *--bp );
-        return 1;
-    }
-    
-    switch( *bp++ )
-    {
-        case (char)OVERNET_CONNECT:
-            kc_logDebug( "readCallback: got a OVERNET_CONNECT" );
+        case OVERNET_CONNECT:
+            kc_logDebug( "parseCallback: got a OVERNET_CONNECT" );
             
-/*            *answer = malloc( sizeof(kc_dhtMsg) );
-            (*answer)->node = msg->node;
-            (*answer)->type = DHT_RPC_PING;*/
+            /*            *answer = malloc( sizeof(kc_dhtMsg) );
+             (*answer)->node = msg->node;
+             (*answer)->type = DHT_RPC_PING;*/
             
             return 0;
             break;
             
-        case (char)OVERNET_CONNECT_REPLY:
-            kc_logDebug( "readCallback: got a OVERNET_CONNECT_REPLY" );
+        case OVERNET_CONNECT_REPLY:
+            kc_logDebug( "parseCallback: got a OVERNET_CONNECT_REPLY" );
             
-            int nodeCount;
-            nodeCount = getushortle( &bp );
-            
-            if( kc_messageGetSize( msg ) != 4 + nodeCount * 23 )
+            int nodeCount = 0;
+            evbuffer_remove( buffer, &nodeCount, sizeof(int) ); //getushortle( &bp );
+            // FIXME: API to get an evbuffer current size ?
+            if( buffer->off != 4 + nodeCount * 23 )
             {
-                kc_logAlert( "readCallback: OVERNET_CONNECT_REPLY with bad size" );
+                kc_logAlert( "parseCallback: OVERNET_CONNECT_REPLY with bad size" );
                 return -1;
             }
             
             int i;
             for( i = 0; i < nodeCount; i++ )
             {
-                kc_hash    * hash = kc_hashRandom( 0 /* FIXME: */ );
                 int type;
                 struct in_addr addr;
                 in_port_t port;
                 
-                gethashn( hash, &bp );
+                int byteCount = dht->parameters->hashSize / 8;
+                if( byteCount % 8 != 0 )
+                    byteCount++;
                 
-                addr = getipn( &bp );
-                port = getushortle( &bp );
-                type = *bp++;
+                const char * hashPtr = calloc( byteCount, sizeof(char) );
+                evbuffer_remove( buffer, (char*)hashPtr, byteCount );
+                
+                kc_hash    * hash = kc_hashInit( dht->parameters->hashSize );
+                
+                gethashn( hash, &hashPtr );
+                evbuffer_remove( buffer, &addr, sizeof(struct in_addr) );
+                //                addr = getipn( &bp );
+                //                port = getushortle( &bp );
+                evbuffer_remove( buffer, &port, sizeof(short int) );
+                evbuffer_remove( buffer, &type, sizeof(int) );
+                //                type = *bp++;
+                
                 kc_contact * newContact = kc_contactInit( &addr, sizeof(struct in_addr), port );
                 type = kc_dhtAddNode( dht, newContact, hash );
                 if( type == 0 )
                     kc_dhtCreateNode( dht, newContact );
+                
             }
             return 0;
             
             break;
-            case (char)OVERNET_PUBLICIZE:
-            kc_logDebug( "readCallback: got a OVERNET_PUBLICIZE" );
+            case OVERNET_PUBLICIZE:
+            kc_logDebug( "parseCallback: got a OVERNET_PUBLICIZE" );
             
-/*            *answer = malloc( sizeof(kc_dhtMsg) );
-            (*answer)->node = msg->node;
-            (*answer)->type = DHT_RPC_PROTOCOL_SPECIFIC;
-            (*answer)->payload = ov_writePublicize( dht, &(*answer)->payloadSize );*/
+            /*            *answer = malloc( sizeof(kc_dhtMsg) );
+             (*answer)->node = msg->node;
+             (*answer)->type = DHT_RPC_PROTOCOL_SPECIFIC;
+             (*answer)->payload = ov_writePublicize( dht, &(*answer)->payloadSize );*/
             return 0;
             break;
             
-            case (char)OVERNET_PUBLICIZE_ACK:
-            kc_logDebug( "readCallback: got a OVERNET_PUBLICIZE_ACK" );
+            case OVERNET_PUBLICIZE_ACK:
+            kc_logDebug( "parseCallback: got a OVERNET_PUBLICIZE_ACK" );
             break;
             
-            case (char)OVERNET_SEARCH:
-            kc_logDebug( "readCallback: got a OVERNET_SEARCH" );
+            case OVERNET_SEARCH:
+            kc_logDebug( "parseCallback: got a OVERNET_SEARCH" );
             break;
             
-            case (char)OVERNET_PUBLISH:
-            kc_logDebug( "readCallback: got a OVERNET_PUBLISH" );
+            case OVERNET_PUBLISH:
+            kc_logDebug( "parseCallback: got a OVERNET_PUBLISH" );
             break;
             
             default:
-            kc_logAlert( "readCallback: unknown message type %d", kc_messageGetPayload( msg )[1] );
+            kc_logAlert( "parseCallback: unknown message type %d", messageType );
             break;
-    }
+    }            
+#endif
     return DHT_RPC_UNKNOWN;
 }
 
@@ -198,15 +256,9 @@ ov_writeCallback( const kc_dht * dht, kc_message * msg, kc_message * answer )
         switch( kc_messageGetType( answer ) )
         {
             case DHT_RPC_PING:
-                ;
-                size_t size;
-                char * payload;
-                
-                payload = ov_writePing( dht, &size );
-                kc_messageSetSize( answer, size );
-                kc_messageSetPayload( answer, payload );
-                
-                return ( payload == NULL );
+            {
+                return ov_writePing( dht, answer );
+            }
                 break;
             default:
                 assert(0);
@@ -219,16 +271,10 @@ ov_writeCallback( const kc_dht * dht, kc_message * msg, kc_message * answer )
         {
             case DHT_RPC_PING:
             {
-                const kc_contact * contact = kc_messageGetContact( msg );
+                kc_contact * contact = kc_contactDup( kc_messageGetContact( msg ) );
                 answer = kc_messageInit( contact, DHT_RPC_PING, 0, NULL );
 
-                size_t size;
-                char * payload;
-                payload = ov_writePingReply( dht, &size );
-                kc_messageSetSize( answer, size );
-                kc_messageSetPayload( answer, payload );
-                
-                return ( payload != NULL );
+                return ov_writePingReply( dht, answer );
             } 
                 break;
                 

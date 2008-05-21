@@ -83,7 +83,6 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
         return;
     }
     
-    /* FIXME: This will need a fix in non-debug mode */
     /* Maybe handle this as a global log level instead of a preprocessor macro... */    
     
     switch ( lvl )
@@ -92,11 +91,17 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
 
 #ifdef VERBOSEDEBUG
             dbgLvl = "(VERBOSEDEBUG) ";
+#else
+            free( dbgmsg );
+            return;
 #endif
             break;
         case KADC_LOG_DEBUG:
 #ifdef DEBUG
             dbgLvl = "(DEBUG) ";
+#else
+            free( dbgmsg );
+            return;
 #endif
             break;
             

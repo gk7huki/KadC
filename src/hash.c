@@ -39,7 +39,8 @@ struct _kc_hash {
     unsigned char *hash;    /* A bitfield */
 };
 
-static inline int bitToByteCount( int bitCount )
+static inline int
+bitToByteCount( int bitCount )
 {
     int byteCount = bitCount / 8;
     if( bitCount % 8 != 0 )

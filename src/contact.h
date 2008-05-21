@@ -16,6 +16,9 @@ kc_contact *
 kc_contactInit( void * addr, size_t length, in_port_t port );
 
 kc_contact *
+kc_contactInitFromSockAddr( struct sockaddr * addr, size_t addrLen );
+
+kc_contact *
 kc_contactInitFromChar( char * address, char * port );
 
 void
@@ -35,6 +38,9 @@ kc_contactGetPort( const kc_contact * contact );
 
 int
 kc_contactGetType( const kc_contact * contact );
+
+int
+kc_contactGetDomain( const kc_contact * contact );
 
 void
 kc_contactSetAddr( kc_contact * contact, void * addr, size_t length );
