@@ -1,0 +1,13 @@
+## This module requires libraries:
+## libevent
+
+## If needed libraries are in some non standard paths, specify them here
+lib_search_path = []
+
+## If some needed includes are in some non standard paths, specify here
+## the directories where the includes can be found.
+include_search_path =  []
+
+libs = ['event', 'KadC']
+defs = ['_REENTRANT']
+flgs = ['-Wall', '-pedantic']

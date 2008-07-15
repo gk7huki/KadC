@@ -41,6 +41,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
 #ifndef KADC_ROUTING_H
 #define KADC_ROUTING_H
 
+#include "hash.h"
+
 /**
  * A DHT structure
  */

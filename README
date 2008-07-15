@@ -1,0 +1,4 @@
+Compilation is done using scons.
+
+Copy build_config.py.dist to build_config.py and edit if necessary
+to suit your environment.

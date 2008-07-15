@@ -1,4 +1,7 @@
 // reentrant red-black tree
+#include <stdlib.h>
+
+#include "rbt.h"
 
 typedef enum { BLACK, RED } NodeColor;
 

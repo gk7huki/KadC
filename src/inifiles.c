@@ -30,6 +30,10 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 /* primitives to read / save various parameters in INI file */
 
+#include <stdio.h>
+#include <string.h>
+#include "inifiles.h"
+
 typedef char parblock[5][80];
 
 char *
