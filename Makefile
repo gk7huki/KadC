@@ -41,19 +41,30 @@
 #
 #-----------------------------------------------------------------------------
 
-#uncomment one of the following debug options  
-#optimisation (-O3) or debugging symbols (-g)
-#DEBUG = -O3
-DEBUG = -g
-PROF = -pg
-#enable -mno-cygwin (MingW) mode
+# uncomment one of the following debug options
+# optimisation (-O3) or debugging symbols (-g)
+#DEBUG = -g
+#PROF = -pg
+DEBUG = -O3
+PROF =
+
+# enable MinGW mode
 #WIN32 = YES
+
+# MinGW cross-compile under linux
+ifdef WIN32
+PROGSPREFIX = i686-w64-mingw32-
+INCPATH =
+else
+PROGSPREFIX =
+INCPATH =
+endif
 
 ####### No user configurable parameters below this line #######
 
 #for Cygwin/mingw under win32
-PROGSPREFIX=
-INCPATH=
+#PROGSPREFIX=
+#INCPATH=
 
 #uncomment the following for mingw32 cross-compile under linux (UNTESTED!)
 #PROGSPREFIX=i586-mingw32msvc-
@@ -87,20 +98,21 @@ INCPATH=
 #    mgwz.dll         in \WINDOWS (or in anyway the path) 
 #
 ###################################################
-AR=ar
-ARFLAGS=cru
-RANLIB=ranlib
-CC=$(PROGSPREFIX)gcc
+
+AR = $(PROGSPREFIX)ar
+ARFLAGS = cru
+RANLIB = $(PROGSPREFIX)ranlib
+CC = $(PROGSPREFIX)gcc
 
 INCLUDE_DIRS = -I.
-CFLAGS = $(DEBUG) $(PROF) $(DEFINES) -D_REENTRANT -Wall -pedantic $(CYGCFLAGS) $(INCLUDE_DIRS)
+CFLAGS = $(DEBUG) $(PROF) $(DEFINES) -D_REENTRANT -m32 -fno-pie -std=gnu90 -Wall $(INCLUDE_DIRS)
+LDFLAGS = -m32 -no-pie
 OBJS = $(patsubst %.c,%.o,$(wildcard *.c))
 TESTOBJ = main/$(MAIN)main.o
 TESTBIN = main/$(MAIN)
 PROJ := $(shell basename $$(pwd))
 TODAY := $(shell date +%d%b%y)
-LIB=$(PROJ).a
-#LDOPTIONS="-Wl,--cref -Wl,-Map,main/$(MAIN).map"
+LIB = lib$(PROJ).a
 
 .PHONY: all
 .PHONY: detectwin32
@@ -111,7 +123,7 @@ all: detectwin32 $(TESTBIN)
 endif
 
 $(TESTBIN): $(TESTOBJ) $(LIB) config.h
-	$(CC) $(PROF) -o main/$(MAIN) $(TESTOBJ) $(LIB) $(CYGLFLAGS) $(LIBS) $(LDOPTIONS)
+	$(CC) $(PROF) -o main/$(MAIN) $(TESTOBJ) $(LIB) $(LIBS) $(LDFLAGS)
 
 $(LIB): $(OBJS)
 	$(AR) $(ARFLAGS) $@ $(OBJS)
@@ -124,7 +136,7 @@ $(TESTOBJ): %.o: %.c WIN32 config.h
 	$(CC) -c $(CFLAGS) $< -o $@
 	
 config.h: WIN32
-	./tinyconfig $(CYGCFLAGS)
+	./tinyconfig
 
 .PHONY: clean
 clean:
@@ -136,14 +148,11 @@ tar: clean
 	tar --exclude priv --exclude old -zcf ../$(PROJ)-$(TODAY).tgz -C .. $(PROJ)
 
 ifndef WIN32 
-CYGLFLAGS= 
-LIBS=-lpthread -lz
+LIBS = -lpthread -lz
 detectwin32:
 	@if [ ! -s WIN32 ] || [ `cat WIN32`  = 'YES' ]; then  echo 'NO' >WIN32; rm -f $(LIB); rm -f main/*main.o; fi 
 else
-CYGCFLAGS=-mno-cygwin 
-CYGLFLAGS=-mno-cygwin
-LIBS=-lpthreadGC -lwsock32 -lz
+LIBS = -lpthread -lwsock32 -lz
 detectwin32:
 	@if [ ! -s WIN32 ] || [ `cat WIN32` != 'YES' ]; then  echo 'YES' >WIN32; rm -f $(LIB); rm -f main/*main.o; fi 
 endif

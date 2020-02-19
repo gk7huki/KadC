@@ -3,7 +3,7 @@ trycode() {
 	TMPFILE=TMP_tinyconfig
 	cat $1 >$TMPFILE.c
 	echo $2 >>$TMPFILE.c
-	gcc $3 -Wall -Werror -pipe -c $TMPFILE.c -o $TMPFILE.o >/dev/null 2>&1
+	gcc $3 -Wall -pipe -c $TMPFILE.c -o $TMPFILE.o >/dev/null 2>&1
 	ERR=$?
 	rm -rf $TMPFILE.c $TMPFILE.o
 	return $ERR
