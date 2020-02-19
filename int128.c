@@ -31,11 +31,17 @@ of the following e-mail addresses (replace "(at)" with "@"):
 /* Primitives to manipulate 128-bit integers like, er, MD4 hashes...
    They are mapped over 16-byte arrays. The first byte (buf[0]) is
    the most significant, and its bit 0 is the most significant bit. */
+#ifndef _POSIX_THREAD_SAFE_FUNCTIONS
+#define _POSIX_THREAD_SAFE_FUNCTIONS	200809L
+#endif /* _POSIX_THREAD_SAFE_FUNCTIONS */
+
+#include <pthread.h>
+#include <time.h>
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <int128.h>
-#include <pthread.h>
 
 int128 int128move(int128 dest, int128 src) {
 	int i;

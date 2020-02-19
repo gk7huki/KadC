@@ -29,6 +29,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
 \****************************************************************/
 
 #include <pthread.h>
+#include <time.h>
+
 #include <config.h>
 #include <Debug_pthreads.h>
 #ifdef __WIN32__

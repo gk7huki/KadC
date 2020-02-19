@@ -29,7 +29,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
 \****************************************************************/
 /*#define OPTIMIZE_BY_RECURSING_ONLY_ON_PEERS_BETTER_THAN_CURRENT_BEST 1*/
 #include <pthread.h>
-#define DEBUG 1
+#include <time.h>
+/* #define DEBUG 1 */
 /* #define VERBOSE_DEBUG 1 */
 #ifdef NDEBUG
 #undef DEBUG

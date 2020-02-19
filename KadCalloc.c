@@ -28,8 +28,8 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 \****************************************************************/
 
-#define USE_PTHREADS 1
-#define TRACKALLOCATIONS 1
+/* #define USE_PTHREADS 1 */
+/* #define TRACKALLOCATIONS 1 */
 
 #ifdef USE_PTHREADS
 #include <pthread.h>

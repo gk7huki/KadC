@@ -30,6 +30,7 @@ of the following e-mail addresses (replace "(at)" with "@"):
 
 #define DEBUG
 #include <pthread.h>
+#include <time.h>
 
 #include <ctype.h>
 #include <stdlib.h>
