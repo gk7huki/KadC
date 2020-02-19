@@ -6,8 +6,17 @@ lib_search_path = []
 
 ## If some needed includes are in some non standard paths, specify here
 ## the directories where the includes can be found.
-include_search_path =  []
+include_search_path =  ['#src', '#clients']
 
 libs = ['event', 'KadC']
-defs = ['_REENTRANT']
-flgs = ['-Wall', '-pedantic']
+defs = ['_REENTRANT', '_GNU_SOURCE']
+cflags = ['-Wall', '-pedantic', '-include', 'kadc.h',
+          '-m32', '-fno-pie', '-std=gnu99']
+lflags = ['-m32', '-no-pie']
+
+#### You should not change these.  These are only here
+#### If you want to start your own build setup with a
+#### different layout than mine.
+source_base_dir = 'src'
+build_base_dir = 'build'
+target_name = 'KadC'
