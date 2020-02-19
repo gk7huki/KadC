@@ -54,7 +54,7 @@ contactToSockAddr( kc_contact * contact )
             
             memset( addr_in, 0, sizeof(struct sockaddr_in) );
             
-            addr_in->sin_len = sizeof(struct sockaddr_in);
+            //addr_in->sin_len = sizeof(struct sockaddr_in);
             addr_in->sin_family = AF_INET;
             addr_in->sin_port = htons( port );
             
@@ -68,7 +68,7 @@ contactToSockAddr( kc_contact * contact )
             
             memset( addr_in6, 0, sizeof(struct sockaddr_in6) );
             
-            addr_in6->sin6_len = sizeof(struct sockaddr_in6);
+            //addr_in6->sin6_len = sizeof(struct sockaddr_in6);
             addr_in6->sin6_family = AF_INET6;
             addr_in6->sin6_port = htons( port );
             

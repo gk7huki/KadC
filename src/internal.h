@@ -19,7 +19,7 @@
  * @param msg A kc_dhtMsg containing the data recieved from the node.
  * @return You should return the message type here.
  */
-typedef int (*kc_dhtParseCallback)( const kc_dht * dht, const kc_message * msg );
+typedef int (*kc_dhtParseCallback)( const kc_dht * dht, kc_message * msg );
 
 /**
  * The callback protoype used when the DHT needs to read a message.

@@ -92,7 +92,7 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
 #ifdef VERBOSEDEBUG
             dbgLvl = "(VERBOSEDEBUG) ";
 #else
-            free( dbgmsg );
+            free( dbgMsg );
             return;
 #endif
             break;
@@ -100,7 +100,7 @@ kc_log( kc_logLevel lvl, const char * fmt, va_list ap, int stamp )
 #ifdef DEBUG
             dbgLvl = "(DEBUG) ";
 #else
-            free( dbgmsg );
+            free( dbgMsg );
             return;
 #endif
             break;

@@ -14,7 +14,7 @@
 #include <event.h>
 
 typedef struct kc_message kc_message;
-typedef struct kc_contact kc_contact;
+//typedef struct kc_contact kc_contact;
 
 /**
  * A DHT message type.
