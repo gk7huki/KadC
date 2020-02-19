@@ -55,9 +55,11 @@ PROF =
 ifdef WIN32
 PROGSPREFIX = i686-w64-mingw32-
 INCPATH =
+PLATFORM = win32
 else
 PROGSPREFIX =
 INCPATH =
+PLATFORM = linux
 endif
 
 ####### No user configurable parameters below this line #######
@@ -113,6 +115,7 @@ TESTBIN = main/$(MAIN)
 PROJ := $(shell basename $$(pwd))
 TODAY := $(shell date +%d%b%y)
 LIB = lib$(PROJ).a
+TARGET = build/$(PLATFORM)
 
 .PHONY: all
 .PHONY: detectwin32
@@ -122,15 +125,15 @@ else
 all: detectwin32 $(TESTBIN)
 endif
 
-$(TESTBIN): $(TESTOBJ) $(LIB) config.h
-	$(CC) $(PROF) -o main/$(MAIN) $(TESTOBJ) $(LIB) $(LIBS) $(LDFLAGS)
-
 $(LIB): $(OBJS)
-	$(AR) $(ARFLAGS) $@ $(OBJS)
-	$(RANLIB) $@
+	$(AR) $(ARFLAGS) $(TARGET)/$@ $(addprefix $(TARGET)/,$(OBJS))
+	$(RANLIB) $(TARGET)/$@
 
 $(OBJS): %.o: %.c WIN32 config.h
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $(TARGET)/$@
+
+$(TESTBIN): $(TESTOBJ) $(LIB) config.h
+	$(CC) $(PROF) -o main/$(MAIN) $(TESTOBJ) $(LIB) $(LIBS) $(LDFLAGS)
 
 $(TESTOBJ): %.o: %.c WIN32 config.h
 	$(CC) -c $(CFLAGS) $< -o $@
